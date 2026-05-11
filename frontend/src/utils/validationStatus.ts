@@ -10,10 +10,16 @@ const INCOMPATIBLE_PAIRS = new Set([
   'boolean-date', 'date-boolean',
 ])
 
+const CASTABLE_PAIRS = new Set([
+  'number-string',
+])
+
 export function getValidationStatus(source: SchemaField, target: SchemaField): ValidationStatus {
   const key = `${source.dataType}-${target.dataType}`
 
   if (INCOMPATIBLE_PAIRS.has(key)) return 'incompatible'
+
+  if (source.dataType === 'unknown' || target.dataType === 'unknown') return 'constrained'
 
   if (source.dataType === 'string' && target.dataType === 'string') {
     if (target.maxLength !== undefined) {
@@ -22,6 +28,8 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
       }
     }
   }
+
+  if (CASTABLE_PAIRS.has(key)) return 'compatible'
 
   if (source.dataType !== target.dataType) return 'constrained'
 
