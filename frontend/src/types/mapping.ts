@@ -23,6 +23,10 @@ export interface FieldMapping {
   notes?: string
 }
 
+export interface ValidatedFieldMapping extends FieldMapping {
+  validationStatus: 'compatible' | 'constrained' | 'incompatible'
+}
+
 export interface MappingSet {
   id: string
   name: string
