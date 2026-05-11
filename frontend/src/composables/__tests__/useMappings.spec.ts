@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useMappings } from '../useMappings'
+import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -118,6 +119,54 @@ describe('useMappings', () => {
       store.updateTransformation('non-existent', { type: 'truncate', truncationMaxLength: 40 }),
     ).not.toThrow()
     expect(store.mappings[0]!.transformations[0]!.type).toBe('direct')
+  })
+
+  // Scenario: Mappings overview reflects computed statuses reactively
+  describe('mappingsWithStatus', () => {
+    function makeSchema(fields: { id: string; dataType: string }[]) {
+      const nodes: SchemaFieldNode[] = fields.map((f) => ({
+        id: f.id,
+        name: f.id,
+        path: f.id,
+        dataType: f.dataType as SchemaFieldNode['dataType'],
+        required: false,
+        children: [],
+      }))
+      return buildSchema('test', nodes)
+    }
+
+    it('returns compatible status for a compatible coupling', () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' })
+
+      const sourceSchema = makeSchema([{ id: 'src-num', dataType: 'number' }])
+      const targetSchema = makeSchema([{ id: 'tgt-str', dataType: 'string' }])
+
+      const result = store.mappingsWithStatus(sourceSchema, targetSchema)
+      expect(result[0]!.validationStatus).toBe('compatible')
+    })
+
+    it('returns incompatible status for an incompatible coupling', () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' })
+
+      const sourceSchema = makeSchema([{ id: 'src-obj', dataType: 'object' }])
+      const targetSchema = makeSchema([{ id: 'tgt-str', dataType: 'string' }])
+
+      const result = store.mappingsWithStatus(sourceSchema, targetSchema)
+      expect(result[0]!.validationStatus).toBe('incompatible')
+    })
+
+    it('returns constrained when field lookup fails', () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'missing', targetFieldId: 'tgt-str' })
+
+      const sourceSchema = makeSchema([])
+      const targetSchema = makeSchema([{ id: 'tgt-str', dataType: 'string' }])
+
+      const result = store.mappingsWithStatus(sourceSchema, targetSchema)
+      expect(result[0]!.validationStatus).toBe('constrained')
+    })
   })
 
 })
