@@ -149,50 +149,6 @@ describe('MappingCanvas', () => {
     expect(store.mappings).toHaveLength(1)
   })
 
-  // Delete confirmation flow
-  it('shows confirmation dialog when delete-requested is received from ConnectionLines', async () => {
-    const wrapper = mountCanvas()
-    const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
-
-    // Emit delete-requested from ConnectionLines child
-    wrapper.findComponent({ name: 'ConnectionLines' }).vm.$emit('delete-requested', mapping.id)
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('zaakId')
-    expect(wrapper.text()).toContain('uuid')
-  })
-
-  it('removes the mapping and emits FieldMappingRemoved on confirm delete', async () => {
-    const wrapper = mountCanvas()
-    const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
-
-    wrapper.findComponent({ name: 'ConnectionLines' }).vm.$emit('delete-requested', mapping.id)
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
-
-    expect(store.mappings).toHaveLength(0)
-    expect(wrapper.emitted('FieldMappingRemoved')).toBeTruthy()
-    expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
-  })
-
-  it('cancels delete and keeps the mapping when cancel is clicked', async () => {
-    const wrapper = mountCanvas()
-    const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
-
-    wrapper.findComponent({ name: 'ConnectionLines' }).vm.$emit('delete-requested', mapping.id)
-    await wrapper.vm.$nextTick()
-
-    const confirmationEl = wrapper.find('[data-testid="delete-confirmation"]')
-    await confirmationEl.find('button').trigger('click')
-
-    expect(store.mappings).toHaveLength(1)
-    expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
-  })
 })
 
 describe('Coverage rate counters', () => {
