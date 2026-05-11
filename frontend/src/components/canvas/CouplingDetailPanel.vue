@@ -4,7 +4,7 @@ import type { SchemaField } from '@/types'
 import { useMappings } from '@/composables/useMappings'
 import {
   getValidationStatus,
-  getConstraintReason,
+  getConstraintReasons,
   getIncompatibilityReason,
 } from '@/utils/validationStatus'
 
@@ -65,10 +65,10 @@ const validationStatus = computed(() =>
     : null,
 )
 
-const constraintReason = computed(() =>
+const constraintReasons = computed(() =>
   sourceField.value && targetField.value && validationStatus.value === 'constrained'
-    ? getConstraintReason(sourceField.value, targetField.value)
-    : null,
+    ? getConstraintReasons(sourceField.value, targetField.value)
+    : [],
 )
 
 const incompatibilityReason = computed(() =>
@@ -88,9 +88,11 @@ const showTruncationForm = computed(() =>
   targetField.value?.maxLength !== undefined,
 )
 
-const hasTruncationRule = computed(
-  () => selectedMapping.value?.transformation.type === 'truncate',
+const truncationRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'truncate') ?? null,
 )
+
+const hasTruncationRule = computed(() => truncationRule.value !== null)
 
 const truncationError = computed(() => {
   const val = truncationInput.value
@@ -100,14 +102,72 @@ const truncationError = computed(() => {
   return null
 })
 
+// Default value form state
+const defaultValueInput = ref('')
+const isEditingDefaultValue = ref(false)
+
+const showDefaultValueForm = computed(() =>
+  validationStatus.value === 'constrained' &&
+  !sourceField.value?.required &&
+  targetField.value?.required === true,
+)
+
+const defaultRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'default') ?? null,
+)
+
+const hasDefaultValueRule = computed(() => defaultRule.value !== null)
+
+const defaultValueInputType = computed(() =>
+  targetField.value?.dataType === 'number' ? 'number' : 'text',
+)
+
+const defaultValueError = computed(() => {
+  // String() guards against Vue auto-converting type="number" input values to numbers
+  const val = String(defaultValueInput.value ?? '').trim()
+  if (!val) return 'Voer een standaardwaarde in'
+  if (targetField.value?.dataType === 'number' && !isFinite(Number(val))) {
+    return 'Voer een geldig getal in'
+  }
+  return null
+})
+
+// Date format section state
+const sourceDateFormatInput = ref('yyyy-MM-dd')
+const targetDateFormatInput = ref('yyyy-MM-dd')
+const isEditingDateFormat = ref(false)
+
+const showDateFormatSection = computed(() =>
+  sourceField.value?.dataType === 'date' &&
+  targetField.value?.dataType === 'date',
+)
+
+const dateFormatRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'date-format') ?? null,
+)
+
+const hasDateFormatRule = computed(() => dateFormatRule.value !== null)
+
+const dateFormatError = computed(() => {
+  if (!sourceDateFormatInput.value.trim()) return 'Voer een bronformaat in'
+  if (!targetDateFormatInput.value.trim()) return 'Voer een doelformaat in'
+  return null
+})
+
 watch(selectedMapping, () => {
-  if (!showTruncationForm.value) return
-  const rule = selectedMapping.value?.transformation
-  truncationInput.value =
-    rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
-      ? rule.truncationMaxLength
-      : (targetField.value?.maxLength ?? 0)
-  isEditing.value = false
+  if (showTruncationForm.value) {
+    truncationInput.value = truncationRule.value?.truncationMaxLength ?? (targetField.value?.maxLength ?? 0)
+    isEditing.value = false
+  }
+  if (showDefaultValueForm.value) {
+    defaultValueInput.value = defaultRule.value?.defaultValue ?? ''
+    isEditingDefaultValue.value = false
+  }
+  if (showDateFormatSection.value) {
+    sourceDateFormatInput.value = dateFormatRule.value?.sourceDateFormat ?? 'yyyy-MM-dd'
+    targetDateFormatInput.value = dateFormatRule.value?.targetDateFormat ?? 'yyyy-MM-dd'
+    isEditingDateFormat.value = false
+  }
 }, { immediate: true })
 
 function saveTruncation() {
@@ -120,12 +180,66 @@ function saveTruncation() {
 }
 
 function editTruncation() {
-  const rule = selectedMapping.value?.transformation
-  truncationInput.value =
-    rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
-      ? rule.truncationMaxLength
-      : (targetField.value?.maxLength ?? 0)
+  truncationInput.value = truncationRule.value?.truncationMaxLength ?? (targetField.value?.maxLength ?? 0)
   isEditing.value = true
+}
+
+function saveDefaultValue() {
+  if (defaultValueError.value || !selectedMapping.value) return
+  store.updateTransformation(selectedMapping.value.id, {
+    type: 'default',
+    defaultValue: String(defaultValueInput.value ?? '').trim(),
+  })
+  isEditingDefaultValue.value = false
+}
+
+function editDefaultValue() {
+  defaultValueInput.value = defaultRule.value?.defaultValue ?? ''
+  isEditingDefaultValue.value = true
+}
+
+// Type casting section state
+const showCastSection = computed(() =>
+  validationStatus.value === 'constrained' &&
+  sourceField.value !== null &&
+  targetField.value !== null &&
+  sourceField.value!.dataType !== targetField.value!.dataType,
+)
+
+const castRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'cast') ?? null,
+)
+
+const hasCastRule = computed(() => castRule.value !== null)
+
+function saveCast() {
+  if (!selectedMapping.value || !sourceField.value || !targetField.value) return
+  store.updateTransformation(selectedMapping.value.id, {
+    type: 'cast',
+    castFrom: sourceField.value.dataType,
+    castTo: targetField.value.dataType,
+  })
+}
+
+function removeCast() {
+  if (!selectedMapping.value) return
+  store.removeTransformation(selectedMapping.value.id, 'cast')
+}
+
+function saveDateFormat() {
+  if (dateFormatError.value || !selectedMapping.value) return
+  store.updateTransformation(selectedMapping.value.id, {
+    type: 'date-format',
+    sourceDateFormat: sourceDateFormatInput.value.trim(),
+    targetDateFormat: targetDateFormatInput.value.trim(),
+  })
+  isEditingDateFormat.value = false
+}
+
+function editDateFormat() {
+  sourceDateFormatInput.value = dateFormatRule.value?.sourceDateFormat ?? 'yyyy-MM-dd'
+  targetDateFormatInput.value = dateFormatRule.value?.targetDateFormat ?? 'yyyy-MM-dd'
+  isEditingDateFormat.value = true
 }
 </script>
 
@@ -201,7 +315,7 @@ function editTruncation() {
 
       <!-- Constrained -->
       <template v-else-if="validationStatus === 'constrained'">
-        <span class="font-medium">⚠ {{ constraintReason }}</span>
+        <span v-for="(reason, i) in constraintReasons" :key="i" class="block font-medium">⚠ {{ reason }}</span>
 
         <!-- Truncation form (string→string with target maxLength) -->
         <template v-if="showTruncationForm">
@@ -212,8 +326,8 @@ function editTruncation() {
             data-testid="truncation-summary"
           >
             <span class="text-sm text-amber-700">
-              ✂ Afkappen op {{ selectedMapping.transformation.truncationMaxLength }} tekens
-              ({{ selectedMapping.transformation.truncationMaxLength! - 3 }} + "...")
+              ✂ Afkappen op {{ truncationRule?.truncationMaxLength }} tekens
+              ({{ (truncationRule?.truncationMaxLength ?? 3) - 3 }} + "...")
             </span>
             <button
               class="text-xs text-amber-700 underline shrink-0"
@@ -263,6 +377,88 @@ function editTruncation() {
             </p>
           </form>
         </template>
+
+        <!-- Default value form (non-required source → required target) -->
+        <template v-if="showDefaultValueForm">
+          <!-- Read-only summary -->
+          <div
+            v-if="hasDefaultValueRule && !isEditingDefaultValue"
+            class="mt-2 flex items-center justify-between gap-2"
+            data-testid="default-value-summary"
+          >
+            <span class="text-sm text-amber-700">↩ Standaardwaarde: {{ defaultRule?.defaultValue }}</span>
+            <button
+              class="text-xs text-amber-700 underline shrink-0"
+              data-testid="default-value-edit"
+              @click="editDefaultValue"
+            >Wijzigen</button>
+          </div>
+
+          <!-- Form (fresh or edit) -->
+          <form
+            v-else
+            role="form"
+            aria-label="Standaardwaarde instellen"
+            class="mt-2"
+            data-testid="default-value-form"
+            @submit.prevent="saveDefaultValue"
+          >
+            <label class="block text-[11px] text-amber-700 mb-1">Standaardwaarde <span aria-hidden="true">*</span></label>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="defaultValueInput"
+                :type="defaultValueInputType"
+                required
+                class="flex-1 border border-amber-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                aria-label="Standaardwaarde"
+                :aria-describedby="defaultValueError ? 'default-value-error-msg' : undefined"
+                data-testid="default-value-input"
+              />
+              <button
+                type="button"
+                :disabled="!!defaultValueError"
+                class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                :aria-disabled="!!defaultValueError"
+                data-testid="default-value-save"
+                @click="saveDefaultValue"
+              >Opslaan</button>
+            </div>
+            <p
+              v-if="defaultValueError"
+              id="default-value-error-msg"
+              class="mt-1 text-[11px] text-red-600"
+              data-testid="default-value-error"
+            >{{ defaultValueError }}</p>
+          </form>
+        </template>
+
+        <!-- Type casting section (different-type constrained couplings) -->
+        <template v-if="showCastSection">
+          <!-- Read-only summary -->
+          <div
+            v-if="hasCastRule"
+            class="mt-2 flex items-center justify-between gap-2"
+            data-testid="cast-summary"
+          >
+            <span class="text-sm text-amber-700">⇄ {{ castRule?.castFrom }} wordt omgezet naar {{ castRule?.castTo }}</span>
+            <button
+              class="text-xs text-amber-700 underline shrink-0"
+              data-testid="cast-edit"
+              @click="removeCast"
+            >Wijzigen</button>
+          </div>
+
+          <!-- Confirm section -->
+          <div v-else class="mt-2" data-testid="cast-section">
+            <p class="text-sm text-amber-700 mb-1">{{ sourceField.dataType }} wordt omgezet naar {{ targetField.dataType }}</p>
+            <button
+              type="button"
+              class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700"
+              data-testid="cast-confirm"
+              @click="saveCast"
+            >Bevestig type casting</button>
+          </div>
+        </template>
       </template>
 
       <!-- Incompatible -->
@@ -270,6 +466,68 @@ function editTruncation() {
         <span class="font-medium">✕ {{ incompatibilityReason }}</span>
         <p class="mt-1 text-xs" data-testid="remap-note">Deze koppeling moet opnieuw worden gemaakt.</p>
       </template>
+    </div>
+
+    <!-- Date format section (date → date couplings, any validation status) -->
+    <div
+      v-if="showDateFormatSection"
+      class="mx-4 mb-4 rounded p-3 text-sm bg-emerald-50 text-emerald-700"
+    >
+      <!-- Read-only summary -->
+      <div
+        v-if="hasDateFormatRule && !isEditingDateFormat"
+        class="flex items-center justify-between gap-2"
+        data-testid="date-format-summary"
+      >
+        <span class="text-sm text-emerald-700">📅 {{ dateFormatRule?.sourceDateFormat }} → {{ dateFormatRule?.targetDateFormat }}</span>
+        <button
+          class="text-xs text-emerald-700 underline shrink-0"
+          data-testid="date-format-edit"
+          @click="editDateFormat"
+        >Wijzigen</button>
+      </div>
+
+      <!-- Form (fresh or edit) -->
+      <form
+        v-else
+        role="form"
+        aria-label="Datumformaat instellen"
+        data-testid="date-format-form"
+        @submit.prevent="saveDateFormat"
+      >
+        <label class="block text-[11px] text-emerald-700 mb-1">Bronformaat</label>
+        <input
+          v-model="sourceDateFormatInput"
+          type="text"
+          class="w-full border border-emerald-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
+          aria-label="Bronformaat"
+          data-testid="source-format-input"
+        />
+        <label class="block text-[11px] text-emerald-700 mb-1">Doelformaat</label>
+        <input
+          v-model="targetDateFormatInput"
+          type="text"
+          class="w-full border border-emerald-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
+          aria-label="Doelformaat"
+          data-testid="target-format-input"
+        />
+        <p
+          v-if="dateFormatError"
+          class="mt-1 text-[11px] text-red-600"
+          data-testid="date-format-error"
+        >{{ dateFormatError }}</p>
+        <p v-else class="text-[11px] text-slate-400 mb-1">
+          Veelgebruikte notaties: dd-MM-yyyy, yyyy-MM-dd, MM/dd/yyyy, ISO 8601
+        </p>
+        <button
+          type="button"
+          :disabled="!!dateFormatError"
+          class="bg-emerald-600 text-white rounded px-3 py-1 text-xs hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          :aria-disabled="!!dateFormatError"
+          data-testid="date-format-save"
+          @click="saveDateFormat"
+        >Opslaan</button>
+      </form>
     </div>
   </div>
 </template>

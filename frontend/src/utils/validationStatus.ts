@@ -25,17 +25,35 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
 
   if (source.dataType !== target.dataType) return 'constrained'
 
+  if (!source.required && target.required) return 'constrained'
+
   return 'compatible'
 }
 
-export function getConstraintReason(source: SchemaField, target: SchemaField): string {
+export function getConstraintReasons(source: SchemaField, target: SchemaField): string[] {
+  const reasons: string[] = []
+
   if (source.dataType === 'string' && target.dataType === 'string' && target.maxLength !== undefined) {
     if (source.maxLength === undefined) {
-      return `Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${target.maxLength} — mogelijke afkapping`
+      reasons.push(`Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${target.maxLength} — mogelijke afkapping`)
+    } else {
+      reasons.push(`Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`)
     }
-    return `Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`
   }
-  return `${source.dataType} naar ${target.dataType} vereist transformatie`
+
+  if (!source.required && target.required) {
+    reasons.push('Bronveld is niet verplicht, doelveld is verplicht — standaardwaarde vereist')
+  }
+
+  if (reasons.length === 0) {
+    reasons.push(`${source.dataType} naar ${target.dataType} vereist transformatie`)
+  }
+
+  return reasons
+}
+
+export function getConstraintReason(source: SchemaField, target: SchemaField): string {
+  return getConstraintReasons(source, target).join('; ')
 }
 
 export function getIncompatibilityReason(source: SchemaField, target: SchemaField): string {

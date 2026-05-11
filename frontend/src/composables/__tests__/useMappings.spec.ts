@@ -105,8 +105,9 @@ describe('useMappings', () => {
 
     store.updateTransformation(mapping.id, { type: 'truncate', truncationMaxLength: 40 })
 
-    expect(store.mappings[0]!.transformation.type).toBe('truncate')
-    expect(store.mappings[0]!.transformation.truncationMaxLength).toBe(40)
+    const truncate = store.mappings[0]!.transformations.find((r) => r.type === 'truncate')
+    expect(truncate?.type).toBe('truncate')
+    expect(truncate?.truncationMaxLength).toBe(40)
   })
 
   it('is a no-op when mapping id does not exist', () => {
@@ -116,7 +117,7 @@ describe('useMappings', () => {
     expect(() =>
       store.updateTransformation('non-existent', { type: 'truncate', truncationMaxLength: 40 }),
     ).not.toThrow()
-    expect(store.mappings[0]!.transformation.type).toBe('direct')
+    expect(store.mappings[0]!.transformations[0]!.type).toBe('direct')
   })
 
   it('dispatches TransformationRuleAdded custom event on update', () => {
