@@ -56,17 +56,6 @@ describe('ConnectionLines', () => {
     expect(store.selectedMappingId).toBe(mappingId)
   })
 
-  // Scenario: Clicking canvas background clears the selection
-  it('clears selection when the SVG background is clicked', async () => {
-    const { wrapper } = mountWithContainers()
-    const store = useMappings()
-    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
-    store.selectMapping(store.mappings[0]!.id)
-
-    await wrapper.find('[data-testid="connection-lines-svg"]').trigger('click')
-
-    expect(store.selectedMappingId).toBeNull()
-  })
 
   // Scenario: Selected line rendered with highlight style
   it('does not emit delete-requested when a line is clicked', async () => {

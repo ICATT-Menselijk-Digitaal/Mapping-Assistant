@@ -115,8 +115,6 @@ onUnmounted(() => {
     class="absolute inset-0 w-full h-full pointer-events-none"
     aria-hidden="true"
     data-testid="connection-lines-svg"
-    style="pointer-events: auto"
-    @click="mappingsStore.selectMapping(null)"
   >
     <g
       v-for="line in linesWithMeta"
