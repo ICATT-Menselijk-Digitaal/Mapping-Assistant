@@ -1,4 +1,5 @@
-import type { DataType, SchemaField } from '@/types'
+import type { DataType } from '@/types'
+import { buildSchema, type Schema, type SchemaFieldNode } from '@/domain/schema'
 
 function mapType(prop: Record<string, unknown>): DataType {
   if (prop.format === 'date' || prop.format === 'date-time') return 'date'
@@ -26,7 +27,7 @@ function childrenFor(
   p: Record<string, unknown>,
   allSchemas: Record<string, unknown>,
   path: string,
-): SchemaField[] | undefined {
+): SchemaFieldNode[] | undefined {
   if (p.$ref && typeof p.$ref === 'string') {
     const refSchema = resolveRef(p.$ref, allSchemas)
     if (refSchema) return extractChildren(refSchema, allSchemas, path)
@@ -45,12 +46,12 @@ function extractChildren(
   schema: Record<string, unknown>,
   allSchemas: Record<string, unknown>,
   parentPath: string,
-): SchemaField[] | undefined {
+): SchemaFieldNode[] | undefined {
   const properties = schema.properties as Record<string, unknown> | undefined
   if (!properties) return undefined
 
   const required = (schema.required as string[]) ?? []
-  const children: SchemaField[] = []
+  const children: SchemaFieldNode[] = []
 
   for (const [propName, prop] of Object.entries(properties)) {
     const p = prop as Record<string, unknown>
@@ -63,7 +64,7 @@ function extractChildren(
       if (refSchema) display = { ...refSchema, type: 'object' }
     }
 
-    const field: SchemaField = {
+    const field: SchemaFieldNode = {
       id: path,
       name: propName,
       path,
@@ -82,7 +83,7 @@ function extractChildren(
   return children.length > 0 ? children : undefined
 }
 
-export function parseOpenApiToFields(spec: unknown): SchemaField[] {
+function parseOpenApiTree(spec: unknown): SchemaFieldNode[] {
   if (!spec || typeof spec !== 'object') throw new Error('Invalid spec: expected an object')
 
   const s = spec as Record<string, unknown>
@@ -99,7 +100,7 @@ export function parseOpenApiToFields(spec: unknown): SchemaField[] {
   const schemaNames = Object.keys(schemas)
   if (schemaNames.length === 0) return []
 
-  const fields: SchemaField[] = []
+  const fields: SchemaFieldNode[] = []
   const multiSchema = schemaNames.length > 1
 
   for (const schemaName of schemaNames) {
@@ -120,7 +121,7 @@ export function parseOpenApiToFields(spec: unknown): SchemaField[] {
         if (refSchema) display = { ...refSchema, type: 'object' }
       }
 
-      const field: SchemaField = {
+      const field: SchemaFieldNode = {
         id: path,
         name: propName,
         path,
@@ -138,4 +139,16 @@ export function parseOpenApiToFields(spec: unknown): SchemaField[] {
   }
 
   return fields
+}
+
+function extractSchemaName(spec: unknown): string {
+  if (!spec || typeof spec !== 'object') return ''
+  const s = spec as Record<string, unknown>
+  const info = s.info as Record<string, unknown> | undefined
+  return (info?.title as string) ?? ''
+}
+
+export function parseOpenApiSchema(spec: unknown): Schema {
+  const tree = parseOpenApiTree(spec)
+  return buildSchema(extractSchemaName(spec), tree)
 }

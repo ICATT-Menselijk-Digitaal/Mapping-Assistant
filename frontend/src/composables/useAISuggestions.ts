@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
-import type { AISuggestionsGenerated } from '@/domain/events/AISuggestionsGenerated'
-import type { AISuggestionAccepted } from '@/domain/events/AISuggestionAccepted'
-import type { AISuggestionRejected } from '@/domain/events/AISuggestionRejected'
 import { useMappings } from '@/composables/useMappings'
 
 export const CONFIDENCE_THRESHOLD = 0.70
@@ -22,10 +19,6 @@ interface ClaudeApiSuggestion {
   sourceField: string
   targetField: string
   confidenceScore: number
-}
-
-function flattenFields(fields: SchemaField[]): SchemaField[] {
-  return fields.flatMap((f) => [f, ...(f.children ? flattenFields(f.children) : [])])
 }
 
 export const useAISuggestions = defineStore('aiSuggestions', () => {
@@ -58,9 +51,8 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined
     if (!apiKey) throw new AIServiceError('OpenRouter API key not configured')
 
-    const allSourceFields = flattenFields(sourceFields)
     // Capped to control prompt size and keep API costs low during PoC
-    const sourceEntries = allSourceFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
+    const sourceEntries = sourceFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
     const targetEntries = unmappedTargetFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
 
     const systemPrompt =
@@ -114,7 +106,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
 
       const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
-        const src = allSourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
+        const src = sourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
         const tgt = unmappedTargetFields.find(
           (f) => f.path === s.targetField || f.name === s.targetField,
         )
@@ -134,13 +126,6 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       totalGenerated.value += resolved.length
       suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
       lowConfidenceSuggestions.value = resolved.filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
-
-      const event: AISuggestionsGenerated = {
-        type: 'AISuggestionsGenerated',
-        suggestions: resolved,
-        timestamp: new Date().toISOString(),
-      }
-      window.dispatchEvent(new CustomEvent('AISuggestionsGenerated', { detail: event }))
 
       return resolved
     } catch (e) {
@@ -167,15 +152,6 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
     }
     accepted.value++
-
-    const event: AISuggestionAccepted = {
-      type: 'AISuggestionAccepted',
-      sourceFieldId: suggestion.sourceFieldId,
-      targetFieldId: suggestion.targetFieldId,
-      confidenceScore: suggestion.confidenceScore,
-      timestamp: new Date().toISOString(),
-    }
-    window.dispatchEvent(new CustomEvent('AISuggestionAccepted', { detail: event }))
   }
 
   function rejectSuggestion(id: string): void {
@@ -191,14 +167,6 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     }
     rejected.value++
     rejectedPairs.value.add(`${suggestion.sourceFieldId}::${suggestion.targetFieldId}`)
-
-    const event: AISuggestionRejected = {
-      type: 'AISuggestionRejected',
-      sourceFieldId: suggestion.sourceFieldId,
-      targetFieldId: suggestion.targetFieldId,
-      timestamp: new Date().toISOString(),
-    }
-    window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
   }
 
   return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, rejectedPairs, generateSuggestions, acceptSuggestion, rejectSuggestion }

@@ -7,8 +7,8 @@ import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
 
-const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
-const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const { schema: sourceSchema, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
+const { schema: targetSchema, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
 const mappingsStore = useMappings()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
@@ -31,10 +31,10 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
     <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
 <div class="flex-1 min-h-0">
         <MappingCanvas
-          :source-fields="sourceFields"
-          :target-fields="targetFields"
-          :source-label="sourceSchemaName || 'Bronschema'"
-          :target-label="targetSchemaName || 'Doelschema'"
+          :source-schema="sourceSchema"
+          :target-schema="targetSchema"
+          :source-label="sourceSchema.name || 'Bronschema'"
+          :target-label="targetSchema.name || 'Doelschema'"
           @source-file-selected="onSourceFileSelected"
           @source-url-entered="onSourceUrlEntered"
           @target-file-selected="onTargetFileSelected"
@@ -45,14 +45,14 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
     <div class="w-80 shrink-0">
       <CouplingDetailPanel
         v-if="mappingsStore.selectedMappingId !== null"
-        :source-fields="sourceFields"
-        :target-fields="targetFields"
+        :source-schema="sourceSchema"
+        :target-schema="targetSchema"
       />
       <MappingOverview
         v-else
         v-model:active-tab="activeTab"
-        :source-fields="sourceFields"
-        :target-fields="targetFields"
+        :source-schema="sourceSchema"
+        :target-schema="targetSchema"
       />
     </div>
   </main>

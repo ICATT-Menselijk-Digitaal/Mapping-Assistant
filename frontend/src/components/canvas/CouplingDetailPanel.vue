@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { SchemaField } from '@/types'
+import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import {
   getValidationStatus,
@@ -9,8 +9,8 @@ import {
 } from '@/utils/validationStatus'
 
 const props = defineProps<{
-  sourceFields: SchemaField[]
-  targetFields: SchemaField[]
+  sourceSchema: Schema
+  targetSchema: Schema
 }>()
 
 const store = useMappings()
@@ -30,17 +30,6 @@ function typeOf(dataType: string) {
   return typeConfig[dataType] ?? FALLBACK_TYPE
 }
 
-function findField(fields: SchemaField[], id: string): SchemaField | null {
-  for (const f of fields) {
-    if (f.id === id) return f
-    if (f.children) {
-      const found = findField(f.children, id)
-      if (found) return found
-    }
-  }
-  return null
-}
-
 const selectedMapping = computed(() =>
   store.selectedMappingId
     ? store.mappings.find((m) => m.id === store.selectedMappingId) ?? null
@@ -49,13 +38,13 @@ const selectedMapping = computed(() =>
 
 const sourceField = computed(() =>
   selectedMapping.value
-    ? findField(props.sourceFields, selectedMapping.value.sourceFieldId)
+    ? props.sourceSchema.byId(selectedMapping.value.sourceFieldId) ?? null
     : null,
 )
 
 const targetField = computed(() =>
   selectedMapping.value
-    ? findField(props.targetFields, selectedMapping.value.targetFieldId)
+    ? props.targetSchema.byId(selectedMapping.value.targetFieldId) ?? null
     : null,
 )
 

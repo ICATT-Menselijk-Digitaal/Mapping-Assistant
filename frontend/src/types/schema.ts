@@ -8,7 +8,6 @@ export interface SchemaField {
   required: boolean
   maxLength?: number
   description?: string
-  children?: SchemaField[]
 }
 
 export interface SourceSystem {

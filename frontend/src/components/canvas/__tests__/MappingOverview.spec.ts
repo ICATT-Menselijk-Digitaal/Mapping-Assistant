@@ -3,22 +3,25 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MappingOverview from '../MappingOverview.vue'
 import { useMappings } from '@/composables/useMappings'
-import type { SchemaField } from '@/types'
+import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
-const sourceFields: SchemaField[] = [
+const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
   { id: 'src-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
 ]
 
-const targetFields: SchemaField[] = [
+const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true, maxLength: 36 },
   { id: 'tgt-2', name: 'startdatum', path: 'startdatum', dataType: 'date', required: false },
 ]
 
+const sourceSchema = buildSchema('', sourceNodes)
+const targetSchema = buildSchema('', targetNodes)
+
 function mountOverview() {
   return mount(MappingOverview, {
     global: { plugins: [createPinia()] },
-    props: { sourceFields, targetFields },
+    props: { sourceSchema, targetSchema },
   })
 }
 

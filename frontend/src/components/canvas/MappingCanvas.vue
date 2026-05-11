@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { SchemaField } from '@/types'
+import type { Schema } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
 import { useMappings } from '@/composables/useMappings'
 
 const props = defineProps<{
-  sourceFields: SchemaField[]
-  targetFields: SchemaField[]
+  sourceSchema: Schema
+  targetSchema: Schema
   sourceLabel?: string
   targetLabel?: string
 }>()
@@ -28,14 +28,14 @@ const pendingDeleteId = ref<string | null>(null)
 
 const sourceCounter = computed(() => {
   const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
-  return { mapped: mappedIds.size, total: props.sourceFields.length }
+  return { mapped: mappedIds.size, total: props.sourceSchema.all().length }
 })
 
 const targetCounter = computed(() => {
   const mappedTargetIds = new Set(mappingsStore.mappings.map((m) => m.targetFieldId))
   return {
-    mapped: props.targetFields.filter((f) => mappedTargetIds.has(f.id)).length,
-    total: props.targetFields.length,
+    mapped: props.targetSchema.all().filter((f) => mappedTargetIds.has(f.id)).length,
+    total: props.targetSchema.all().length,
   }
 })
 
@@ -45,8 +45,8 @@ const pendingDeleteMapping = computed(() =>
 
 function fieldName(id: string): string {
   return (
-    props.sourceFields.find((f) => f.id === id)?.name ??
-    props.targetFields.find((f) => f.id === id)?.name ??
+    props.sourceSchema.byId(id)?.name ??
+    props.targetSchema.byId(id)?.name ??
     id
   )
 }
@@ -127,7 +127,7 @@ function onTargetUrlSubmit() {
 
         <!-- Upload UI when no source schema loaded -->
         <div
-          v-if="sourceFields.length === 0"
+          v-if="sourceSchema.all().length === 0"
           class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="source-upload"
         >
@@ -171,7 +171,7 @@ function onTargetUrlSubmit() {
           v-else
           class="flex-1 overflow-y-auto"
           data-scroll-container
-          :fields="sourceFields"
+          :schema="sourceSchema"
           side="source"
           @field-click="onSourceFieldClick"
         />
@@ -186,7 +186,7 @@ function onTargetUrlSubmit() {
 
         <!-- Upload UI when no target schema loaded -->
         <div
-          v-if="targetFields.length === 0"
+          v-if="targetSchema.all().length === 0"
           class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="target-upload"
         >
@@ -228,7 +228,7 @@ function onTargetUrlSubmit() {
           v-else
           class="flex-1 overflow-y-auto"
           data-scroll-container
-          :fields="targetFields"
+          :schema="targetSchema"
           side="target"
           @field-click="onTargetFieldClick"
         />

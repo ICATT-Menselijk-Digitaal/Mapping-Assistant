@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { SchemaField } from '@/types'
+import type { Schema } from '@/domain/schema'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
 import AISuggestionCard from './AISuggestionCard.vue'
 
 const props = defineProps<{
-  sourceFields: SchemaField[]
-  targetFields: SchemaField[]
+  sourceSchema: Schema
+  targetSchema: Schema
 }>()
 
 const aiStore = useAISuggestions()
@@ -16,47 +16,41 @@ const mappingsStore = useMappings()
 const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
-function flattenFields(fields: SchemaField[]): SchemaField[] {
-  return fields.flatMap((f) => [f, ...(f.children ? flattenFields(f.children) : [])])
-}
-
 // Capped to Zaak context only to control prompt size and cost during PoC
 const zaakSourceFields = computed(() =>
-  flattenFields(props.sourceFields)
+  props.sourceSchema.all()
     .filter((f) => f.path.startsWith('Zaak') && !mappedSourceIds.value.has(f.id))
     .slice(0, 5),
 )
 
 const unmappedTargetFields = computed(() =>
-  props.targetFields.filter((f) => !mappedTargetIds.value.has(f.id)),
+  props.targetSchema.all().filter((f) => !mappedTargetIds.value.has(f.id)),
 )
 
 const zaakUnmappedTargetFields = computed(() =>
   unmappedTargetFields.value.filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
 )
 
-const resolvedSuggestions = computed(() => {
-  const allSource = flattenFields(props.sourceFields)
-  return aiStore.suggestions.map((s) => ({
+const resolvedSuggestions = computed(() =>
+  aiStore.suggestions.map((s) => ({
     id: s.id,
-    sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
-    targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
+    sourceName: props.sourceSchema.byId(s.sourceFieldId)?.name ?? s.sourceFieldId,
+    targetName: props.targetSchema.byId(s.targetFieldId)?.name ?? s.targetFieldId,
     confidenceScore: s.confidenceScore,
-  }))
-})
+  })),
+)
 
 const showStatsDialog = ref(false)
 const showLowConfidence = ref(false)
 
-const resolvedLowConfidence = computed(() => {
-  const allSource = flattenFields(props.sourceFields)
-  return aiStore.lowConfidenceSuggestions.map((s) => ({
+const resolvedLowConfidence = computed(() =>
+  aiStore.lowConfidenceSuggestions.map((s) => ({
     id: s.id,
-    sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
-    targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
+    sourceName: props.sourceSchema.byId(s.sourceFieldId)?.name ?? s.sourceFieldId,
+    targetName: props.targetSchema.byId(s.targetFieldId)?.name ?? s.targetFieldId,
     confidenceScore: s.confidenceScore,
-  }))
-})
+  })),
+)
 
 async function generate() {
   await aiStore.generateSuggestions(zaakSourceFields.value, zaakUnmappedTargetFields.value)

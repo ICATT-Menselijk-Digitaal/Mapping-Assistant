@@ -3,9 +3,9 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CouplingDetailPanel from '../CouplingDetailPanel.vue'
 import { useMappings } from '@/composables/useMappings'
-import type { SchemaField } from '@/types'
+import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
-const sourceFields: SchemaField[] = [
+const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'naam', path: 'naam', dataType: 'string', required: false },
   { id: 'src-2', name: 'beschrijving', path: 'beschrijving', dataType: 'string', required: false, maxLength: 100 },
   { id: 'src-3', name: 'adres', path: 'adres', dataType: 'object', required: false },
@@ -16,7 +16,7 @@ const sourceFields: SchemaField[] = [
   { id: 'src-date-req', name: 'startdatum', path: 'startdatum', dataType: 'date', required: false },
 ]
 
-const targetFields: SchemaField[] = [
+const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'volledige_naam', path: 'volledige_naam', dataType: 'string', required: false },
   { id: 'tgt-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false, maxLength: 50 },
   { id: 'tgt-3', name: 'adresString', path: 'adresString', dataType: 'string', required: false },
@@ -26,10 +26,13 @@ const targetFields: SchemaField[] = [
   { id: 'tgt-date-req', name: 'einddatum', path: 'einddatum', dataType: 'date', required: true },
 ]
 
+const sourceSchema = buildSchema('', sourceNodes)
+const targetSchema = buildSchema('', targetNodes)
+
 function mountPanel() {
   return mount(CouplingDetailPanel, {
     global: { plugins: [createPinia()] },
-    props: { sourceFields, targetFields },
+    props: { sourceSchema, targetSchema },
   })
 }
 
@@ -156,7 +159,7 @@ describe('CouplingDetailPanel — truncation form', () => {
     // Mount AFTER selection is already set — watch must be immediate to catch this
     const wrapper = mount(CouplingDetailPanel, {
       global: { plugins: [pinia] },
-      props: { sourceFields, targetFields },
+      props: { sourceSchema, targetSchema },
     })
     await wrapper.vm.$nextTick()
 

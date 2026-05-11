@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { SchemaField } from '@/types'
+import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 
 const props = defineProps<{
-  sourceFields: SchemaField[]
-  targetFields: SchemaField[]
+  sourceSchema: Schema
+  targetSchema: Schema
   activeTab?: 'koppelingen' | 'ai'
 }>()
 
@@ -36,24 +36,13 @@ function typeOf(dataType: string) {
   return typeConfig[dataType] ?? FALLBACK_TYPE
 }
 
-function findField(fields: SchemaField[], id: string): SchemaField | undefined {
-  for (const f of fields) {
-    if (f.id === id) return f
-    if (f.children) {
-      const found = findField(f.children, id)
-      if (found) return found
-    }
-  }
-  return undefined
-}
-
 const rows = computed(() =>
   store.mappings.map((m) => ({
     id: m.id,
     sourceFieldId: m.sourceFieldId,
     targetFieldId: m.targetFieldId,
-    source: findField(props.sourceFields, m.sourceFieldId),
-    target: findField(props.targetFields, m.targetFieldId),
+    source: props.sourceSchema.byId(m.sourceFieldId),
+    target: props.targetSchema.byId(m.targetFieldId),
   })),
 )
 
@@ -114,8 +103,8 @@ function cancelDelete() {
     <!-- AI Suggesties tab -->
     <AISuggestionPanel
       v-if="currentTab === 'ai'"
-      :source-fields="props.sourceFields"
-      :target-fields="props.targetFields"
+      :source-schema="props.sourceSchema"
+      :target-schema="props.targetSchema"
       class="flex-1 flex flex-col overflow-hidden"
     />
 
