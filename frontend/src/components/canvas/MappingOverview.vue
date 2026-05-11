@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 
@@ -17,9 +18,23 @@ const emit = defineEmits<{
 }>()
 
 const store = useMappings()
+const { selectedMappingId } = storeToRefs(store)
 const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
+const searchQuery = ref('')
 const currentTab = computed(() => props.activeTab ?? 'koppelingen')
+const rowRefs = ref<Map<string, HTMLElement>>(new Map())
+
+function setRowRef(id: string, el: HTMLElement | null) {
+  if (el) rowRefs.value.set(id, el)
+  else rowRefs.value.delete(id)
+}
+
+watch(selectedMappingId, async (id) => {
+  if (!id) return
+  await nextTick()
+  rowRefs.value.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+})
 
 const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
 const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -37,14 +52,31 @@ function typeOf(dataType: string) {
 }
 
 const rows = computed(() =>
-  store.mappings.map((m) => ({
+  store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => ({
     id: m.id,
     sourceFieldId: m.sourceFieldId,
     targetFieldId: m.targetFieldId,
+    validationStatus: m.validationStatus,
     source: props.sourceSchema.byId(m.sourceFieldId),
     target: props.targetSchema.byId(m.targetFieldId),
   })),
 )
+
+const statusIconConfig: Record<string, { text: string; symbol: string }> = {
+  compatible:   { text: 'text-emerald-600', symbol: '✓' },
+  constrained:  { text: 'text-amber-600',   symbol: '!' },
+  incompatible: { text: 'text-red-500',     symbol: '✕' },
+}
+
+const filteredRows = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return rows.value
+  return rows.value.filter(
+    (r) =>
+      (r.source?.name ?? r.sourceFieldId).toLowerCase().includes(q) ||
+      (r.target?.name ?? r.targetFieldId).toLowerCase().includes(q),
+  )
+})
 
 const pendingDeleteRow = computed(() =>
   pendingDeleteId.value ? rows.value.find((r) => r.id === pendingDeleteId.value) ?? null : null,
@@ -100,6 +132,20 @@ function cancelDelete() {
       </button>
     </div>
 
+    <!-- Search input (koppelingen tab only, when rows exist) -->
+    <div
+      v-if="currentTab === 'koppelingen' && rows.length > 0"
+      class="px-3 py-2 border-b border-slate-100"
+    >
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Zoek op veldnaam…"
+        class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+        data-testid="search-input"
+      />
+    </div>
+
     <!-- AI Suggesties tab -->
     <AISuggestionPanel
       v-if="currentTab === 'ai'"
@@ -108,7 +154,7 @@ function cancelDelete() {
       class="flex-1 flex flex-col overflow-hidden"
     />
 
-    <!-- Koppelingen tab: empty state -->
+    <!-- Koppelingen tab: empty state (no mappings at all) -->
     <div
       v-else-if="rows.length === 0"
       class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
@@ -118,16 +164,31 @@ function cancelDelete() {
       <p class="mt-1">Selecteer een bronveld en een doelveld om te beginnen.</p>
     </div>
 
+    <!-- Koppelingen tab: no-results state (query matches nothing) -->
+    <div
+      v-else-if="filteredRows.length === 0"
+      class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
+      data-testid="no-results"
+    >
+      <p>Geen koppelingen gevonden voor '{{ searchQuery }}'.</p>
+    </div>
+
     <!-- Koppelingen tab: mapping rows -->
     <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
-      <!-- TODO task #44: replace this click handler with bidirectional canvas/row selection -->
       <div
-        v-for="row in rows"
+        v-for="row in filteredRows"
         :key="row.id"
-        class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
+        :ref="(el) => setRowRef(row.id, el as HTMLElement | null)"
+        :class="['flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId }]"
         data-testid="mapping-row"
         @click.stop="store.selectMapping(row.id)"
       >
+        <!-- Validation status icon -->
+        <span
+          :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIconConfig[row.validationStatus]?.text]"
+          data-testid="validation-status"
+        >{{ statusIconConfig[row.validationStatus]?.symbol }}</span>
+
         <!-- Source field -->
         <div class="flex-1 min-w-0 flex items-center gap-1.5">
           <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">

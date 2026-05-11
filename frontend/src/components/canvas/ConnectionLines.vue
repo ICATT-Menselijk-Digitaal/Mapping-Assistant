@@ -3,12 +3,8 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 
-const emit = defineEmits<{
-  'delete-requested': [mappingId: string]
-}>()
-
 const mappingsStore = useMappings()
-const { mappings } = storeToRefs(mappingsStore)
+const { mappings, selectedMappingId } = storeToRefs(mappingsStore)
 
 interface LineCoords {
   id: string
@@ -32,6 +28,7 @@ const linesWithMeta = computed(() =>
     ...line,
     path: bezierPath(line),
     hovered: line.id === hoveredLineId.value,
+    selected: line.id === selectedMappingId.value,
   })),
 )
 
@@ -118,6 +115,8 @@ onUnmounted(() => {
     class="absolute inset-0 w-full h-full pointer-events-none"
     aria-hidden="true"
     data-testid="connection-lines-svg"
+    style="pointer-events: auto"
+    @click="mappingsStore.selectMapping(null)"
   >
     <g
       v-for="line in linesWithMeta"
@@ -126,7 +125,7 @@ onUnmounted(() => {
       data-testid="connection-line-group"
       @mouseenter="hoveredLineId = line.id"
       @mouseleave="hoveredLineId = null"
-      @click.stop="emit('delete-requested', line.id)"
+      @click.stop="mappingsStore.selectMapping(line.id)"
     >
       <!-- Wider invisible hit area so thin lines are easy to hover and click -->
       <path :d="line.path" fill="none" stroke="transparent" stroke-width="16" />
@@ -135,15 +134,15 @@ onUnmounted(() => {
       <path
         :d="line.path"
         fill="none"
-        :stroke="line.hovered ? '#4f46e5' : '#6366f1'"
-        :stroke-width="line.hovered ? 3 : 2"
-        :stroke-opacity="line.hovered ? 1 : 0.7"
+        :stroke="line.selected ? '#4f46e5' : (line.hovered ? '#4f46e5' : '#6366f1')"
+        :stroke-width="line.selected || line.hovered ? 3 : 2"
+        :stroke-opacity="line.selected || line.hovered ? 1 : 0.7"
         data-testid="connection-path"
       />
 
       <!-- Endpoint dots -->
-      <circle :cx="line.x1" :cy="line.y1" r="4" :fill="line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.hovered ? 1 : 0.7" />
-      <circle :cx="line.x2" :cy="line.y2" r="4" :fill="line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.hovered ? 1 : 0.7" />
+      <circle :cx="line.x1" :cy="line.y1" r="4" :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.selected || line.hovered ? 1 : 0.7" />
+      <circle :cx="line.x2" :cy="line.y2" r="4" :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.selected || line.hovered ? 1 : 0.7" />
     </g>
   </svg>
 </template>

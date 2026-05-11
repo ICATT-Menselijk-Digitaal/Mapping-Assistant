@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { FieldMapping, TransformationRule, TransformationType } from '@/types'
+import type { FieldMapping, TransformationRule, TransformationType, ValidatedFieldMapping } from '@/types'
+import type { Schema } from '@/domain/schema'
+import { getValidationStatus } from '@/utils/validationStatus'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
@@ -64,5 +66,15 @@ export const useMappings = defineStore('mappings', () => {
     mapping.transformations = mapping.transformations.filter((r) => r.type !== type)
   }
 
-  return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping, updateTransformation, removeTransformation }
+  function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
+    return mappings.value.map((m) => {
+      const sourceField = sourceSchema.byId(m.sourceFieldId)
+      const targetField = targetSchema.byId(m.targetFieldId)
+      const validationStatus =
+        sourceField && targetField ? getValidationStatus(sourceField, targetField) : 'constrained'
+      return { ...m, validationStatus }
+    })
+  }
+
+  return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping, updateTransformation, removeTransformation, mappingsWithStatus }
 })

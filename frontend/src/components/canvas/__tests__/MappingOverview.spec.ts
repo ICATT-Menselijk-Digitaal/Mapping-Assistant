@@ -8,11 +8,16 @@ import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
   { id: 'src-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
+  { id: 'src-num', name: 'bedrag', path: 'bedrag', dataType: 'number', required: false },
+  { id: 'src-long', name: 'beschrijving', path: 'beschrijving', dataType: 'string', maxLength: 200, required: false },
+  { id: 'src-obj', name: 'adres', path: 'adres', dataType: 'object', required: false },
 ]
 
 const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true, maxLength: 36 },
   { id: 'tgt-2', name: 'startdatum', path: 'startdatum', dataType: 'date', required: false },
+  { id: 'tgt-str', name: 'label', path: 'label', dataType: 'string', required: false },
+  { id: 'tgt-short', name: 'code', path: 'code', dataType: 'string', maxLength: 10, required: false },
 ]
 
 const sourceSchema = buildSchema('', sourceNodes)
@@ -127,5 +132,206 @@ describe('MappingOverview', () => {
 
     expect(store.mappings).toHaveLength(1)
     expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
+  })
+
+  // Scenario: Compatible coupling shows a green checkmark
+  it('shows a green checkmark for a compatible coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // number → string = compatible
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-emerald-600')
+  })
+
+  // Scenario: Constrained coupling shows an orange exclamation mark
+  it('shows an orange exclamation for a constrained coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // string maxLength 200 → maxLength 10 = constrained
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-amber-600')
+  })
+
+  // Scenario: Incompatible coupling shows a red cross
+  it('shows a red cross for an incompatible coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // object → string = incompatible
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-red-500')
+  })
+
+  // Scenario: Matching rows are shown when a query is entered
+  it('shows only matching rows when a search query is entered', async () => {
+    const searchNodes: SchemaFieldNode[] = [
+      { id: 'n-voornaam', name: 'voornaam', path: 'voornaam', dataType: 'string', required: false },
+      { id: 'n-achternaam', name: 'achternaam', path: 'achternaam', dataType: 'string', required: false },
+      { id: 'n-postcode', name: 'postcode', path: 'postcode', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', searchNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-voornaam', targetFieldId: 'n-voornaam' })
+    store.createMapping({ sourceFieldId: 'n-achternaam', targetFieldId: 'n-achternaam' })
+    store.createMapping({ sourceFieldId: 'n-postcode', targetFieldId: 'n-postcode' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('naam')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(2)
+  })
+
+  // Scenario: Search is case-insensitive
+  it('filters case-insensitively', async () => {
+    const caseNodes: SchemaFieldNode[] = [
+      { id: 'n-postcode', name: 'Postcode', path: 'Postcode', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', caseNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-postcode', targetFieldId: 'n-postcode' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('postcode')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+
+  // Scenario: No matching rows shows an empty state
+  it('shows a no-results message when no rows match the query', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('xyz')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="no-results"]').text()).toContain('xyz')
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+
+  // Scenario: Clearing the search restores all rows
+  it('restores all rows when the search is cleared', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('zaakId')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="search-input"]').setValue('')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(2)
+  })
+
+  // Scenario: Filter matches on target field name
+  it('matches on target field name', async () => {
+    const filterNodes: SchemaFieldNode[] = [
+      { id: 'n-id', name: 'id', path: 'id', dataType: 'string', required: false },
+      { id: 'n-gemeente', name: 'gemeente_code', path: 'gemeente_code', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', filterNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-id', targetFieldId: 'n-gemeente' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('gemeente')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+
+  // Scenario: Clicking a Mappingsoverzicht row highlights the corresponding canvas line (selection state)
+  it('sets selectedMappingId in the store when a row is clicked', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mapping-row"]').trigger('click')
+
+    expect(store.selectedMappingId).toBe(store.mappings[0]!.id)
+  })
+
+  it('applies selected style (bg-indigo-50) to the selected row', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    await rows[0]!.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(rows[0]!.classes()).toContain('bg-indigo-50')
+    expect(rows[1]!.classes()).not.toContain('bg-indigo-50')
+  })
+
+  // Scenario: Removing a selected coupling clears the selection
+  it('clears selectedMappingId when the selected mapping is removed', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    store.selectMapping(store.mappings[0]!.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(store.selectedMappingId).toBeNull()
+  })
+
+  // Scenario: Status icons update when a mapping is removed
+  it('removes the status icon when a mapping is removed', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="validation-status"]')).toHaveLength(2)
+
+    const incompatibleRow = wrapper.findAll('[data-testid="mapping-row"]').find((r) =>
+      r.find('[data-testid="validation-status"]').classes().includes('text-red-500'),
+    )!
+    await incompatibleRow.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const icons = wrapper.findAll('[data-testid="validation-status"]')
+    expect(icons).toHaveLength(1)
+    expect(icons[0]!.classes()).toContain('text-emerald-600')
   })
 })
