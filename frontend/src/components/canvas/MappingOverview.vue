@@ -19,6 +19,7 @@ const emit = defineEmits<{
 const store = useMappings()
 const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
+const searchQuery = ref('')
 const currentTab = computed(() => props.activeTab ?? 'koppelingen')
 
 const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
@@ -52,6 +53,16 @@ const statusIconConfig: Record<string, { text: string; symbol: string }> = {
   constrained:  { text: 'text-amber-600',   symbol: '!' },
   incompatible: { text: 'text-red-500',     symbol: '✕' },
 }
+
+const filteredRows = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return rows.value
+  return rows.value.filter(
+    (r) =>
+      (r.source?.name ?? r.sourceFieldId).toLowerCase().includes(q) ||
+      (r.target?.name ?? r.targetFieldId).toLowerCase().includes(q),
+  )
+})
 
 const pendingDeleteRow = computed(() =>
   pendingDeleteId.value ? rows.value.find((r) => r.id === pendingDeleteId.value) ?? null : null,
@@ -107,6 +118,20 @@ function cancelDelete() {
       </button>
     </div>
 
+    <!-- Search input (koppelingen tab only, when rows exist) -->
+    <div
+      v-if="currentTab === 'koppelingen' && rows.length > 0"
+      class="px-3 py-2 border-b border-slate-100"
+    >
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Zoek op veldnaam…"
+        class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400"
+        data-testid="search-input"
+      />
+    </div>
+
     <!-- AI Suggesties tab -->
     <AISuggestionPanel
       v-if="currentTab === 'ai'"
@@ -115,7 +140,7 @@ function cancelDelete() {
       class="flex-1 flex flex-col overflow-hidden"
     />
 
-    <!-- Koppelingen tab: empty state -->
+    <!-- Koppelingen tab: empty state (no mappings at all) -->
     <div
       v-else-if="rows.length === 0"
       class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
@@ -125,11 +150,20 @@ function cancelDelete() {
       <p class="mt-1">Selecteer een bronveld en een doelveld om te beginnen.</p>
     </div>
 
+    <!-- Koppelingen tab: no-results state (query matches nothing) -->
+    <div
+      v-else-if="filteredRows.length === 0"
+      class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
+      data-testid="no-results"
+    >
+      <p>Geen koppelingen gevonden voor '{{ searchQuery }}'.</p>
+    </div>
+
     <!-- Koppelingen tab: mapping rows -->
     <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
       <!-- TODO task #44: replace this click handler with bidirectional canvas/row selection -->
       <div
-        v-for="row in rows"
+        v-for="row in filteredRows"
         :key="row.id"
         class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
         data-testid="mapping-row"

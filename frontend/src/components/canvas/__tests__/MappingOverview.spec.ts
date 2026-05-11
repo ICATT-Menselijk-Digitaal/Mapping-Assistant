@@ -170,6 +170,103 @@ describe('MappingOverview', () => {
     expect(icon.classes()).toContain('text-red-500')
   })
 
+  // Scenario: Matching rows are shown when a query is entered
+  it('shows only matching rows when a search query is entered', async () => {
+    const searchNodes: SchemaFieldNode[] = [
+      { id: 'n-voornaam', name: 'voornaam', path: 'voornaam', dataType: 'string', required: false },
+      { id: 'n-achternaam', name: 'achternaam', path: 'achternaam', dataType: 'string', required: false },
+      { id: 'n-postcode', name: 'postcode', path: 'postcode', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', searchNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-voornaam', targetFieldId: 'n-voornaam' })
+    store.createMapping({ sourceFieldId: 'n-achternaam', targetFieldId: 'n-achternaam' })
+    store.createMapping({ sourceFieldId: 'n-postcode', targetFieldId: 'n-postcode' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('naam')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(2)
+  })
+
+  // Scenario: Search is case-insensitive
+  it('filters case-insensitively', async () => {
+    const caseNodes: SchemaFieldNode[] = [
+      { id: 'n-postcode', name: 'Postcode', path: 'Postcode', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', caseNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-postcode', targetFieldId: 'n-postcode' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('postcode')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+
+  // Scenario: No matching rows shows an empty state
+  it('shows a no-results message when no rows match the query', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('xyz')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="no-results"]').text()).toContain('xyz')
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+
+  // Scenario: Clearing the search restores all rows
+  it('restores all rows when the search is cleared', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('zaakId')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="search-input"]').setValue('')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(2)
+  })
+
+  // Scenario: Filter matches on target field name
+  it('matches on target field name', async () => {
+    const filterNodes: SchemaFieldNode[] = [
+      { id: 'n-id', name: 'id', path: 'id', dataType: 'string', required: false },
+      { id: 'n-gemeente', name: 'gemeente_code', path: 'gemeente_code', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', filterNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-id', targetFieldId: 'n-gemeente' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('gemeente')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+
   // Scenario: Status icons update when a mapping is removed
   it('removes the status icon when a mapping is removed', async () => {
     const wrapper = mountOverview()
