@@ -138,7 +138,6 @@ const targetDateFormatInput = ref('yyyy-MM-dd')
 const isEditingDateFormat = ref(false)
 
 const showDateFormatSection = computed(() =>
-  validationStatus.value === 'compatible' &&
   sourceField.value?.dataType === 'date' &&
   targetField.value?.dataType === 'date',
 )
@@ -312,66 +311,6 @@ function editDateFormat() {
       <!-- Compatible -->
       <template v-if="validationStatus === 'compatible'">
         <span class="font-medium">✓ Koppeling is compatibel.</span>
-
-        <!-- Date format section (date → date couplings) -->
-        <template v-if="showDateFormatSection">
-          <!-- Read-only summary -->
-          <div
-            v-if="hasDateFormatRule && !isEditingDateFormat"
-            class="mt-2 flex items-center justify-between gap-2"
-            data-testid="date-format-summary"
-          >
-            <span class="text-sm text-emerald-700">📅 {{ dateFormatRule?.sourceDateFormat }} → {{ dateFormatRule?.targetDateFormat }}</span>
-            <button
-              class="text-xs text-emerald-700 underline shrink-0"
-              data-testid="date-format-edit"
-              @click="editDateFormat"
-            >Wijzigen</button>
-          </div>
-
-          <!-- Form (fresh or edit) -->
-          <form
-            v-else
-            role="form"
-            aria-label="Datumformaat instellen"
-            class="mt-2"
-            data-testid="date-format-form"
-            @submit.prevent="saveDateFormat"
-          >
-            <label class="block text-[11px] text-emerald-700 mb-1">Bronformaat</label>
-            <input
-              v-model="sourceDateFormatInput"
-              type="text"
-              class="w-full border border-emerald-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
-              aria-label="Bronformaat"
-              data-testid="source-format-input"
-            />
-            <label class="block text-[11px] text-emerald-700 mb-1">Doelformaat</label>
-            <input
-              v-model="targetDateFormatInput"
-              type="text"
-              class="w-full border border-emerald-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
-              aria-label="Doelformaat"
-              data-testid="target-format-input"
-            />
-            <p
-              v-if="dateFormatError"
-              class="mt-1 text-[11px] text-red-600"
-              data-testid="date-format-error"
-            >{{ dateFormatError }}</p>
-            <p v-else class="text-[11px] text-slate-400 mb-1">
-              Veelgebruikte notaties: dd-MM-yyyy, yyyy-MM-dd, MM/dd/yyyy, ISO 8601
-            </p>
-            <button
-              type="button"
-              :disabled="!!dateFormatError"
-              class="bg-emerald-600 text-white rounded px-3 py-1 text-xs hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              :aria-disabled="!!dateFormatError"
-              data-testid="date-format-save"
-              @click="saveDateFormat"
-            >Opslaan</button>
-          </form>
-        </template>
       </template>
 
       <!-- Constrained -->
@@ -527,6 +466,68 @@ function editDateFormat() {
         <span class="font-medium">✕ {{ incompatibilityReason }}</span>
         <p class="mt-1 text-xs" data-testid="remap-note">Deze koppeling moet opnieuw worden gemaakt.</p>
       </template>
+    </div>
+
+    <!-- Date format section (date → date couplings, any validation status) -->
+    <div
+      v-if="showDateFormatSection"
+      class="mx-4 mb-4 rounded p-3 text-sm bg-emerald-50 text-emerald-700"
+    >
+      <!-- Read-only summary -->
+      <div
+        v-if="hasDateFormatRule && !isEditingDateFormat"
+        class="flex items-center justify-between gap-2"
+        data-testid="date-format-summary"
+      >
+        <span class="text-sm text-emerald-700">📅 {{ dateFormatRule?.sourceDateFormat }} → {{ dateFormatRule?.targetDateFormat }}</span>
+        <button
+          class="text-xs text-emerald-700 underline shrink-0"
+          data-testid="date-format-edit"
+          @click="editDateFormat"
+        >Wijzigen</button>
+      </div>
+
+      <!-- Form (fresh or edit) -->
+      <form
+        v-else
+        role="form"
+        aria-label="Datumformaat instellen"
+        data-testid="date-format-form"
+        @submit.prevent="saveDateFormat"
+      >
+        <label class="block text-[11px] text-emerald-700 mb-1">Bronformaat</label>
+        <input
+          v-model="sourceDateFormatInput"
+          type="text"
+          class="w-full border border-emerald-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
+          aria-label="Bronformaat"
+          data-testid="source-format-input"
+        />
+        <label class="block text-[11px] text-emerald-700 mb-1">Doelformaat</label>
+        <input
+          v-model="targetDateFormatInput"
+          type="text"
+          class="w-full border border-emerald-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400 mb-2"
+          aria-label="Doelformaat"
+          data-testid="target-format-input"
+        />
+        <p
+          v-if="dateFormatError"
+          class="mt-1 text-[11px] text-red-600"
+          data-testid="date-format-error"
+        >{{ dateFormatError }}</p>
+        <p v-else class="text-[11px] text-slate-400 mb-1">
+          Veelgebruikte notaties: dd-MM-yyyy, yyyy-MM-dd, MM/dd/yyyy, ISO 8601
+        </p>
+        <button
+          type="button"
+          :disabled="!!dateFormatError"
+          class="bg-emerald-600 text-white rounded px-3 py-1 text-xs hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          :aria-disabled="!!dateFormatError"
+          data-testid="date-format-save"
+          @click="saveDateFormat"
+        >Opslaan</button>
+      </form>
     </div>
   </div>
 </template>

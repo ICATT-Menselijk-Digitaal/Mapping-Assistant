@@ -13,6 +13,7 @@ const sourceFields: SchemaField[] = [
   { id: 'src-req', name: 'verplicht_bron', path: 'verplicht_bron', dataType: 'string', required: true },
   { id: 'src-opt-num', name: 'aantal', path: 'aantal', dataType: 'number', required: false },
   { id: 'src-date', name: 'geboortedatum', path: 'geboortedatum', dataType: 'date', required: false },
+  { id: 'src-date-req', name: 'startdatum', path: 'startdatum', dataType: 'date', required: false },
 ]
 
 const targetFields: SchemaField[] = [
@@ -22,6 +23,7 @@ const targetFields: SchemaField[] = [
   { id: 'tgt-req', name: 'toelichting', path: 'toelichting', dataType: 'string', required: true },
   { id: 'tgt-req-num', name: 'nummer', path: 'nummer', dataType: 'number', required: true },
   { id: 'tgt-date', name: 'datum', path: 'datum', dataType: 'date', required: false },
+  { id: 'tgt-date-req', name: 'einddatum', path: 'einddatum', dataType: 'date', required: true },
 ]
 
 function mountPanel() {
@@ -553,6 +555,18 @@ describe('CouplingDetailPanel — date format section', () => {
 
     expect(wrapper.find('[data-testid="date-format-form"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="date-format-summary"]').exists()).toBe(false)
+  })
+
+  // Bug regression: date (non-req) → date (required) is constrained, must still show date format section
+  it('shows date format section alongside default value form for date (non-req) → date (required)', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-date-req', targetFieldId: 'tgt-date-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-form"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="date-format-form"]').exists()).toBe(true)
   })
 
   // Scenario: Format pre-filled from OpenAPI spec when field format is date
