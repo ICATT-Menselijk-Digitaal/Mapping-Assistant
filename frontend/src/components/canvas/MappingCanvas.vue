@@ -24,7 +24,6 @@ const emit = defineEmits<{
 
 const mappingsStore = useMappings()
 const selectedSourceId = ref<string | null>(null)
-const pendingDeleteId = ref<string | null>(null)
 
 const sourceCounter = computed(() => {
   const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
@@ -38,18 +37,6 @@ const targetCounter = computed(() => {
     total: props.targetSchema.all().length,
   }
 })
-
-const pendingDeleteMapping = computed(() =>
-  pendingDeleteId.value ? mappingsStore.mappings.find((m) => m.id === pendingDeleteId.value) ?? null : null,
-)
-
-function fieldName(id: string): string {
-  return (
-    props.sourceSchema.byId(id)?.name ??
-    props.targetSchema.byId(id)?.name ??
-    id
-  )
-}
 
 function onSourceFieldClick(fieldId: string) {
   selectedSourceId.value = selectedSourceId.value === fieldId ? null : fieldId
@@ -71,22 +58,6 @@ function onTargetFieldClick(fieldId: string) {
   }
 
   selectedSourceId.value = null
-}
-
-function onDeleteRequested(mappingId: string) {
-  pendingDeleteId.value = mappingId
-}
-
-function confirmDelete() {
-  if (!pendingDeleteMapping.value) return
-  const { sourceFieldId, targetFieldId } = pendingDeleteMapping.value
-  mappingsStore.removeMapping(pendingDeleteMapping.value.id)
-  emit('FieldMappingRemoved', { sourceFieldId, targetFieldId })
-  pendingDeleteId.value = null
-}
-
-function cancelDelete() {
-  pendingDeleteId.value = null
 }
 
 function onSourceFileChange(event: Event) {
@@ -235,34 +206,7 @@ function onTargetUrlSubmit() {
       </div>
 
       <!-- SVG connection line overlay -->
-      <ConnectionLines @delete-requested="onDeleteRequested" />
-
-      <!-- Delete confirmation overlay -->
-      <div
-        v-if="pendingDeleteMapping"
-        class="absolute inset-0 flex items-center justify-center bg-black/20 z-10"
-        data-testid="delete-confirmation"
-      >
-        <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-sm w-full mx-4">
-          <p class="text-sm text-slate-700 mb-4">
-            Verwijder koppeling van
-            <span class="font-mono font-semibold text-slate-900">{{ fieldName(pendingDeleteMapping.sourceFieldId) }}</span>
-            naar
-            <span class="font-mono font-semibold text-slate-900">{{ fieldName(pendingDeleteMapping.targetFieldId) }}</span>?
-          </p>
-          <div class="flex justify-end gap-2">
-            <button
-              class="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
-              @click="cancelDelete"
-            >Annuleren</button>
-            <button
-              class="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
-              data-testid="confirm-delete"
-              @click="confirmDelete"
-            >Verwijderen</button>
-          </div>
-        </div>
-      </div>
+      <ConnectionLines />
     </div>
   </div>
 </template>

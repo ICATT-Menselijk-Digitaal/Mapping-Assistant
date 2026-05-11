@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 
@@ -17,10 +18,23 @@ const emit = defineEmits<{
 }>()
 
 const store = useMappings()
+const { selectedMappingId } = storeToRefs(store)
 const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
 const searchQuery = ref('')
 const currentTab = computed(() => props.activeTab ?? 'koppelingen')
+const rowRefs = ref<Map<string, HTMLElement>>(new Map())
+
+function setRowRef(id: string, el: HTMLElement | null) {
+  if (el) rowRefs.value.set(id, el)
+  else rowRefs.value.delete(id)
+}
+
+watch(selectedMappingId, async (id) => {
+  if (!id) return
+  await nextTick()
+  rowRefs.value.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+})
 
 const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
 const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -161,11 +175,11 @@ function cancelDelete() {
 
     <!-- Koppelingen tab: mapping rows -->
     <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
-      <!-- TODO task #44: replace this click handler with bidirectional canvas/row selection -->
       <div
         v-for="row in filteredRows"
         :key="row.id"
-        class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
+        :ref="(el) => setRowRef(row.id, el as HTMLElement | null)"
+        :class="['flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId }]"
         data-testid="mapping-row"
         @click.stop="store.selectMapping(row.id)"
       >

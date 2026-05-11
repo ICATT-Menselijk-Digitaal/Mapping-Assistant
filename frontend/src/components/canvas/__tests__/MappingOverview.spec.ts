@@ -267,6 +267,51 @@ describe('MappingOverview', () => {
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
   })
 
+  // Scenario: Clicking a Mappingsoverzicht row highlights the corresponding canvas line (selection state)
+  it('sets selectedMappingId in the store when a row is clicked', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mapping-row"]').trigger('click')
+
+    expect(store.selectedMappingId).toBe(store.mappings[0]!.id)
+  })
+
+  it('applies selected style (bg-indigo-50) to the selected row', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    await rows[0]!.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(rows[0]!.classes()).toContain('bg-indigo-50')
+    expect(rows[1]!.classes()).not.toContain('bg-indigo-50')
+  })
+
+  // Scenario: Removing a selected coupling clears the selection
+  it('clears selectedMappingId when the selected mapping is removed', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    store.selectMapping(store.mappings[0]!.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(store.selectedMappingId).toBeNull()
+  })
+
   // Scenario: Status icons update when a mapping is removed
   it('removes the status icon when a mapping is removed', async () => {
     const wrapper = mountOverview()
