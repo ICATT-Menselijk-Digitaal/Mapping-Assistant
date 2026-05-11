@@ -1,4 +1,4 @@
-export type TransformationType = 'direct' | 'static' | 'expression' | 'truncate' | 'default' | 'cast'
+export type TransformationType = 'direct' | 'static' | 'expression' | 'truncate' | 'default' | 'cast' | 'date-format'
 
 export type MappingStatus = 'confirmed' | 'rejected'
 
@@ -10,6 +10,8 @@ export interface TransformationRule {
   defaultValue?: string // used when type === 'default'
   castFrom?: string // used when type === 'cast'
   castTo?: string // used when type === 'cast'
+  sourceDateFormat?: string // used when type === 'date-format'
+  targetDateFormat?: string // used when type === 'date-format'
 }
 
 export interface FieldMapping {
