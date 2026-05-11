@@ -3,7 +3,11 @@
     "allow": [
       "Bash(grep -E \"\\\\.\\(vue|ts|tsx|js|jsx|py\\)$\")",
       "Bash(npm run *)",
-      "Bash(gh issue *)"
+      "Bash(gh issue *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(gh pr *)",
+      "Bash(gh sub-issue *)"
     ]
   }
 }
