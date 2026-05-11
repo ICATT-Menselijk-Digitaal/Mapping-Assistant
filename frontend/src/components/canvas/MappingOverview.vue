@@ -37,14 +37,21 @@ function typeOf(dataType: string) {
 }
 
 const rows = computed(() =>
-  store.mappings.map((m) => ({
+  store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => ({
     id: m.id,
     sourceFieldId: m.sourceFieldId,
     targetFieldId: m.targetFieldId,
+    validationStatus: m.validationStatus,
     source: props.sourceSchema.byId(m.sourceFieldId),
     target: props.targetSchema.byId(m.targetFieldId),
   })),
 )
+
+const statusIconConfig: Record<string, { text: string; symbol: string }> = {
+  compatible:   { text: 'text-emerald-600', symbol: '✓' },
+  constrained:  { text: 'text-amber-600',   symbol: '!' },
+  incompatible: { text: 'text-red-500',     symbol: '✕' },
+}
 
 const pendingDeleteRow = computed(() =>
   pendingDeleteId.value ? rows.value.find((r) => r.id === pendingDeleteId.value) ?? null : null,
@@ -128,6 +135,12 @@ function cancelDelete() {
         data-testid="mapping-row"
         @click.stop="store.selectMapping(row.id)"
       >
+        <!-- Validation status icon -->
+        <span
+          :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIconConfig[row.validationStatus]?.text]"
+          data-testid="validation-status"
+        >{{ statusIconConfig[row.validationStatus]?.symbol }}</span>
+
         <!-- Source field -->
         <div class="flex-1 min-w-0 flex items-center gap-1.5">
           <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
