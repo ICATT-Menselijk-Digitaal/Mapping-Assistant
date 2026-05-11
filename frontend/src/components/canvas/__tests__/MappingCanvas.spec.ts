@@ -3,26 +3,29 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MappingCanvas from '../MappingCanvas.vue'
 import { useMappings } from '@/composables/useMappings'
-import type { SchemaField } from '@/types'
+import { buildSchema, EMPTY_SCHEMA, type SchemaFieldNode } from '@/domain/schema'
 
-const sourceFields: SchemaField[] = [
+const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
   { id: 'src-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
 ]
 
-const targetFields: SchemaField[] = [
+const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true },
   { id: 'tgt-2', name: 'titel', path: 'titel', dataType: 'string', required: false },
 ]
 
+const sourceSchema = buildSchema('', sourceNodes)
+const targetSchema = buildSchema('', targetNodes)
+
 function mountCanvas() {
   return mount(MappingCanvas, {
     global: { plugins: [createPinia()] },
-    props: { sourceFields, targetFields },
+    props: { sourceSchema, targetSchema },
   })
 }
 
-const coverageSourceFields: SchemaField[] = Array.from({ length: 15 }, (_, i) => ({
+const coverageSourceNodes: SchemaFieldNode[] = Array.from({ length: 15 }, (_, i) => ({
   id: `src-${i + 1}`,
   name: `srcField${i + 1}`,
   path: `srcField${i + 1}`,
@@ -30,7 +33,7 @@ const coverageSourceFields: SchemaField[] = Array.from({ length: 15 }, (_, i) =>
   required: false,
 }))
 
-const coverageTargetFields: SchemaField[] = Array.from({ length: 8 }, (_, i) => ({
+const coverageTargetNodes: SchemaFieldNode[] = Array.from({ length: 8 }, (_, i) => ({
   id: `tgt-${i + 1}`,
   name: `tgtField${i + 1}`,
   path: `tgtField${i + 1}`,
@@ -38,12 +41,15 @@ const coverageTargetFields: SchemaField[] = Array.from({ length: 8 }, (_, i) => 
   required: i < 5,
 }))
 
+const coverageSourceSchema = buildSchema('', coverageSourceNodes)
+const coverageTargetSchema = buildSchema('', coverageTargetNodes)
+
 function mountCoverageCanvas() {
   return mount(MappingCanvas, {
     global: { plugins: [createPinia()] },
     props: {
-      sourceFields: coverageSourceFields,
-      targetFields: coverageTargetFields,
+      sourceSchema: coverageSourceSchema,
+      targetSchema: coverageTargetSchema,
       sourceLabel: 'Bron',
       targetLabel: 'Doel',
     },
@@ -59,7 +65,7 @@ describe('MappingCanvas', () => {
   it('shows source upload area when no schemas are loaded', () => {
     const wrapper = mount(MappingCanvas, {
       global: { plugins: [createPinia()] },
-      props: { sourceFields: [], targetFields: [] },
+      props: { sourceSchema: EMPTY_SCHEMA, targetSchema: EMPTY_SCHEMA },
     })
     expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(true)
   })
@@ -231,17 +237,17 @@ describe('Source schema upload UI', () => {
   function mountNoSource() {
     return mount(MappingCanvas, {
       global: { plugins: [createPinia()] },
-      props: { sourceFields: [], targetFields },
+      props: { sourceSchema: EMPTY_SCHEMA, targetSchema },
     })
   }
 
   // Scenario: Upload UI visible when no source schema loaded
-  it('shows source upload area when sourceFields is empty', () => {
+  it('shows source upload area when source schema is empty', () => {
     const wrapper = mountNoSource()
     expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(true)
   })
 
-  it('hides source upload area when sourceFields are present', () => {
+  it('hides source upload area when source schema has fields', () => {
     const wrapper = mountCanvas()
     expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(false)
   })

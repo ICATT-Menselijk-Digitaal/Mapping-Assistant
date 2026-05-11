@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpenApiToFields } from '../openApiParser'
+import { parseOpenApiSchema } from '../openApiParser'
 
 const minimalOpenApi3 = {
   openapi: '3.0.0',
@@ -38,73 +38,79 @@ const swagger2Spec = {
   },
 }
 
-describe('parseOpenApiToFields', () => {
+describe('parseOpenApiSchema', () => {
   // Scenario: Load valid JSON spec via file
-  it('parses OpenAPI 3.x components.schemas to SchemaField[]', () => {
-    const fields = parseOpenApiToFields(minimalOpenApi3)
-    expect(fields.length).toBeGreaterThan(0)
-    const zaakId = fields.find((f) => f.name === 'zaakId')
+  it('parses OpenAPI 3.x components.schemas into a Schema', () => {
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    expect(schema.all().length).toBeGreaterThan(0)
+    const zaakId = schema.all().find((f) => f.name === 'zaakId')
     expect(zaakId).toBeDefined()
     expect(zaakId?.dataType).toBe('string')
     expect(zaakId?.required).toBe(true)
     expect(zaakId?.description).toBe('Unique ID')
   })
 
-  it('parses Swagger 2.x definitions to SchemaField[]', () => {
-    const fields = parseOpenApiToFields(swagger2Spec)
-    expect(fields).toHaveLength(2)
-    expect(fields.find((f) => f.name === 'id')?.required).toBe(true)
-    expect(fields.find((f) => f.name === 'name')?.required).toBe(false)
+  it('parses Swagger 2.x definitions into a Schema', () => {
+    const schema = parseOpenApiSchema(swagger2Spec)
+    expect(schema.all()).toHaveLength(2)
+    expect(schema.all().find((f) => f.name === 'id')?.required).toBe(true)
+    expect(schema.all().find((f) => f.name === 'name')?.required).toBe(false)
   })
 
   it('maps integer to number dataType', () => {
-    const fields = parseOpenApiToFields(minimalOpenApi3)
-    expect(fields.find((f) => f.name === 'prioriteit')?.dataType).toBe('number')
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    expect(schema.all().find((f) => f.name === 'prioriteit')?.dataType).toBe('number')
   })
 
   it('maps boolean dataType', () => {
-    const fields = parseOpenApiToFields(minimalOpenApi3)
-    expect(fields.find((f) => f.name === 'actief')?.dataType).toBe('boolean')
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    expect(schema.all().find((f) => f.name === 'actief')?.dataType).toBe('boolean')
   })
 
   it('maps string with format:date to date dataType', () => {
-    const fields = parseOpenApiToFields(minimalOpenApi3)
-    expect(fields.find((f) => f.name === 'startDatum')?.dataType).toBe('date')
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    expect(schema.all().find((f) => f.name === 'startDatum')?.dataType).toBe('date')
   })
 
   it('maps object and array dataTypes', () => {
-    const fields = parseOpenApiToFields(minimalOpenApi3)
-    expect(fields.find((f) => f.name === 'metadata')?.dataType).toBe('object')
-    expect(fields.find((f) => f.name === 'tags')?.dataType).toBe('array')
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    expect(schema.all().find((f) => f.name === 'metadata')?.dataType).toBe('object')
+    expect(schema.all().find((f) => f.name === 'tags')?.dataType).toBe('array')
   })
 
   it('produces unique ids for each field', () => {
-    const fields = parseOpenApiToFields(minimalOpenApi3)
-    const ids = fields.map((f) => f.id)
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    const ids = schema.all().map((f) => f.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
+  it('extracts the schema name from spec.info.title', () => {
+    const schema = parseOpenApiSchema(minimalOpenApi3)
+    expect(schema.name).toBe('Test')
+  })
+
   // Scenario: Empty spec without schema objects
-  it('returns empty array when spec has no schemas', () => {
-    const fields = parseOpenApiToFields({ openapi: '3.0.0', components: { schemas: {} } })
-    expect(fields).toHaveLength(0)
+  it('returns an empty schema when spec has no schemas', () => {
+    const schema = parseOpenApiSchema({ openapi: '3.0.0', components: { schemas: {} } })
+    expect(schema.all()).toHaveLength(0)
+    expect(schema.roots).toHaveLength(0)
   })
 
   // Scenario: Invalid spec selected
   it('throws on null input', () => {
-    expect(() => parseOpenApiToFields(null)).toThrow('Invalid spec')
+    expect(() => parseOpenApiSchema(null)).toThrow('Invalid spec')
   })
 
   it('throws on non-object input', () => {
-    expect(() => parseOpenApiToFields('not an object')).toThrow('Invalid spec')
+    expect(() => parseOpenApiSchema('not an object')).toThrow('Invalid spec')
   })
 
   it('throws when spec is valid JSON but not an OpenAPI/Swagger document', () => {
-    expect(() => parseOpenApiToFields({ foo: 'bar', data: [1, 2, 3] })).toThrow('openapi')
+    expect(() => parseOpenApiSchema({ foo: 'bar', data: [1, 2, 3] })).toThrow('openapi')
   })
 
   // Scenario: Display nested $ref structure
-  it('resolves $ref properties into children on the parent field', () => {
+  it('resolves $ref properties into queryable children on the parent field', () => {
     const spec = {
       openapi: '3.0.0',
       components: {
@@ -125,15 +131,16 @@ describe('parseOpenApiToFields', () => {
         },
       },
     }
-    const fields = parseOpenApiToFields(spec)
-    const adres = fields.find((f) => f.name === 'adres')
+    const schema = parseOpenApiSchema(spec)
+    const adres = schema.all().find((f) => f.name === 'adres')
     expect(adres).toBeDefined()
     expect(adres?.dataType).toBe('object')
-    expect(adres?.children).toHaveLength(2)
-    expect(adres?.children?.find((c) => c.name === 'straat')?.dataType).toBe('string')
+    const adresChildren = schema.childrenOf(adres!.id)
+    expect(adresChildren).toHaveLength(2)
+    expect(adresChildren.find((c) => c.name === 'straat')?.dataType).toBe('string')
   })
 
-  it('resolves array items with $ref into children', () => {
+  it('resolves array items with $ref into queryable children', () => {
     const spec = {
       openapi: '3.0.0',
       components: {
@@ -157,14 +164,15 @@ describe('parseOpenApiToFields', () => {
         },
       },
     }
-    const fields = parseOpenApiToFields(spec)
-    const lines = fields.find((f) => f.name === 'lines')
+    const schema = parseOpenApiSchema(spec)
+    const lines = schema.all().find((f) => f.name === 'lines')
     expect(lines?.dataType).toBe('array')
-    expect(lines?.children).toHaveLength(2)
-    expect(lines?.children?.find((c) => c.name === 'product')).toBeDefined()
+    const linesChildren = schema.childrenOf(lines!.id)
+    expect(linesChildren).toHaveLength(2)
+    expect(linesChildren.find((c) => c.name === 'product')).toBeDefined()
   })
 
-  it('resolves inline array items with object properties into children', () => {
+  it('resolves inline array items with object properties into queryable children', () => {
     const spec = {
       openapi: '3.0.0',
       components: {
@@ -187,14 +195,15 @@ describe('parseOpenApiToFields', () => {
         },
       },
     }
-    const fields = parseOpenApiToFields(spec)
-    const items = fields.find((f) => f.name === 'items')
+    const schema = parseOpenApiSchema(spec)
+    const items = schema.all().find((f) => f.name === 'items')
     expect(items?.dataType).toBe('array')
-    expect(items?.children).toHaveLength(2)
-    expect(items?.children?.find((c) => c.name === 'sku')).toBeDefined()
+    const itemsChildren = schema.childrenOf(items!.id)
+    expect(itemsChildren).toHaveLength(2)
+    expect(itemsChildren.find((c) => c.name === 'sku')).toBeDefined()
   })
 
-  it('resolves inline object properties into children', () => {
+  it('resolves inline object properties into queryable children', () => {
     const spec = {
       openapi: '3.0.0',
       components: {
@@ -214,9 +223,10 @@ describe('parseOpenApiToFields', () => {
         },
       },
     }
-    const fields = parseOpenApiToFields(spec)
-    const meta = fields.find((f) => f.name === 'meta')
-    expect(meta?.children).toHaveLength(2)
-    expect(meta?.children?.find((c) => c.name === 'key')).toBeDefined()
+    const schema = parseOpenApiSchema(spec)
+    const meta = schema.all().find((f) => f.name === 'meta')
+    const metaChildren = schema.childrenOf(meta!.id)
+    expect(metaChildren).toHaveLength(2)
+    expect(metaChildren.find((c) => c.name === 'key')).toBeDefined()
   })
 })

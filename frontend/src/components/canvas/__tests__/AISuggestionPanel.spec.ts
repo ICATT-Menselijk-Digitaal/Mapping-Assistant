@@ -4,17 +4,21 @@ import { createPinia, setActivePinia } from 'pinia'
 import AISuggestionPanel from '../AISuggestionPanel.vue'
 import { useAISuggestions, AIServiceError } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
-import type { SchemaField, AiSuggestion } from '@/types'
+import type { AiSuggestion } from '@/types'
+import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
-const sourceFields: SchemaField[] = [
+const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'identificatie', path: 'Zaak.identificatie', dataType: 'string', required: true },
 ]
-const targetFields: SchemaField[] = [
+const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
   { id: 'tgt-2', name: 'omschrijving', path: 'Zaak.omschrijving', dataType: 'string', required: true },
 ]
 
-function mountPanel(props = { sourceFields, targetFields }) {
+const sourceSchema = buildSchema('', sourceNodes)
+const targetSchema = buildSchema('', targetNodes)
+
+function mountPanel(props = { sourceSchema, targetSchema }) {
   return mount(AISuggestionPanel, {
     global: { plugins: [createPinia()], stubs: { Teleport: true } },
     props,

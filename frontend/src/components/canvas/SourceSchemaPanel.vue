@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import type { SchemaField } from '@/types'
+import type { Schema } from '@/domain/schema'
 
 const props = defineProps<{
-  fields: SchemaField[]
+  schema: Schema
   side?: 'source' | 'target'
 }>()
 
@@ -15,7 +16,7 @@ interface GroupEntry { name: string; fields: SchemaField[] }
 
 const groups = computed<GroupEntry[]>(() => {
   const map = new Map<string, SchemaField[]>()
-  for (const f of props.fields) {
+  for (const f of props.schema.roots) {
     const dot = f.path.indexOf('.')
     const group = dot >= 0 ? f.path.slice(0, dot) : ''
     if (!map.has(group)) map.set(group, [])
@@ -32,8 +33,8 @@ const groupCollapsed = ref<Record<string, boolean>>(
 )
 const fieldCollapsed = ref<Record<string, boolean>>(
   Object.fromEntries(
-    props.fields
-      .filter((f) => f.children && f.children.length > 0)
+    props.schema.roots
+      .filter((f) => props.schema.childrenOf(f.id).length > 0)
       .map((f) => [f.id, true]),
   ),
 )
@@ -76,7 +77,7 @@ function tc(dataType: string) {
   <div class="flex flex-col h-full overflow-y-auto">
     <!-- Empty state -->
     <div
-      v-if="fields.length === 0"
+      v-if="schema.roots.length === 0"
       data-testid="empty-state"
       class="flex-1 flex items-center justify-center p-6 text-sm text-slate-400 text-center"
     >
@@ -109,7 +110,7 @@ function tc(dataType: string) {
         >
           <template v-for="field in group.fields" :key="field.id">
             <!-- Field with expandable children -->
-            <template v-if="field.children && field.children.length > 0">
+            <template v-if="schema.childrenOf(field.id).length > 0">
               <button
                 :data-testid="`field-toggle-${field.id}`"
                 :data-anchor-field="`${side}:${field.id}`"
@@ -136,7 +137,7 @@ function tc(dataType: string) {
                 class="pl-4 border-l border-slate-100 ml-3"
               >
                 <div
-                  v-for="child in field.children"
+                  v-for="child in schema.childrenOf(field.id)"
                   :key="child.id"
                   :data-field-id="child.id"
                   :data-field-side="side"

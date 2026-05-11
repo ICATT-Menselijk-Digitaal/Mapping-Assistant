@@ -246,20 +246,6 @@ describe('useAISuggestions', () => {
       expect(mappingsStore.mappings[0]).toMatchObject({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
     })
 
-    it('dispatches AISuggestionAccepted event', () => {
-      const aiStore = useAISuggestions()
-      aiStore.suggestions = [
-        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
-      ]
-      const events: CustomEvent[] = []
-      window.addEventListener('AISuggestionAccepted', (e) => events.push(e as CustomEvent))
-
-      aiStore.acceptSuggestion('sug-1')
-
-      expect(events).toHaveLength(1)
-      expect(events[0]?.detail).toMatchObject({ type: 'AISuggestionAccepted', sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
-    })
-
     it('does not create a duplicate mapping', () => {
       const aiStore = useAISuggestions()
       const mappingsStore = useMappings()
@@ -290,19 +276,6 @@ describe('useAISuggestions', () => {
       expect(mappingsStore.mappings).toHaveLength(0)
     })
 
-    it('dispatches AISuggestionRejected event', () => {
-      const aiStore = useAISuggestions()
-      aiStore.suggestions = [
-        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
-      ]
-      const events: CustomEvent[] = []
-      window.addEventListener('AISuggestionRejected', (e) => events.push(e as CustomEvent))
-
-      aiStore.rejectSuggestion('sug-1')
-
-      expect(events).toHaveLength(1)
-      expect(events[0]?.detail).toMatchObject({ type: 'AISuggestionRejected', sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
-    })
   })
 
   // Scenario: Rate is updated after acceptance

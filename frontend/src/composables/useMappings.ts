@@ -56,18 +56,12 @@ export const useMappings = defineStore('mappings', () => {
     } else {
       mapping.transformations.push(rule)
     }
-    window.dispatchEvent(
-      new CustomEvent('TransformationRuleAdded', { detail: { mappingId: id, rule } }),
-    )
   }
 
   function removeTransformation(id: string, type: TransformationType): void {
     const mapping = mappings.value.find((m) => m.id === id)
     if (!mapping) return
     mapping.transformations = mapping.transformations.filter((r) => r.type !== type)
-    window.dispatchEvent(
-      new CustomEvent('TransformationRuleRemoved', { detail: { mappingId: id } }),
-    )
   }
 
   return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping, updateTransformation, removeTransformation }

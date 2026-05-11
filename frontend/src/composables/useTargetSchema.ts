@@ -1,11 +1,10 @@
 import { ref } from 'vue'
 import * as yaml from 'js-yaml'
-import type { SchemaField } from '@/types'
-import { parseOpenApiToFields } from '@/utils/openApiParser'
+import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
+import { parseOpenApiSchema } from '@/utils/openApiParser'
 
 export function useTargetSchema() {
-  const fields = ref<SchemaField[]>([])
-  const schemaName = ref<string>('')
+  const schema = ref<Schema>(EMPTY_SCHEMA)
   const error = ref<string | null>(null)
   const isLoading = ref(false)
 
@@ -16,10 +15,7 @@ export function useTargetSchema() {
     } catch {
       throw new Error('Ongeldig bestand: geen geldige YAML, JSON of OpenAPI-spec')
     }
-    const parsed = parseOpenApiToFields(spec)
-    const s = spec as Record<string, unknown>
-    schemaName.value = (s.info as Record<string, unknown>)?.title as string ?? ''
-    fields.value = parsed
+    schema.value = parseOpenApiSchema(spec)
     error.value = null
   }
 
@@ -31,7 +27,7 @@ export function useTargetSchema() {
       parseContent(content)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon bestand niet verwerken'
-      fields.value = []
+      schema.value = EMPTY_SCHEMA
     } finally {
       isLoading.value = false
     }
@@ -47,11 +43,11 @@ export function useTargetSchema() {
       parseContent(content)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon URL niet ophalen'
-      fields.value = []
+      schema.value = EMPTY_SCHEMA
     } finally {
       isLoading.value = false
     }
   }
 
-  return { fields, schemaName, error, isLoading, loadFromFile, loadFromUrl }
+  return { schema, error, isLoading, loadFromFile, loadFromUrl }
 }
