@@ -8,11 +8,16 @@ import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
   { id: 'src-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
+  { id: 'src-num', name: 'bedrag', path: 'bedrag', dataType: 'number', required: false },
+  { id: 'src-long', name: 'beschrijving', path: 'beschrijving', dataType: 'string', maxLength: 200, required: false },
+  { id: 'src-obj', name: 'adres', path: 'adres', dataType: 'object', required: false },
 ]
 
 const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true, maxLength: 36 },
   { id: 'tgt-2', name: 'startdatum', path: 'startdatum', dataType: 'date', required: false },
+  { id: 'tgt-str', name: 'label', path: 'label', dataType: 'string', required: false },
+  { id: 'tgt-short', name: 'code', path: 'code', dataType: 'string', maxLength: 10, required: false },
 ]
 
 const sourceSchema = buildSchema('', sourceNodes)
@@ -127,5 +132,64 @@ describe('MappingOverview', () => {
 
     expect(store.mappings).toHaveLength(1)
     expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
+  })
+
+  // Scenario: Compatible coupling shows a green checkmark
+  it('shows a green checkmark for a compatible coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // number → string = compatible
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-emerald-600')
+  })
+
+  // Scenario: Constrained coupling shows an orange exclamation mark
+  it('shows an orange exclamation for a constrained coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // string maxLength 200 → maxLength 10 = constrained
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-amber-600')
+  })
+
+  // Scenario: Incompatible coupling shows a red cross
+  it('shows a red cross for an incompatible coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // object → string = incompatible
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-red-500')
+  })
+
+  // Scenario: Status icons update when a mapping is removed
+  it('removes the status icon when a mapping is removed', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="validation-status"]')).toHaveLength(2)
+
+    const incompatibleRow = wrapper.findAll('[data-testid="mapping-row"]').find((r) =>
+      r.find('[data-testid="validation-status"]').classes().includes('text-red-500'),
+    )!
+    await incompatibleRow.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const icons = wrapper.findAll('[data-testid="validation-status"]')
+    expect(icons).toHaveLength(1)
+    expect(icons[0]!.classes()).toContain('text-emerald-600')
   })
 })
