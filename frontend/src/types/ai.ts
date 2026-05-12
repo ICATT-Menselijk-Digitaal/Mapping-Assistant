@@ -19,6 +19,7 @@ export interface TransformationSuggestionRequested {
 
 export interface TransformationSuggestion {
   mappingId: string
+  mismatch: string
   expression?: string
   explanation: string
   example?: { input: string; output: string }
