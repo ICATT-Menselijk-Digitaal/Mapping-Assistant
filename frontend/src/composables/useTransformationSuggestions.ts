@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { SchemaField } from '@/types'
 import type { TransformationSuggestion, TransformationSuggestionRequested } from '@/types/ai'
 import { isTypeCompatible } from '@/utils/typeCompatibility'
+import { useMappings } from '@/composables/useMappings'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
@@ -126,5 +127,26 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
     }
   }
 
-  return { pendingRequests, generatedSuggestions, loadingMappingIds, handleMappingCreated, generateSuggestion }
+  function acceptSuggestion(mappingId: string, expression: string): void {
+    const mappingsStore = useMappings()
+    mappingsStore.updateTransformation(mappingId, { type: 'expression', expression })
+    const next = { ...generatedSuggestions.value }
+    delete next[mappingId]
+    generatedSuggestions.value = next
+    console.debug('[TransformationSuggestions] TransformationAccepted', { mappingId, expression: expression.slice(0, 50) })
+  }
+
+  function clearSuggestion(mappingId: string): void {
+    const next = { ...generatedSuggestions.value }
+    delete next[mappingId]
+    generatedSuggestions.value = next
+  }
+
+  async function regenerateSuggestion(request: TransformationSuggestionRequested): Promise<void> {
+    clearSuggestion(request.mappingId)
+    console.debug('[TransformationSuggestions] TransformationRejected', { mappingId: request.mappingId })
+    await generateSuggestion(request)
+  }
+
+  return { pendingRequests, generatedSuggestions, loadingMappingIds, handleMappingCreated, generateSuggestion, acceptSuggestion, clearSuggestion, regenerateSuggestion }
 })
