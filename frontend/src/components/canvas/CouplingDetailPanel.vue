@@ -231,8 +231,10 @@ const isSuggestionLoading = computed(() =>
     : false,
 )
 
-const acceptedExpression = computed(() =>
-  selectedMapping.value?.transformations.find((r): r is { type: 'expression'; expression?: string } => r.type === 'expression')?.expression ?? null,
+const acceptedSuggestions = computed(() =>
+  selectedMapping.value
+    ? suggestionsStore.acceptedSuggestions[selectedMapping.value.id] ?? null
+    : null,
 )
 
 const editingSuggestionIndex = ref<number | null>(null)
@@ -539,11 +541,19 @@ watch(selectedMapping, () => { editingSuggestionIndex.value = null; editedExpres
     >
       <p class="text-[11px] uppercase tracking-wide text-violet-400 mb-2">AI-suggestie</p>
 
-      <!-- Accepted: expression stored in mapping -->
-      <div v-if="acceptedExpression && editingSuggestionIndex === null" data-testid="suggestion-accepted">
-        <pre class="bg-violet-100 rounded px-2 py-1 font-mono text-xs text-violet-800 overflow-x-auto" data-testid="suggestion-accepted-expression">{{ acceptedExpression }}</pre>
-        <p class="mt-1 text-[11px] text-emerald-600">✓ Overgenomen</p>
-      </div>
+      <!-- Accepted expressions (one row per accepted suggestion) -->
+      <template v-if="acceptedSuggestions?.length && editingSuggestionIndex === null">
+        <div
+          v-for="(s, i) in acceptedSuggestions"
+          :key="i"
+          :class="{ 'mt-2 pt-2 border-t border-violet-100': i > 0 }"
+          data-testid="suggestion-accepted"
+        >
+          <p v-if="s.mismatch" class="text-[10px] text-violet-400 font-medium mb-1 truncate">{{ s.mismatch }}</p>
+          <pre class="bg-violet-100 rounded px-2 py-1 font-mono text-xs text-violet-800 overflow-x-auto" data-testid="suggestion-accepted-expression">{{ s.expression }}</pre>
+          <p class="mt-1 text-[11px] text-emerald-600">✓ Overgenomen</p>
+        </div>
+      </template>
 
       <!-- Loading (no cards yet) -->
       <div v-if="isSuggestionLoading && !suggestions?.length" data-testid="suggestion-loading">

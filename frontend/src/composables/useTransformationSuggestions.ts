@@ -21,7 +21,7 @@ function detectMismatches(source: SchemaField, target: SchemaField): string[] {
 
   if (source.dataType === 'string' && target.dataType === 'string' && target.maxLength !== undefined) {
     if (source.maxLength === undefined) {
-      mismatches.push(`length constraint: source has no max length, target is limited to ${target.maxLength}`)
+      mismatches.push(`length constraint: source has no max length, target is limited to ${target.maxLength} characters`)
     } else if (source.maxLength > target.maxLength) {
       mismatches.push(`length constraint: source max length (${source.maxLength}) exceeds target max length (${target.maxLength})`)
     }
@@ -46,16 +46,18 @@ Target field: name="${target.name}", path="${target.path}", dataType="${target.d
 Detected mismatches:
 ${mismatchList}
 
-Return ONLY a JSON array (no markdown), one object per mismatch, in the same order as the list above.
+Return ONLY a JSON array (no markdown). Include one object per detected mismatch (in the same order as the list above), then append any additional suggestions you think are valuable based on the field names, types, or descriptions — even if no mismatch was detected for them.
 
-For each mismatch where a safe transformation CAN be determined:
-- mismatch: string — copy the label from the list above
-- expression: string — a JSONata expression that addresses this specific mismatch
+For length constraint mismatches, common practice is to truncate the value and append "..." to signal the text was cut. You may suggest an alternative if it better fits the field semantics.
+
+For each item where a safe transformation CAN be determined:
+- mismatch: string — copy the label from the detected list, or a short label describing your own suggestion
+- expression: string — a JSONata expression that addresses this specific transformation
 - explanation: string — uitleg in het Nederlands
 - example: { input: string, output: string } — a concrete example
 
-For each mismatch where NO safe transformation can be determined:
-- mismatch: string — copy the label from the list above
+For each item where NO safe transformation can be determined:
+- mismatch: string — copy the label from the detected list, or a short label
 - warning: string — waarom er geen veilige transformatie gevonden kon worden
 - explanation: string — wat de beheerder in plaats daarvan moet doen`
 }
@@ -136,6 +138,7 @@ function parseAIContent(raw: string, mappingId: string): TransformationSuggestio
 export const useTransformationSuggestions = defineStore('transformationSuggestions', () => {
   const pendingRequests = ref<TransformationSuggestionRequested[]>([])
   const generatedSuggestions = ref<Record<string, TransformationSuggestion[]>>({})
+  const acceptedSuggestions = ref<Record<string, TransformationSuggestion[]>>({})
   const loadingMappingIds = ref<Set<string>>(new Set())
 
   function handleMappingCreated(mappingId: string, sourceField: SchemaField, targetField: SchemaField): void {
@@ -200,7 +203,9 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
   function acceptSuggestion(mappingId: string, expression: string, index: number): void {
     const mappingsStore = useMappings()
     mappingsStore.updateTransformation(mappingId, { type: 'expression', expression })
+
     const current = generatedSuggestions.value[mappingId] ?? []
+    const accepted = current[index]
     const remaining = current.filter((_, i) => i !== index)
     if (remaining.length > 0) {
       generatedSuggestions.value = { ...generatedSuggestions.value, [mappingId]: remaining }
@@ -209,13 +214,23 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
       delete next[mappingId]
       generatedSuggestions.value = next
     }
+
+    if (accepted) {
+      const prev = acceptedSuggestions.value[mappingId] ?? []
+      acceptedSuggestions.value = { ...acceptedSuggestions.value, [mappingId]: [...prev, accepted] }
+    }
+
     console.debug('[TransformationSuggestions] TransformationAccepted', { mappingId, expression: expression.slice(0, 50), index })
   }
 
   function clearSuggestion(mappingId: string): void {
-    const next = { ...generatedSuggestions.value }
-    delete next[mappingId]
-    generatedSuggestions.value = next
+    const nextGenerated = { ...generatedSuggestions.value }
+    delete nextGenerated[mappingId]
+    generatedSuggestions.value = nextGenerated
+
+    const nextAccepted = { ...acceptedSuggestions.value }
+    delete nextAccepted[mappingId]
+    acceptedSuggestions.value = nextAccepted
   }
 
   async function regenerateSuggestion(request: TransformationSuggestionRequested): Promise<void> {
@@ -224,5 +239,5 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
     await generateSuggestion(request)
   }
 
-  return { pendingRequests, generatedSuggestions, loadingMappingIds, handleMappingCreated, generateSuggestion, acceptSuggestion, clearSuggestion, regenerateSuggestion }
+  return { pendingRequests, generatedSuggestions, acceptedSuggestions, loadingMappingIds, handleMappingCreated, generateSuggestion, acceptSuggestion, clearSuggestion, regenerateSuggestion }
 })
