@@ -1,3 +1,5 @@
+import type { SchemaField } from '@/types/schema'
+
 export type SuggestionStatus = 'pending' | 'accepted' | 'rejected'
 
 export interface AiSuggestion {
@@ -7,4 +9,10 @@ export interface AiSuggestion {
   confidenceScore: number // 0.0 – 1.0
   reasoning?: string
   status: SuggestionStatus
+}
+
+export interface TransformationSuggestionRequested {
+  mappingId: string
+  sourceField: SchemaField
+  targetField: SchemaField
 }
