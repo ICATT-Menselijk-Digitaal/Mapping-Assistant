@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CouplingDetailPanel from '../CouplingDetailPanel.vue'
 import { useMappings } from '@/composables/useMappings'
+import { useTransformationSuggestions } from '@/composables/useTransformationSuggestions'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
 const sourceNodes: SchemaFieldNode[] = [
@@ -580,6 +581,78 @@ describe('CouplingDetailPanel — date format section', () => {
 
     expect(wrapper.find('[data-testid="date-format-form"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="date-format-summary"]').exists()).toBe(false)
+  })
+
+  // --- Transformation suggestion panel ---
+
+  // Scenario: Suggestion is shown after it is generated for the selected mapping
+  it('shows expression, explanation and example when suggestion is generated for incompatible mapping', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const suggestionsStore = useTransformationSuggestions()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
+    suggestionsStore.generatedSuggestions = {
+      [mapping.id]: {
+        mappingId: mapping.id,
+        expression: '$number($)',
+        explanation: 'Converts a string to a number',
+        example: { input: '"42"', output: '42' },
+      },
+    }
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="suggestion-expression"]').text()).toContain('$number($)')
+    expect(wrapper.find('[data-testid="suggestion-explanation"]').text()).toContain('Converts a string to a number')
+    expect(wrapper.find('[data-testid="suggestion-example"]').text()).toContain('"42"')
+  })
+
+  // Scenario: Loading state is shown while the suggestion is being generated
+  it('shows loading indicator when suggestion is pending for incompatible mapping', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const suggestionsStore = useTransformationSuggestions()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
+    suggestionsStore.loadingMappingIds = new Set([mapping.id])
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="suggestion-loading"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
+  })
+
+  // Scenario: Warning is shown when no expression could be generated
+  it('shows warning message when AI returned a warning instead of an expression', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const suggestionsStore = useTransformationSuggestions()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
+    suggestionsStore.generatedSuggestions = {
+      [mapping.id]: {
+        mappingId: mapping.id,
+        warning: 'Kan geen veilige transformatie bepalen',
+        explanation: 'Voer de transformatie handmatig in',
+      },
+    }
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-warning"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="suggestion-warning"]').text()).toContain('Kan geen veilige transformatie bepalen')
+    expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
+  })
+
+  // Scenario: No suggestion panel for compatible field types
+  it('does not show suggestion panel for a compatible string-to-string coupling', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-panel"]').exists()).toBe(false)
   })
 
   // Bug regression: date (non-req) → date (required) is constrained, must still show date format section
