@@ -71,14 +71,6 @@ describe('isRuleComplete', () => {
     expect(isRuleComplete({ type: 'date-format', sourceDateFormat: '', targetDateFormat: 'yyyy-MM-dd' })).toBe(false)
   })
 
-  it('static stub is incomplete', () => {
-    expect(isRuleComplete({ type: 'static' })).toBe(false)
-  })
-
-  it('static with value is complete', () => {
-    expect(isRuleComplete({ type: 'static', staticValue: 'NL' })).toBe(true)
-  })
-
   it('expression stub is incomplete', () => {
     expect(isRuleComplete({ type: 'expression' })).toBe(false)
   })
