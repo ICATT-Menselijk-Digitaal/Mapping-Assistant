@@ -16,3 +16,16 @@ export interface TransformationSuggestionRequested {
   sourceField: SchemaField
   targetField: SchemaField
 }
+
+export interface TransformationSuggestion {
+  mappingId: string
+  expression?: string
+  explanation: string
+  example?: { input: string; output: string }
+  warning?: string
+}
+
+export interface TransformationSuggestionGenerated {
+  mappingId: string
+  suggestion: TransformationSuggestion
+}
