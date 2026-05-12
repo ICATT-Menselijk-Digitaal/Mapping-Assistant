@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { FieldMapping, TransformationRule, TransformationType, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { getValidationStatus } from '@/utils/validationStatus'
+import { getRequiredRuleTypes } from '@/utils/transformationCompletion'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
@@ -19,9 +20,11 @@ export const useMappings = defineStore('mappings', () => {
   function createMapping({
     sourceFieldId,
     targetFieldId,
+    schemas,
   }: {
     sourceFieldId: string
     targetFieldId: string
+    schemas?: { source: Schema; target: Schema }
   }): FieldMapping | null {
     // Prevent exact duplicate pairs only
     const isDuplicate = mappings.value.some(
@@ -29,11 +32,23 @@ export const useMappings = defineStore('mappings', () => {
     )
     if (isDuplicate) return null
 
+    const transformations: TransformationRule[] = [{ type: 'direct' }]
+
+    if (schemas) {
+      const sourceField = schemas.source.byId(sourceFieldId)
+      const targetField = schemas.target.byId(targetFieldId)
+      if (sourceField && targetField) {
+        for (const type of getRequiredRuleTypes(sourceField, targetField)) {
+          if (type !== 'direct') transformations.push({ type })
+        }
+      }
+    }
+
     const mapping: FieldMapping = {
       id: crypto.randomUUID(),
       sourceFieldId,
       targetFieldId,
-      transformations: [{ type: 'direct' }],
+      transformations,
       status: 'confirmed',
     }
 

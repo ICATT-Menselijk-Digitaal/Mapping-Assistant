@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
+import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 
 export const CONFIDENCE_THRESHOLD = 0.70
@@ -137,14 +138,14 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     }
   }
 
-  function acceptSuggestion(id: string): void {
+  function acceptSuggestion(id: string, schemas?: { source: Schema; target: Schema }): void {
     const inHigh = suggestions.value.find((s) => s.id === id)
     const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
     const suggestion = inHigh ?? inLow
     if (!suggestion) return
 
     const mappingsStore = useMappings()
-    mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId })
+    mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId, schemas })
 
     if (inHigh) {
       suggestions.value = suggestions.value.filter((s) => s.id !== id)

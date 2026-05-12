@@ -48,6 +48,7 @@ function onTargetFieldClick(fieldId: string) {
   const mapping = mappingsStore.createMapping({
     sourceFieldId: selectedSourceId.value,
     targetFieldId: fieldId,
+    schemas: { source: props.sourceSchema, target: props.targetSchema },
   })
 
   if (mapping) {

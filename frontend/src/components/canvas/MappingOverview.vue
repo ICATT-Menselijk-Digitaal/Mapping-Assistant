@@ -5,6 +5,7 @@ import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
+import { isMappingComplete } from '@/utils/transformationCompletion'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -52,20 +53,25 @@ function typeOf(dataType: string) {
 }
 
 const rows = computed(() =>
-  store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => ({
-    id: m.id,
-    sourceFieldId: m.sourceFieldId,
-    targetFieldId: m.targetFieldId,
-    validationStatus: m.validationStatus,
-    source: props.sourceSchema.byId(m.sourceFieldId),
-    target: props.targetSchema.byId(m.targetFieldId),
-  })),
+  store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => {
+    const source = props.sourceSchema.byId(m.sourceFieldId)
+    const target = props.targetSchema.byId(m.targetFieldId)
+    return {
+      id: m.id,
+      sourceFieldId: m.sourceFieldId,
+      targetFieldId: m.targetFieldId,
+      validationStatus: m.validationStatus,
+      source,
+      target,
+      isComplete: source && target ? isMappingComplete(m, source, target) : false,
+    }
+  }),
 )
 
-const statusIconConfig: Record<string, { text: string; symbol: string }> = {
-  compatible:   { text: 'text-emerald-600', symbol: '✓' },
-  constrained:  { text: 'text-amber-600',   symbol: '!' },
-  incompatible: { text: 'text-red-500',     symbol: '✕' },
+function statusIcon(row: { validationStatus: string; isComplete: boolean }): { text: string; symbol: string } {
+  if (row.validationStatus === 'incompatible') return { text: 'text-red-500', symbol: '✕' }
+  if (row.validationStatus === 'constrained' && !row.isComplete) return { text: 'text-amber-600', symbol: '!' }
+  return { text: 'text-emerald-600', symbol: '✓' }
 }
 
 const filteredRows = computed(() => {
@@ -185,9 +191,9 @@ function cancelDelete() {
       >
         <!-- Validation status icon -->
         <span
-          :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIconConfig[row.validationStatus]?.text]"
+          :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIcon(row).text]"
           data-testid="validation-status"
-        >{{ statusIconConfig[row.validationStatus]?.symbol }}</span>
+        >{{ statusIcon(row).symbol }}</span>
 
         <!-- Source field -->
         <div class="flex-1 min-w-0 flex items-center gap-1.5">

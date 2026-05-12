@@ -7,6 +7,7 @@ import {
   getConstraintReasons,
   getIncompatibilityReason,
 } from '@/utils/validationStatus'
+import { isRuleComplete } from '@/utils/transformationCompletion'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -70,18 +71,12 @@ const incompatibilityReason = computed(() =>
 const truncationInput = ref(0)
 const isEditing = ref(false)
 
-const showTruncationForm = computed(() =>
-  validationStatus.value === 'constrained' &&
-  sourceField.value?.dataType === 'string' &&
-  targetField.value?.dataType === 'string' &&
-  targetField.value?.maxLength !== undefined,
-)
-
 const truncationRule = computed(
-  () => selectedMapping.value?.transformations.find((r) => r.type === 'truncate') ?? null,
+  () => selectedMapping.value?.transformations.find((r): r is { type: 'truncate'; truncationMaxLength?: number } => r.type === 'truncate') ?? null,
 )
 
-const hasTruncationRule = computed(() => truncationRule.value !== null)
+const showTruncationSection = computed(() => truncationRule.value !== null)
+const truncationComplete = computed(() => truncationRule.value !== null && isRuleComplete(truncationRule.value))
 
 const truncationError = computed(() => {
   const val = truncationInput.value
@@ -95,17 +90,12 @@ const truncationError = computed(() => {
 const defaultValueInput = ref('')
 const isEditingDefaultValue = ref(false)
 
-const showDefaultValueForm = computed(() =>
-  validationStatus.value === 'constrained' &&
-  !sourceField.value?.required &&
-  targetField.value?.required === true,
-)
-
 const defaultRule = computed(
-  () => selectedMapping.value?.transformations.find((r) => r.type === 'default') ?? null,
+  () => selectedMapping.value?.transformations.find((r): r is { type: 'default'; defaultValue?: string } => r.type === 'default') ?? null,
 )
 
-const hasDefaultValueRule = computed(() => defaultRule.value !== null)
+const showDefaultValueSection = computed(() => defaultRule.value !== null)
+const defaultValueComplete = computed(() => defaultRule.value !== null && isRuleComplete(defaultRule.value))
 
 const defaultValueInputType = computed(() =>
   targetField.value?.dataType === 'number' ? 'number' : 'text',
@@ -126,16 +116,12 @@ const sourceDateFormatInput = ref('yyyy-MM-dd')
 const targetDateFormatInput = ref('yyyy-MM-dd')
 const isEditingDateFormat = ref(false)
 
-const showDateFormatSection = computed(() =>
-  sourceField.value?.dataType === 'date' &&
-  targetField.value?.dataType === 'date',
-)
-
 const dateFormatRule = computed(
-  () => selectedMapping.value?.transformations.find((r) => r.type === 'date-format') ?? null,
+  () => selectedMapping.value?.transformations.find((r): r is { type: 'date-format'; sourceDateFormat?: string; targetDateFormat?: string } => r.type === 'date-format') ?? null,
 )
 
-const hasDateFormatRule = computed(() => dateFormatRule.value !== null)
+const showDateFormatSection = computed(() => dateFormatRule.value !== null)
+const dateFormatComplete = computed(() => dateFormatRule.value !== null && isRuleComplete(dateFormatRule.value))
 
 const dateFormatError = computed(() => {
   if (!sourceDateFormatInput.value.trim()) return 'Voer een bronformaat in'
@@ -144,11 +130,11 @@ const dateFormatError = computed(() => {
 })
 
 watch(selectedMapping, () => {
-  if (showTruncationForm.value) {
+  if (showTruncationSection.value) {
     truncationInput.value = truncationRule.value?.truncationMaxLength ?? (targetField.value?.maxLength ?? 0)
     isEditing.value = false
   }
-  if (showDefaultValueForm.value) {
+  if (showDefaultValueSection.value) {
     defaultValueInput.value = defaultRule.value?.defaultValue ?? ''
     isEditingDefaultValue.value = false
   }
@@ -188,18 +174,12 @@ function editDefaultValue() {
 }
 
 // Type casting section state
-const showCastSection = computed(() =>
-  validationStatus.value === 'constrained' &&
-  sourceField.value !== null &&
-  targetField.value !== null &&
-  sourceField.value!.dataType !== targetField.value!.dataType,
-)
-
 const castRule = computed(
-  () => selectedMapping.value?.transformations.find((r) => r.type === 'cast') ?? null,
+  () => selectedMapping.value?.transformations.find((r): r is { type: 'cast'; castFrom?: string; castTo?: string } => r.type === 'cast') ?? null,
 )
 
-const hasCastRule = computed(() => castRule.value !== null)
+const showCastSection = computed(() => castRule.value !== null)
+const castComplete = computed(() => castRule.value !== null && isRuleComplete(castRule.value))
 
 function saveCast() {
   if (!selectedMapping.value || !sourceField.value || !targetField.value) return
@@ -212,7 +192,7 @@ function saveCast() {
 
 function removeCast() {
   if (!selectedMapping.value) return
-  store.removeTransformation(selectedMapping.value.id, 'cast')
+  store.updateTransformation(selectedMapping.value.id, { type: 'cast' })
 }
 
 function saveDateFormat() {
@@ -307,10 +287,16 @@ function editDateFormat() {
         <span v-for="(reason, i) in constraintReasons" :key="i" class="block font-medium">⚠ {{ reason }}</span>
 
         <!-- Truncation form (string→string with target maxLength) -->
-        <template v-if="showTruncationForm">
+        <template v-if="showTruncationSection">
+          <span
+            :class="truncationComplete ? 'text-emerald-600' : 'text-amber-600'"
+            class="mt-1 text-[10px] font-medium block"
+            data-testid="truncation-status"
+          >{{ truncationComplete ? '✓ ingesteld' : '● vereist' }}</span>
+
           <!-- Read-only summary -->
           <div
-            v-if="hasTruncationRule && !isEditing"
+            v-if="truncationComplete && !isEditing"
             class="mt-2 flex items-center justify-between gap-2"
             data-testid="truncation-summary"
           >
@@ -368,10 +354,16 @@ function editDateFormat() {
         </template>
 
         <!-- Default value form (non-required source → required target) -->
-        <template v-if="showDefaultValueForm">
+        <template v-if="showDefaultValueSection">
+          <span
+            :class="defaultValueComplete ? 'text-emerald-600' : 'text-amber-600'"
+            class="mt-1 text-[10px] font-medium block"
+            data-testid="default-value-status"
+          >{{ defaultValueComplete ? '✓ ingesteld' : '● vereist' }}</span>
+
           <!-- Read-only summary -->
           <div
-            v-if="hasDefaultValueRule && !isEditingDefaultValue"
+            v-if="defaultValueComplete && !isEditingDefaultValue"
             class="mt-2 flex items-center justify-between gap-2"
             data-testid="default-value-summary"
           >
@@ -421,33 +413,6 @@ function editDateFormat() {
           </form>
         </template>
 
-        <!-- Type casting section (different-type constrained couplings) -->
-        <template v-if="showCastSection">
-          <!-- Read-only summary -->
-          <div
-            v-if="hasCastRule"
-            class="mt-2 flex items-center justify-between gap-2"
-            data-testid="cast-summary"
-          >
-            <span class="text-sm text-amber-700">⇄ {{ castRule?.castFrom }} wordt omgezet naar {{ castRule?.castTo }}</span>
-            <button
-              class="text-xs text-amber-700 underline shrink-0"
-              data-testid="cast-edit"
-              @click="removeCast"
-            >Wijzigen</button>
-          </div>
-
-          <!-- Confirm section -->
-          <div v-else class="mt-2" data-testid="cast-section">
-            <p class="text-sm text-amber-700 mb-1">{{ sourceField.dataType }} wordt omgezet naar {{ targetField.dataType }}</p>
-            <button
-              type="button"
-              class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700"
-              data-testid="cast-confirm"
-              @click="saveCast"
-            >Bevestig type casting</button>
-          </div>
-        </template>
       </template>
 
       <!-- Incompatible -->
@@ -457,14 +422,57 @@ function editDateFormat() {
       </template>
     </div>
 
+    <!-- Type casting section (any validation status where types differ) -->
+    <div
+      v-if="showCastSection"
+      class="mx-4 mb-4 rounded p-3 text-sm bg-amber-50 text-amber-700"
+    >
+      <span
+        :class="castComplete ? 'text-emerald-600' : 'text-amber-600'"
+        class="text-[10px] font-medium block mb-1"
+        data-testid="cast-status"
+      >{{ castComplete ? '✓ ingesteld' : '● vereist' }}</span>
+
+      <!-- Read-only summary -->
+      <div
+        v-if="castComplete"
+        class="flex items-center justify-between gap-2"
+        data-testid="cast-summary"
+      >
+        <span class="text-sm text-amber-700">⇄ {{ castRule?.castFrom }} wordt omgezet naar {{ castRule?.castTo }}</span>
+        <button
+          class="text-xs text-amber-700 underline shrink-0"
+          data-testid="cast-edit"
+          @click="removeCast"
+        >Wijzigen</button>
+      </div>
+
+      <!-- Confirm section -->
+      <div v-else data-testid="cast-section">
+        <p class="text-sm text-amber-700 mb-1">{{ sourceField.dataType }} wordt omgezet naar {{ targetField.dataType }}</p>
+        <button
+          type="button"
+          class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700"
+          data-testid="cast-confirm"
+          @click="saveCast"
+        >Bevestig type casting</button>
+      </div>
+    </div>
+
     <!-- Date format section (date → date couplings, any validation status) -->
     <div
       v-if="showDateFormatSection"
       class="mx-4 mb-4 rounded p-3 text-sm bg-emerald-50 text-emerald-700"
     >
+      <span
+        :class="dateFormatComplete ? 'text-emerald-600' : 'text-emerald-500'"
+        class="text-[10px] font-medium block mb-1"
+        data-testid="date-format-status"
+      >{{ dateFormatComplete ? '✓ ingesteld' : '● vereist' }}</span>
+
       <!-- Read-only summary -->
       <div
-        v-if="hasDateFormatRule && !isEditingDateFormat"
+        v-if="dateFormatComplete && !isEditingDateFormat"
         class="flex items-center justify-between gap-2"
         data-testid="date-format-summary"
       >

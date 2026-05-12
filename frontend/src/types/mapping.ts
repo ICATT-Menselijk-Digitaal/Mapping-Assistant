@@ -2,17 +2,14 @@ export type TransformationType = 'direct' | 'static' | 'expression' | 'truncate'
 
 export type MappingStatus = 'confirmed' | 'rejected'
 
-export interface TransformationRule {
-  type: TransformationType
-  staticValue?: string // used when type === 'static'
-  expression?: string  // used when type === 'expression' (e.g. JSONata)
-  truncationMaxLength?: number // used when type === 'truncate'
-  defaultValue?: string // used when type === 'default'
-  castFrom?: string // used when type === 'cast'
-  castTo?: string // used when type === 'cast'
-  sourceDateFormat?: string // used when type === 'date-format'
-  targetDateFormat?: string // used when type === 'date-format'
-}
+export type TransformationRule =
+  | { type: 'direct' }
+  | { type: 'static';       staticValue?: string }
+  | { type: 'expression';   expression?: string }
+  | { type: 'truncate';     truncationMaxLength?: number }
+  | { type: 'default';      defaultValue?: string }
+  | { type: 'cast';         castFrom?: string; castTo?: string }
+  | { type: 'date-format';  sourceDateFormat?: string; targetDateFormat?: string }
 
 export interface FieldMapping {
   id: string

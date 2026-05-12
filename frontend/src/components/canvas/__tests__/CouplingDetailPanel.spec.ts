@@ -74,7 +74,7 @@ describe('CouplingDetailPanel', () => {
     const wrapper = mountPanel()
     const store = useMappings()
     // src-2: string maxLength 100, tgt-2: string maxLength 50 → constrained
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })
     store.selectMapping(mapping!.id)
     await wrapper.vm.$nextTick()
 
@@ -88,7 +88,7 @@ describe('CouplingDetailPanel', () => {
     const wrapper = mountPanel()
     const store = useMappings()
     // src-1: string no maxLength, tgt-2: string maxLength 50 → constrained
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })
     store.selectMapping(mapping!.id)
     await wrapper.vm.$nextTick()
 
@@ -140,7 +140,7 @@ describe('CouplingDetailPanel — truncation form', () => {
   it('pre-fills truncation input with target maxLength', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -153,7 +153,7 @@ describe('CouplingDetailPanel — truncation form', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
 
     // Mount AFTER selection is already set — watch must be immediate to catch this
@@ -171,7 +171,7 @@ describe('CouplingDetailPanel — truncation form', () => {
   it('saves truncation rule and shows read-only summary after clicking Opslaan', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -188,14 +188,16 @@ describe('CouplingDetailPanel — truncation form', () => {
     const saved = store.mappings.find((m) => m.id === mapping.id)!
     const rule = saved.transformations.find((r) => r.type === 'truncate')
     expect(rule?.type).toBe('truncate')
-    expect(rule?.truncationMaxLength).toBe(40)
+    if (rule?.type === 'truncate') {
+      expect(rule.truncationMaxLength).toBe(40)
+    }
   })
 
   // Scenario: Entering a truncation length exceeding the target maxLength shows an error
   it('shows inline error and disables Opslaan when value exceeds target maxLength', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -211,7 +213,7 @@ describe('CouplingDetailPanel — truncation form', () => {
   it('re-opens form pre-filled with saved value when Wijzigen is clicked', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -244,7 +246,7 @@ describe('CouplingDetailPanel — truncation form', () => {
   it('shows error for input below 4', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -261,7 +263,7 @@ describe('CouplingDetailPanel — default value form', () => {
   it('shows default value form when source is not required and target is required', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -275,7 +277,7 @@ describe('CouplingDetailPanel — default value form', () => {
   it('saves default value rule and shows read-only summary after clicking Opslaan', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -291,14 +293,16 @@ describe('CouplingDetailPanel — default value form', () => {
     const saved = store.mappings.find((m) => m.id === mapping.id)!
     const rule = saved.transformations.find((r) => r.type === 'default')
     expect(rule?.type).toBe('default')
-    expect(rule?.defaultValue).toBe('onbekend')
+    if (rule?.type === 'default') {
+      expect(rule.defaultValue).toBe('onbekend')
+    }
   })
 
   // Scenario: Saving without entering a value is blocked
   it('shows inline error and does not save when value is empty', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -309,14 +313,18 @@ describe('CouplingDetailPanel — default value form', () => {
     expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="default-value-summary"]').exists()).toBe(false)
     const saved = store.mappings.find((m) => m.id === mapping.id)!
-    expect(saved.transformations.find((r) => r.type === 'default')).toBeUndefined()
+    const rule = saved.transformations.find((r) => r.type === 'default')
+    expect(rule).toBeDefined()
+    if (rule?.type === 'default') {
+      expect(rule.defaultValue).toBeUndefined()
+    }
   })
 
   // Scenario: Non-numeric value for a number target field shows an error
   it('shows error and disables Opslaan when non-numeric value entered for number target', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-req-num' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-req-num', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -331,7 +339,7 @@ describe('CouplingDetailPanel — default value form', () => {
   it('re-opens form pre-filled with saved value when Wijzigen is clicked', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -351,7 +359,7 @@ describe('CouplingDetailPanel — default value form', () => {
   it('saves a valid number value when Vue provides the value as a number type', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-req-num' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-req-num', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -368,7 +376,9 @@ describe('CouplingDetailPanel — default value form', () => {
 
     const saved = store.mappings.find((m) => m.id === mapping.id)!
     const rule = saved.transformations.find((r) => r.type === 'default')
-    expect(rule?.defaultValue).toBe('42')
+    if (rule?.type === 'default') {
+      expect(rule.defaultValue).toBe('42')
+    }
   })
 
   // Scenario: Form not shown when source is required
@@ -390,7 +400,7 @@ describe('CouplingDetailPanel — type casting section', () => {
     const wrapper = mountPanel()
     const store = useMappings()
     // src-opt-num: number, non-required; tgt-1: string, non-required → constrained + different types
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -404,7 +414,7 @@ describe('CouplingDetailPanel — type casting section', () => {
   it('saves cast rule and shows read-only summary after clicking Bevestig type casting', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -417,15 +427,17 @@ describe('CouplingDetailPanel — type casting section', () => {
 
     const saved = store.mappings.find((m) => m.id === mapping.id)!
     const rule = saved.transformations.find((r) => r.type === 'cast')
-    expect(rule?.castFrom).toBe('number')
-    expect(rule?.castTo).toBe('string')
+    if (rule?.type === 'cast') {
+      expect(rule.castFrom).toBe('number')
+      expect(rule.castTo).toBe('string')
+    }
   })
 
   // Scenario: Administrator removes the type cast rule
   it('resets to direct and shows confirm button again when Wijzigen is clicked', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -440,7 +452,11 @@ describe('CouplingDetailPanel — type casting section', () => {
     expect(wrapper.find('[data-testid="cast-confirm"]').exists()).toBe(true)
 
     const saved = store.mappings.find((m) => m.id === mapping.id)!
-    expect(saved.transformations.find((r) => r.type === 'cast')).toBeUndefined()
+    const rule = saved.transformations.find((r) => r.type === 'cast')
+    expect(rule?.type).toBe('cast')
+    if (rule?.type === 'cast') {
+      expect(rule.castFrom).toBeUndefined()
+    }
   })
 
   // Scenario: Type casting section not shown for same-type couplings
@@ -475,7 +491,7 @@ describe('CouplingDetailPanel — date format section', () => {
   it('shows date format section with inputs for source and target format for a date-to-date coupling', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -488,7 +504,7 @@ describe('CouplingDetailPanel — date format section', () => {
   it('saves date format rule and shows read-only summary after clicking Opslaan', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -505,15 +521,17 @@ describe('CouplingDetailPanel — date format section', () => {
 
     const saved = store.mappings.find((m) => m.id === mapping.id)!
     const rule = saved.transformations.find((r) => r.type === 'date-format')
-    expect(rule?.sourceDateFormat).toBe('dd-MM-yyyy')
-    expect(rule?.targetDateFormat).toBe('yyyy-MM-dd')
+    if (rule?.type === 'date-format') {
+      expect(rule.sourceDateFormat).toBe('dd-MM-yyyy')
+      expect(rule.targetDateFormat).toBe('yyyy-MM-dd')
+    }
   })
 
   // Scenario: Saving with an empty format field is blocked
   it('shows inline error and does not save when source format is empty', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -524,14 +542,18 @@ describe('CouplingDetailPanel — date format section', () => {
     expect(wrapper.find('[data-testid="date-format-error"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="date-format-summary"]').exists()).toBe(false)
     const saved = store.mappings.find((m) => m.id === mapping.id)!
-    expect(saved.transformations.find((r) => r.type === 'date-format')).toBeUndefined()
+    const rule = saved.transformations.find((r) => r.type === 'date-format')
+    expect(rule).toBeDefined()
+    if (rule?.type === 'date-format') {
+      expect(rule.sourceDateFormat).toBeUndefined()
+    }
   })
 
   // Scenario: Administrator can edit a saved date format rule
   it('re-opens form pre-filled with saved formats when Wijzigen is clicked', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -564,7 +586,7 @@ describe('CouplingDetailPanel — date format section', () => {
   it('shows date format section alongside default value form for date (non-req) → date (required)', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-date-req', targetFieldId: 'tgt-date-req' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-date-req', targetFieldId: 'tgt-date-req', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
@@ -576,7 +598,7 @@ describe('CouplingDetailPanel — date format section', () => {
   it('pre-fills both format inputs with yyyy-MM-dd for a date-to-date coupling', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date' })!
+    const mapping = store.createMapping({ sourceFieldId: 'src-date', targetFieldId: 'tgt-date', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 

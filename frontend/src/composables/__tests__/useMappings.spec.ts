@@ -108,7 +108,9 @@ describe('useMappings', () => {
 
     const truncate = store.mappings[0]!.transformations.find((r) => r.type === 'truncate')
     expect(truncate?.type).toBe('truncate')
-    expect(truncate?.truncationMaxLength).toBe(40)
+    if (truncate?.type === 'truncate') {
+      expect(truncate.truncationMaxLength).toBe(40)
+    }
   })
 
   it('is a no-op when mapping id does not exist', () => {
@@ -123,13 +125,14 @@ describe('useMappings', () => {
 
   // Scenario: Mappings overview reflects computed statuses reactively
   describe('mappingsWithStatus', () => {
-    function makeSchema(fields: { id: string; dataType: string }[]) {
+    function makeSchema(fields: { id: string; dataType: string; maxLength?: number; required?: boolean }[]) {
       const nodes: SchemaFieldNode[] = fields.map((f) => ({
         id: f.id,
         name: f.id,
         path: f.id,
         dataType: f.dataType as SchemaFieldNode['dataType'],
-        required: false,
+        required: f.required ?? false,
+        maxLength: f.maxLength,
         children: [],
       }))
       return buildSchema('test', nodes)
@@ -166,6 +169,82 @@ describe('useMappings', () => {
 
       const result = store.mappingsWithStatus(sourceSchema, targetSchema)
       expect(result[0]!.validationStatus).toBe('constrained')
+    })
+  })
+
+  describe('createMapping with schemas', () => {
+    function makeSchema(fields: { id: string; dataType: string; maxLength?: number; required?: boolean }[]) {
+      const nodes: SchemaFieldNode[] = fields.map((f) => ({
+        id: f.id,
+        name: f.id,
+        path: f.id,
+        dataType: f.dataType as SchemaFieldNode['dataType'],
+        required: f.required ?? false,
+        maxLength: f.maxLength,
+        children: [],
+      }))
+      return buildSchema('test', nodes)
+    }
+
+    it('stubs truncate rule for string source exceeding target maxLength', () => {
+      const store = useMappings()
+      const source = makeSchema([{ id: 'src', dataType: 'string', maxLength: 100 }])
+      const target = makeSchema([{ id: 'tgt', dataType: 'string', maxLength: 50 }])
+
+      store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt', schemas: { source, target } })
+
+      const m = store.mappings[0]!
+      expect(m.transformations.some((r) => r.type === 'truncate')).toBe(true)
+      expect(m.transformations.some((r) => r.type === 'direct')).toBe(true)
+    })
+
+    it('stubs default rule when source is optional and target is required', () => {
+      const store = useMappings()
+      const source = makeSchema([{ id: 'src', dataType: 'string', required: false }])
+      const target = makeSchema([{ id: 'tgt', dataType: 'string', required: true }])
+
+      store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt', schemas: { source, target } })
+
+      expect(store.mappings[0]!.transformations.some((r) => r.type === 'default')).toBe(true)
+    })
+
+    it('stubs both truncate and default for optional long string → required short string', () => {
+      const store = useMappings()
+      const source = makeSchema([{ id: 'src', dataType: 'string', maxLength: 100, required: false }])
+      const target = makeSchema([{ id: 'tgt', dataType: 'string', maxLength: 50, required: true }])
+
+      store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt', schemas: { source, target } })
+
+      const types = store.mappings[0]!.transformations.map((r) => r.type)
+      expect(types).toContain('truncate')
+      expect(types).toContain('default')
+    })
+
+    it('stubs date-format rule for date-to-date mapping', () => {
+      const store = useMappings()
+      const source = makeSchema([{ id: 'src', dataType: 'date' }])
+      const target = makeSchema([{ id: 'tgt', dataType: 'date' }])
+
+      store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt', schemas: { source, target } })
+
+      expect(store.mappings[0]!.transformations.some((r) => r.type === 'date-format')).toBe(true)
+    })
+
+    it('falls back to only direct when schemas not provided', () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })
+
+      expect(store.mappings[0]!.transformations).toEqual([{ type: 'direct' }])
+    })
+
+    it('falls back to only direct when field ids not found in schema', () => {
+      const store = useMappings()
+      const source = makeSchema([])
+      const target = makeSchema([])
+
+      store.createMapping({ sourceFieldId: 'missing', targetFieldId: 'also-missing', schemas: { source, target } })
+
+      expect(store.mappings[0]!.transformations).toEqual([{ type: 'direct' }])
     })
   })
 

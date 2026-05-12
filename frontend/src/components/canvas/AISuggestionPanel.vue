@@ -162,7 +162,7 @@ async function generate() {
         :source-name="s.sourceName"
         :target-name="s.targetName"
         :confidence-score="s.confidenceScore"
-        @accept="aiStore.acceptSuggestion($event)"
+        @accept="aiStore.acceptSuggestion($event, { source: sourceSchema, target: targetSchema })"
         @reject="aiStore.rejectSuggestion($event)"
       />
 
@@ -184,7 +184,7 @@ async function generate() {
             :source-name="s.sourceName"
             :target-name="s.targetName"
             :confidence-score="s.confidenceScore"
-            @accept="aiStore.acceptSuggestion($event)"
+            @accept="aiStore.acceptSuggestion($event, { source: sourceSchema, target: targetSchema })"
             @reject="aiStore.rejectSuggestion($event)"
           />
         </div>

@@ -147,7 +147,7 @@ describe('MappingOverview', () => {
   })
 
   // Scenario: Constrained coupling shows an orange exclamation mark
-  it('shows an orange exclamation for a constrained coupling', async () => {
+  it('shows an orange exclamation for a constrained coupling with incomplete rules', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // string maxLength 200 → maxLength 10 = constrained
@@ -156,6 +156,20 @@ describe('MappingOverview', () => {
     const icon = wrapper.find('[data-testid="validation-status"]')
     expect(icon.exists()).toBe(true)
     expect(icon.classes()).toContain('text-amber-600')
+  })
+
+  // Scenario: Constrained coupling with all rules configured shows a checkmark
+  it('shows a green checkmark for a constrained coupling once all rules are configured', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short', schemas: { source: sourceSchema, target: targetSchema } })!
+    store.updateTransformation(mapping.id, { type: 'truncate', truncationMaxLength: 8 })
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-emerald-600')
+    expect(icon.text()).toBe('✓')
   })
 
   // Scenario: Incompatible coupling shows a red cross
