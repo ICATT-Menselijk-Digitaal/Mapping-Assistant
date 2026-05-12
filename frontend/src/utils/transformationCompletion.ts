@@ -5,7 +5,6 @@ import { getValidationStatus } from '@/utils/validationStatus'
 export function isRuleComplete(rule: TransformationRule): boolean {
   switch (rule.type) {
     case 'direct':      return true
-    case 'static':      return typeof rule.staticValue === 'string' && rule.staticValue.trim() !== ''
     case 'expression':  return typeof rule.expression === 'string' && rule.expression.trim() !== ''
     case 'truncate':    return typeof rule.truncationMaxLength === 'number' && rule.truncationMaxLength >= 4
     case 'default':     return typeof rule.defaultValue === 'string' && rule.defaultValue.trim() !== ''

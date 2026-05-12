@@ -1,10 +1,9 @@
-export type TransformationType = 'direct' | 'static' | 'expression' | 'truncate' | 'default' | 'cast' | 'date-format'
+export type TransformationType = 'direct' | 'expression' | 'truncate' | 'default' | 'cast' | 'date-format'
 
 export type MappingStatus = 'confirmed' | 'rejected'
 
 export type TransformationRule =
   | { type: 'direct' }
-  | { type: 'static';       staticValue?: string }
   | { type: 'expression';   expression?: string }
   | { type: 'truncate';     truncationMaxLength?: number }
   | { type: 'default';      defaultValue?: string }
