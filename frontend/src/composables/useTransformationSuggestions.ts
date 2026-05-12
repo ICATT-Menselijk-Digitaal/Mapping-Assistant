@@ -9,19 +9,19 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
 function buildPrompt(source: SchemaField, target: SchemaField): string {
-  return `You are a JSONata transformation assistant. Given source and target field metadata, return a JSON object.
+  return `You are a JSONata transformation assistant. Given source and target field metadata, return a JSON object. All string values in the JSON must be written in Dutch.
 
-Source field: name="${source.name}", path="${source.path}", dataType="${source.dataType}"${source.description ? `, description="${source.description}"` : ''}
-Target field: name="${target.name}", path="${target.path}", dataType="${target.dataType}"${target.description ? `, description="${target.description}"` : ''}
+Source field: name="${source.name}", path="${source.path}", dataType="${source.dataType}", required=${source.required}${source.maxLength !== undefined ? `, maxLength=${source.maxLength}` : ''}${source.description ? `, description="${source.description}"` : ''}
+Target field: name="${target.name}", path="${target.path}", dataType="${target.dataType}", required=${target.required}${target.maxLength !== undefined ? `, maxLength=${target.maxLength}` : ''}${target.description ? `, description="${target.description}"` : ''}
 
 Return ONLY a JSON object (no markdown) with:
 - expression: string — a JSONata expression that transforms the source value to match the target type/format
-- explanation: string — plain English explanation
+- explanation: string — uitleg in het Nederlands
 - example: { input: string, output: string } — a concrete example
 
 If no safe transformation can be determined, return:
-- warning: string — why no safe transformation could be found
-- explanation: string — what the administrator should do instead`
+- warning: string — waarom er geen veilige transformatie gevonden kon worden
+- explanation: string — wat de beheerder in plaats daarvan moet doen`
 }
 
 function parseAIContent(raw: string, mappingId: string): TransformationSuggestion | null {
@@ -92,6 +92,9 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
 
     loadingMappingIds.value = new Set(loadingMappingIds.value).add(mappingId)
 
+    const prompt = buildPrompt(sourceField, targetField)
+    console.log('[AI Suggestie] Prompt naar AI:\n' + prompt)
+
     try {
       const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
@@ -99,7 +102,7 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
         body: JSON.stringify({
           model: CLAUDE_MODEL,
           max_tokens: 512,
-          messages: [{ role: 'user', content: buildPrompt(sourceField, targetField) }],
+          messages: [{ role: 'user', content: prompt }],
         }),
       })
 

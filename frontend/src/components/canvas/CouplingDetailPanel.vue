@@ -9,7 +9,6 @@ import {
   getIncompatibilityReason,
 } from '@/utils/validationStatus'
 import { isRuleComplete } from '@/utils/transformationCompletion'
-import { isTypeCompatible } from '@/utils/typeCompatibility'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -216,9 +215,7 @@ function editDateFormat() {
 
 // Transformation suggestion panel
 const showSuggestionPanel = computed(() =>
-  sourceField.value && targetField.value
-    ? !isTypeCompatible(sourceField.value, targetField.value)
-    : false,
+  validationStatus.value !== null && validationStatus.value !== 'compatible',
 )
 
 const suggestion = computed(() =>
@@ -270,17 +267,27 @@ function onRegenerate() {
   })
 }
 
+async function onGenerateSuggestion() {
+  if (!selectedMapping.value || !sourceField.value || !targetField.value) return
+  await suggestionsStore.generateSuggestion({
+    mappingId: selectedMapping.value.id,
+    sourceField: sourceField.value,
+    targetField: targetField.value,
+  })
+  console.log('[AI Suggestie]', suggestionsStore.generatedSuggestions[selectedMapping.value.id])
+}
+
 watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpression.value = '' })
 </script>
 
 <template>
   <div
     v-if="selectedMapping && sourceField && targetField"
-    class="flex flex-col bg-white border border-slate-200 rounded-sm overflow-hidden"
+    class="flex flex-col bg-white border border-slate-200 rounded-sm overflow-hidden max-h-full"
     data-testid="coupling-detail-panel"
   >
     <!-- Header -->
-    <div class="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+    <div class="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
       <span class="text-sm font-medium text-slate-700">Koppelingsdetail</span>
       <button
         class="text-slate-400 hover:text-slate-600 transition-colors leading-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-400 rounded"
@@ -289,6 +296,9 @@ watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpressi
         @click="store.selectMapping(null)"
       >×</button>
     </div>
+
+    <!-- Scrollable body -->
+    <div class="overflow-y-auto min-h-0 flex-1">
 
     <!-- Source field -->
     <div class="px-4 pt-4 pb-2" data-testid="detail-source-field">
@@ -612,7 +622,11 @@ watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpressi
 
       <!-- Idle: not yet generated, not loading -->
       <div v-else data-testid="suggestion-idle">
-        <span class="text-violet-400 text-xs">Geen suggestie beschikbaar.</span>
+        <button
+          type="button"
+          class="bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700"
+          @click="onGenerateSuggestion"
+        >Genereer AI-suggestie</button>
       </div>
     </div>
 
@@ -683,5 +697,7 @@ watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpressi
         >Opslaan</button>
       </form>
     </div>
+
+    </div><!-- end scrollable body -->
   </div>
 </template>

@@ -42,7 +42,7 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
         />
       </div>
     </div>
-    <div class="w-80 shrink-0">
+    <div class="w-80 shrink-0 h-full overflow-hidden">
       <CouplingDetailPanel
         v-if="mappingsStore.selectedMappingId !== null"
         :source-schema="sourceSchema"
