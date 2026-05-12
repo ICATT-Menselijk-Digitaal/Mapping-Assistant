@@ -9,6 +9,7 @@ import {
   getIncompatibilityReason,
 } from '@/utils/validationStatus'
 import { isRuleComplete } from '@/utils/transformationCompletion'
+import { isTypeCompatible } from '@/utils/typeCompatibility'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -218,7 +219,7 @@ const showSuggestionPanel = computed(() =>
   validationStatus.value !== null && validationStatus.value !== 'compatible',
 )
 
-const suggestion = computed(() =>
+const suggestions = computed(() =>
   selectedMapping.value
     ? suggestionsStore.generatedSuggestions[selectedMapping.value.id] ?? null
     : null,
@@ -234,27 +235,28 @@ const acceptedExpression = computed(() =>
   selectedMapping.value?.transformations.find((r): r is { type: 'expression'; expression?: string } => r.type === 'expression')?.expression ?? null,
 )
 
-const isEditingSuggestion = ref(false)
+const editingSuggestionIndex = ref<number | null>(null)
 const editedExpression = ref('')
 
-function onAccept() {
-  if (!selectedMapping.value || !suggestion.value?.expression) return
-  suggestionsStore.acceptSuggestion(selectedMapping.value.id, suggestion.value.expression)
+function onAccept(index: number, expression: string) {
+  if (!selectedMapping.value) return
+  suggestionsStore.acceptSuggestion(selectedMapping.value.id, expression, index)
 }
 
-function onStartEdit() {
-  editedExpression.value = suggestion.value?.expression ?? acceptedExpression.value ?? ''
-  isEditingSuggestion.value = true
+function onStartEdit(index: number, expression: string) {
+  editedExpression.value = expression
+  editingSuggestionIndex.value = index
 }
 
-function onSaveEdit() {
+function onSaveEdit(index: number) {
   if (!selectedMapping.value || !editedExpression.value.trim()) return
-  suggestionsStore.acceptSuggestion(selectedMapping.value.id, editedExpression.value.trim())
-  isEditingSuggestion.value = false
+  suggestionsStore.acceptSuggestion(selectedMapping.value.id, editedExpression.value.trim(), index)
+  editingSuggestionIndex.value = null
+  editedExpression.value = ''
 }
 
 function onCancelEdit() {
-  isEditingSuggestion.value = false
+  editingSuggestionIndex.value = null
   editedExpression.value = ''
 }
 
@@ -274,10 +276,9 @@ async function onGenerateSuggestion() {
     sourceField: sourceField.value,
     targetField: targetField.value,
   })
-  console.log('[AI Suggestie]', suggestionsStore.generatedSuggestions[selectedMapping.value.id])
 }
 
-watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpression.value = '' })
+watch(selectedMapping, () => { editingSuggestionIndex.value = null; editedExpression.value = '' })
 </script>
 
 <template>
@@ -530,7 +531,7 @@ watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpressi
       </div>
     </div>
 
-    <!-- AI Transformation Suggestion panel (incompatible types only) -->
+    <!-- AI Transformation Suggestion panel -->
     <div
       v-if="showSuggestionPanel"
       class="mx-4 mb-4 rounded p-3 text-sm bg-violet-50 text-violet-700 border border-violet-100"
@@ -539,89 +540,100 @@ watch(selectedMapping, () => { isEditingSuggestion.value = false; editedExpressi
       <p class="text-[11px] uppercase tracking-wide text-violet-400 mb-2">AI-suggestie</p>
 
       <!-- Accepted: expression stored in mapping -->
-      <div v-if="acceptedExpression && !isEditingSuggestion" data-testid="suggestion-accepted">
+      <div v-if="acceptedExpression && editingSuggestionIndex === null" data-testid="suggestion-accepted">
         <pre class="bg-violet-100 rounded px-2 py-1 font-mono text-xs text-violet-800 overflow-x-auto" data-testid="suggestion-accepted-expression">{{ acceptedExpression }}</pre>
         <p class="mt-1 text-[11px] text-emerald-600">✓ Overgenomen</p>
       </div>
 
-      <!-- Inline edit mode -->
-      <div v-else-if="isEditingSuggestion" data-testid="suggestion-edit-form">
-        <textarea
-          v-model="editedExpression"
-          rows="2"
-          class="w-full font-mono text-xs border border-violet-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400 resize-none"
-          aria-label="JSONata expressie"
-          data-testid="suggestion-edit-input"
-        />
-        <div class="flex gap-2 mt-1">
-          <button
-            type="button"
-            :disabled="!editedExpression.trim()"
-            class="bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            data-testid="suggestion-edit-save"
-            @click="onSaveEdit"
-          >Opslaan</button>
-          <button
-            type="button"
-            class="text-violet-600 text-xs underline"
-            data-testid="suggestion-edit-cancel"
-            @click="onCancelEdit"
-          >Annuleren</button>
-        </div>
-      </div>
-
-      <!-- Loading -->
-      <div v-else-if="isSuggestionLoading && !suggestion" data-testid="suggestion-loading">
+      <!-- Loading (no cards yet) -->
+      <div v-if="isSuggestionLoading && !suggestions?.length" data-testid="suggestion-loading">
         <span class="text-violet-500 text-xs">Suggestie wordt gegenereerd…</span>
       </div>
 
-      <!-- Warning: AI could not determine transformation -->
-      <div v-else-if="suggestion?.warning" data-testid="suggestion-warning">
-        <p class="font-medium text-amber-600">⚠ {{ suggestion.warning }}</p>
-        <p v-if="suggestion.explanation" class="mt-1 text-xs text-slate-500">{{ suggestion.explanation }}</p>
-        <button
-          type="button"
-          :disabled="isSuggestionLoading"
-          class="mt-2 bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          data-testid="suggestion-regenerate"
-          @click="onRegenerate"
-        >Opnieuw genereren</button>
-      </div>
+      <!-- Suggestion cards (one per mismatch) -->
+      <template v-if="suggestions?.length">
+        <div
+          v-for="(s, i) in suggestions"
+          :key="i"
+          :class="{ 'mt-3 pt-3 border-t border-violet-100': i > 0 }"
+        >
+          <p v-if="s.mismatch" class="text-[10px] text-violet-400 font-medium mb-1.5 truncate">{{ s.mismatch }}</p>
 
-      <!-- Suggestion with expression -->
-      <div v-else-if="suggestion?.expression" data-testid="suggestion-content">
-        <pre class="bg-violet-100 rounded px-2 py-1 font-mono text-xs text-violet-800 overflow-x-auto mb-2" data-testid="suggestion-expression">{{ suggestion.expression }}</pre>
-        <p class="text-xs text-slate-600 mb-2" data-testid="suggestion-explanation">{{ suggestion.explanation }}</p>
-        <div v-if="suggestion.example" class="flex gap-3 text-xs mb-2" data-testid="suggestion-example">
-          <span class="text-slate-400">In: <code class="font-mono">{{ suggestion.example.input }}</code></span>
-          <span class="text-slate-400">→</span>
-          <span class="text-slate-400">Uit: <code class="font-mono">{{ suggestion.example.output }}</code></span>
-        </div>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700"
-            data-testid="suggestion-accept"
-            @click="onAccept"
-          >Overnemen</button>
-          <button
-            type="button"
-            class="border border-violet-300 text-violet-700 rounded px-3 py-1 text-xs hover:bg-violet-100"
-            data-testid="suggestion-edit"
-            @click="onStartEdit"
-          >Bewerken</button>
-          <button
-            type="button"
-            :disabled="isSuggestionLoading"
-            class="text-violet-500 text-xs underline disabled:opacity-50"
-            data-testid="suggestion-regenerate"
-            @click="onRegenerate"
-          >Opnieuw genereren</button>
-        </div>
-      </div>
+          <!-- Inline edit mode for this card -->
+          <div v-if="editingSuggestionIndex === i" data-testid="suggestion-edit-form">
+            <textarea
+              v-model="editedExpression"
+              rows="2"
+              class="w-full font-mono text-xs border border-violet-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400 resize-none"
+              aria-label="JSONata expressie"
+              data-testid="suggestion-edit-input"
+            />
+            <div class="flex gap-2 mt-1">
+              <button
+                type="button"
+                :disabled="!editedExpression.trim()"
+                class="bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="suggestion-edit-save"
+                @click="onSaveEdit(i)"
+              >Opslaan</button>
+              <button
+                type="button"
+                class="text-violet-600 text-xs underline"
+                data-testid="suggestion-edit-cancel"
+                @click="onCancelEdit"
+              >Annuleren</button>
+            </div>
+          </div>
 
-      <!-- Idle: not yet generated, not loading -->
-      <div v-else data-testid="suggestion-idle">
+          <!-- Warning card -->
+          <div v-else-if="s.warning" data-testid="suggestion-warning">
+            <p class="font-medium text-amber-600">⚠ {{ s.warning }}</p>
+            <p v-if="s.explanation" class="mt-1 text-xs text-slate-500">{{ s.explanation }}</p>
+            <button
+              type="button"
+              :disabled="isSuggestionLoading"
+              class="mt-2 bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="suggestion-regenerate"
+              @click="onRegenerate"
+            >Opnieuw genereren</button>
+          </div>
+
+          <!-- Expression card -->
+          <div v-else-if="s.expression" data-testid="suggestion-content">
+            <pre class="bg-violet-100 rounded px-2 py-1 font-mono text-xs text-violet-800 overflow-x-auto mb-2" data-testid="suggestion-expression">{{ s.expression }}</pre>
+            <p class="text-xs text-slate-600 mb-2" data-testid="suggestion-explanation">{{ s.explanation }}</p>
+            <div v-if="s.example" class="flex gap-3 text-xs mb-2" data-testid="suggestion-example">
+              <span class="text-slate-400">In: <code class="font-mono">{{ s.example.input }}</code></span>
+              <span class="text-slate-400">→</span>
+              <span class="text-slate-400">Uit: <code class="font-mono">{{ s.example.output }}</code></span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700"
+                data-testid="suggestion-accept"
+                @click="onAccept(i, s.expression)"
+              >Overnemen</button>
+              <button
+                type="button"
+                class="border border-violet-300 text-violet-700 rounded px-3 py-1 text-xs hover:bg-violet-100"
+                data-testid="suggestion-edit"
+                @click="onStartEdit(i, s.expression)"
+              >Bewerken</button>
+              <button
+                type="button"
+                :disabled="isSuggestionLoading"
+                class="text-violet-500 text-xs underline disabled:opacity-50"
+                data-testid="suggestion-regenerate"
+                @click="onRegenerate"
+              >Opnieuw genereren</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Idle: no suggestions and not loading -->
+      <div v-else-if="!isSuggestionLoading" data-testid="suggestion-idle">
         <button
           type="button"
           class="bg-violet-600 text-white rounded px-3 py-1 text-xs hover:bg-violet-700"

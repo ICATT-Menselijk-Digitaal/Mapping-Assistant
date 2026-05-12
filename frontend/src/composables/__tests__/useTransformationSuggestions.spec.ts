@@ -38,7 +38,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     await store.generateSuggestion({ mappingId: 'm1', sourceField: srcString, targetField: tgtNumber })
 
     expect(store.generatedSuggestions['m1']).toHaveLength(1)
-    expect(store.generatedSuggestions['m1'][0]).toMatchObject({
+    expect(store.generatedSuggestions['m1']![0]).toMatchObject({
       mappingId: 'm1',
       expression: '$number($)',
       explanation: expect.any(String),
@@ -70,8 +70,8 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     await store.generateSuggestion({ mappingId: 'm1', sourceField: srcOpt, targetField: tgtReqBounded })
 
     expect(store.generatedSuggestions['m1']).toHaveLength(2)
-    expect(store.generatedSuggestions['m1'][0].mismatch).toContain('required')
-    expect(store.generatedSuggestions['m1'][1].mismatch).toContain('length')
+    expect(store.generatedSuggestions['m1']![0]!.mismatch).toContain('required')
+    expect(store.generatedSuggestions['m1']![1]!.mismatch).toContain('length')
   })
 
   it('stores warning suggestion when AI cannot determine transformation', async () => {
@@ -85,10 +85,10 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     const store = useTransformationSuggestions()
     await store.generateSuggestion({ mappingId: 'm2', sourceField: srcString, targetField: tgtNumber })
 
-    const suggestions = store.generatedSuggestions['m2']
+    const suggestions = store.generatedSuggestions['m2']!
     expect(suggestions).toHaveLength(1)
-    expect(suggestions[0].warning).toBeDefined()
-    expect(suggestions[0].expression).toBeUndefined()
+    expect(suggestions[0]!.warning).toBeDefined()
+    expect(suggestions[0]!.expression).toBeUndefined()
   })
 
   it('wraps a plain object response in an array for backward compatibility', async () => {
@@ -103,7 +103,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     await store.generateSuggestion({ mappingId: 'm3', sourceField: srcString, targetField: tgtNumber })
 
     expect(store.generatedSuggestions['m3']).toHaveLength(1)
-    expect(store.generatedSuggestions['m3'][0].expression).toBe('$number($)')
+    expect(store.generatedSuggestions['m3']![0]!.expression).toBe('$number($)')
   })
 
   it('does not store suggestions when AI service is unreachable', async () => {
@@ -123,7 +123,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     const store = useTransformationSuggestions()
     await store.generateSuggestion({ mappingId: 'm5', sourceField: srcString, targetField: tgtNumber })
 
-    expect(store.generatedSuggestions['m5'][0]?.expression).toBe('$string($)')
+    expect(store.generatedSuggestions['m5']![0]?.expression).toBe('$string($)')
   })
 
   it('skips malformed items and returns the valid ones', async () => {
@@ -171,7 +171,7 @@ describe('useTransformationSuggestions — acceptSuggestion', () => {
     store.acceptSuggestion('m1', '$exists($) ? $ : ""', 0)
 
     expect(store.generatedSuggestions['m1']).toHaveLength(1)
-    expect(store.generatedSuggestions['m1'][0].mismatch).toBe('length')
+    expect(store.generatedSuggestions['m1']![0]!.mismatch).toBe('length')
   })
 
   it('removes the mapping entry entirely when last suggestion is accepted', async () => {

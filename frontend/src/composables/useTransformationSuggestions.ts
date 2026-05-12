@@ -78,12 +78,12 @@ function parseItem(item: Record<string, unknown>, mappingId: string): Transforma
       mismatch,
       expression: item.expression,
       explanation: typeof item.explanation === 'string' ? item.explanation : '',
-      example:
-        item.example &&
-        typeof (item.example as Record<string, unknown>).input === 'string' &&
-        typeof (item.example as Record<string, unknown>).output === 'string'
-          ? { input: (item.example as Record<string, string>).input, output: (item.example as Record<string, string>).output }
-          : undefined,
+      example: (() => {
+        if (!item.example) return undefined
+        const ex = item.example as Record<string, unknown>
+        if (typeof ex.input !== 'string' || typeof ex.output !== 'string') return undefined
+        return { input: ex.input, output: ex.output }
+      })(),
     }
   }
 

@@ -585,19 +585,14 @@ describe('CouplingDetailPanel — date format section', () => {
 
   // --- Transformation suggestion panel ---
 
-  // Scenario: Suggestion is shown after it is generated for the selected mapping
+  // Scenario: Single-mismatch mapping shows one suggestion card
   it('shows expression, explanation and example when suggestion is generated for incompatible mapping', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
     const suggestionsStore = useTransformationSuggestions()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
     suggestionsStore.generatedSuggestions = {
-      [mapping.id]: {
-        mappingId: mapping.id,
-        expression: '$number($)',
-        explanation: 'Converts a string to a number',
-        example: { input: '"42"', output: '42' },
-      },
+      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'Converts a string to a number', example: { input: '"42"', output: '42' } }],
     }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
@@ -606,6 +601,25 @@ describe('CouplingDetailPanel — date format section', () => {
     expect(wrapper.find('[data-testid="suggestion-expression"]').text()).toContain('$number($)')
     expect(wrapper.find('[data-testid="suggestion-explanation"]').text()).toContain('Converts a string to a number')
     expect(wrapper.find('[data-testid="suggestion-example"]').text()).toContain('"42"')
+  })
+
+  // Scenario: Two independent mismatches produce two suggestion cards
+  it('shows two suggestion cards when AI returns two mismatches', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const suggestionsStore = useTransformationSuggestions()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req', schemas: { source: sourceSchema, target: targetSchema } })!
+    suggestionsStore.generatedSuggestions = {
+      [mapping.id]: [
+        { mappingId: mapping.id, mismatch: 'required mismatch', expression: '$exists($) ? $ : ""', explanation: 'Standaard lege string', example: { input: 'null', output: '""' } },
+        { mappingId: mapping.id, mismatch: 'length constraint', expression: '$substring($, 0, 47) & "..."', explanation: 'Afkappen', example: { input: '"lang"', output: '"la..."' } },
+      ],
+    }
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    const cards = wrapper.findAll('[data-testid="suggestion-content"]')
+    expect(cards).toHaveLength(2)
   })
 
   // Scenario: Loading state is shown while the suggestion is being generated
@@ -623,18 +637,14 @@ describe('CouplingDetailPanel — date format section', () => {
     expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
   })
 
-  // Scenario: Warning is shown when no expression could be generated
-  it('shows warning message when AI returned a warning instead of an expression', async () => {
+  // Scenario: AI cannot determine transformation for one mismatch — shows warning card
+  it('shows warning card when AI returned a warning instead of an expression', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
     const suggestionsStore = useTransformationSuggestions()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
     suggestionsStore.generatedSuggestions = {
-      [mapping.id]: {
-        mappingId: mapping.id,
-        warning: 'Kan geen veilige transformatie bepalen',
-        explanation: 'Voer de transformatie handmatig in',
-      },
+      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', warning: 'Kan geen veilige transformatie bepalen', explanation: 'Voer de transformatie handmatig in' }],
     }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
@@ -664,7 +674,7 @@ describe('CouplingDetailPanel — date format section', () => {
     const suggestionsStore = useTransformationSuggestions()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
     suggestionsStore.generatedSuggestions = {
-      [mapping.id]: { mappingId: mapping.id, expression: '$number($)', explanation: 'cast to number', example: { input: '"1"', output: '1' } },
+      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast to number', example: { input: '"1"', output: '1' } }],
     }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
@@ -680,6 +690,30 @@ describe('CouplingDetailPanel — date format section', () => {
     expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
   })
 
+  // Scenario: Administrator accepts one of two suggestions — other card remains
+  it('removes accepted card but keeps the remaining suggestion card', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const suggestionsStore = useTransformationSuggestions()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
+    suggestionsStore.generatedSuggestions = {
+      [mapping.id]: [
+        { mappingId: mapping.id, mismatch: 'required', expression: '$exists($) ? $ : ""', explanation: 'standaard' },
+        { mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'getal', example: { input: '"1"', output: '1' } },
+      ],
+    }
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    // Accept first card
+    await wrapper.findAll('[data-testid="suggestion-accept"]')[0]!.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="suggestion-content"]')).toHaveLength(1)
+    expect(suggestionsStore.generatedSuggestions[mapping.id]).toHaveLength(1)
+    expect(suggestionsStore.generatedSuggestions[mapping.id]![0]!.mismatch).toBe('type')
+  })
+
   // Scenario: Administrator edits the suggestion inline and saves
   it('shows edit form and stores edited expression when Edit and Save are clicked', async () => {
     const wrapper = mountPanel()
@@ -687,7 +721,7 @@ describe('CouplingDetailPanel — date format section', () => {
     const suggestionsStore = useTransformationSuggestions()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
     suggestionsStore.generatedSuggestions = {
-      [mapping.id]: { mappingId: mapping.id, expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } },
+      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } }],
     }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
@@ -708,14 +742,14 @@ describe('CouplingDetailPanel — date format section', () => {
     expect(wrapper.find('[data-testid="suggestion-accepted"]').exists()).toBe(true)
   })
 
-  // Scenario: Administrator regenerates the suggestion
-  it('clears suggestion and shows loading when Regenerate is clicked', async () => {
+  // Scenario: Administrator regenerates the suggestions
+  it('clears suggestions and shows loading when Regenerate is clicked', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
     const suggestionsStore = useTransformationSuggestions()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
     suggestionsStore.generatedSuggestions = {
-      [mapping.id]: { mappingId: mapping.id, expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } },
+      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } }],
     }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
@@ -742,7 +776,7 @@ describe('CouplingDetailPanel — date format section', () => {
     const suggestionsStore = useTransformationSuggestions()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
     suggestionsStore.generatedSuggestions = {
-      [mapping.id]: { mappingId: mapping.id, expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } },
+      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } }],
     }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
