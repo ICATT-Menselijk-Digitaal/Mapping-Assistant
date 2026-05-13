@@ -1,90 +1,65 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import jsonata from 'jsonata'
 import type { SchemaField } from '@/types'
-import type { TransformationSuggestion, TransformationSuggestionRequested } from '@/types/ai'
-import type { TransformationType } from '@/types/mapping'
+import type { MismatchType, TransformationRule } from '@/types/mapping'
+import { useMappings } from '@/composables/useMappings'
+import { getMismatchTypes } from '@/utils/transformationCompletion'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
-function describeMismatch(ruleType: TransformationType, source: SchemaField, target: SchemaField): string {
-  switch (ruleType) {
-    case 'truncate':
-      if (source.maxLength === undefined) {
-        return `length constraint: source has no max length, target is limited to ${target.maxLength} characters`
-      }
-      return `length constraint: source max length (${source.maxLength}) exceeds target max length (${target.maxLength})`
-    case 'default':
-      return 'required mismatch: source is optional, target is required'
-    case 'cast':
-      return `type mismatch: source is ${source.dataType}, target is ${target.dataType}`
-    case 'date-format':
-      return 'date format conversion: both fields are of type date, but the format may differ between systems'
-    default:
-      return `transformation needed: ${source.dataType} to ${target.dataType}`
-  }
+const MISMATCH_LABELS: Record<MismatchType, string> = {
+  truncate:      'Maximale lengte overschreden',
+  default:       'Bronveld is optioneel, doelveld is verplicht',
+  cast:          'Type conversie vereist',
+  'date-format': 'Datumformaat conversie',
 }
 
-function buildPrompt(source: SchemaField, target: SchemaField, ruleType: TransformationType): string {
-  const mismatch = describeMismatch(ruleType, source, target)
-
-  return `You are a JSONata transformation assistant. Given source and target field metadata and a mismatch, return a JSON array. All string values must be written in Dutch.
-
-Source field: name="${source.name}", path="${source.path}", dataType="${source.dataType}", required=${source.required}${source.maxLength !== undefined ? `, maxLength=${source.maxLength}` : ''}${source.description ? `, description="${source.description}"` : ''}
-Target field: name="${target.name}", path="${target.path}", dataType="${target.dataType}", required=${target.required}${target.maxLength !== undefined ? `, maxLength=${target.maxLength}` : ''}${target.description ? `, description="${target.description}"` : ''}
-
-Detected mismatch:
-1. ${mismatch}
-
-Return ONLY a JSON array (no markdown). Include one object for the detected mismatch, then append any additional suggestions you think are valuable based on the field names, types, or descriptions.
-
-For length constraint mismatches, common practice is to truncate the value and append "..." to signal the text was cut. You may suggest an alternative if it better fits the field semantics.
-
-For each item where a safe transformation CAN be determined:
-- mismatch: string — copy the label from the detected mismatch, or a short label describing your own suggestion
-- expression: string — a JSONata expression that addresses this specific transformation
-- explanation: string — uitleg in het Nederlands
-- example: { input: string, output: string } — a concrete example (keep both values under 60 characters)
-
-For each item where NO safe transformation can be determined:
-- mismatch: string — copy the label from the detected mismatch, or a short label
-- warning: string — waarom er geen veilige transformatie gevonden kon worden
-- explanation: string — wat de beheerder in plaats daarvan moet doen`
+function fieldDesc(f: SchemaField): string {
+  const parts: string[] = [f.dataType]
+  if (f.maxLength !== undefined) parts.push(`max ${f.maxLength}`)
+  if (f.required) parts.push('vereist')
+  return `${f.name} (${parts.join(', ')})`
 }
 
-function parseItem(item: Record<string, unknown>, mappingId: string): TransformationSuggestion | null {
-  const mismatch = typeof item.mismatch === 'string' ? item.mismatch : ''
+function buildPrompt(
+  sourceField: SchemaField,
+  targetField: SchemaField,
+  existingRules: TransformationRule[],
+): string {
+  const mismatches = getMismatchTypes(sourceField, targetField)
+  const mismatchLines = mismatches.length > 0
+    ? mismatches.map((m) => `- ${MISMATCH_LABELS[m]}`).join('\n')
+    : '- geen gedetecteerde problemen'
+  const ruleLines = existingRules.length > 0
+    ? existingRules.map((r) => `- ${r.expression}`).join('\n')
+    : '- geen'
 
-  if (typeof item.warning === 'string') {
-    return {
-      mappingId,
-      mismatch,
-      warning: item.warning,
-      explanation: typeof item.explanation === 'string' ? item.explanation : '',
-    }
-  }
+  return `Je bent een JSONata-expert. Genereer één JSONata-expressie die alle onderstaande problemen oplost.
 
-  if (typeof item.expression === 'string') {
-    return {
-      mappingId,
-      mismatch,
-      expression: item.expression,
-      explanation: typeof item.explanation === 'string' ? item.explanation : '',
-      example: (() => {
-        if (!item.example) return undefined
-        const ex = item.example as Record<string, unknown>
-        if (typeof ex.input !== 'string' || typeof ex.output !== 'string') return undefined
-        return { input: ex.input, output: ex.output }
-      })(),
-    }
-  }
+Bronveld: ${fieldDesc(sourceField)}
+Doelveld: ${fieldDesc(targetField)}
 
-  return null
+Gedetecteerde problemen:
+${mismatchLines}
+
+Bestaande regels (niet opnieuw voorstellen):
+${ruleLines}
+
+Geef je antwoord als JSON-object:
+{ "expression": "...", "label": "...", "explanation": "max 50 tekens", "example": { "input": "max 50 tekens", "output": "max 50 tekens" } }`
 }
 
-function parseAIContent(raw: string, mappingId: string): TransformationSuggestion[] {
+interface ParsedSuggestion {
+  expression: string
+  label: string
+  explanation: string
+  example: { input: string; output: string }
+}
+
+function parseResponse(raw: string): ParsedSuggestion | null {
   let text = raw.trim()
-  // Strip markdown fences if present
   if (text.startsWith('```')) {
     const firstNewline = text.indexOf('\n')
     const lastFence = text.lastIndexOf('```')
@@ -92,45 +67,42 @@ function parseAIContent(raw: string, mappingId: string): TransformationSuggestio
       text = text.slice(firstNewline + 1, lastFence).trim()
     }
   }
-
-  // Try parsing as array first
-  const arrayStart = text.indexOf('[')
-  const arrayEnd = text.lastIndexOf(']')
-  if (arrayStart !== -1 && arrayEnd !== -1 && arrayStart < arrayEnd) {
-    try {
-      const parsed = JSON.parse(text.slice(arrayStart, arrayEnd + 1)) as unknown[]
-      if (Array.isArray(parsed)) {
-        const results = parsed
-          .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
-          .map((item) => parseItem(item, mappingId))
-          .filter((s): s is TransformationSuggestion => s !== null)
-        if (results.length > 0) return results
-      }
-    } catch {
-      // fall through to object parsing
-    }
-  }
-
-  // Backward compat: try parsing as single object and wrap in array
-  const objectStart = text.indexOf('{')
-  const objectEnd = text.lastIndexOf('}')
-  if (objectStart === -1 || objectEnd === -1) return []
-
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start === -1 || end === -1) return null
   try {
-    const parsed = JSON.parse(text.slice(objectStart, objectEnd + 1)) as Record<string, unknown>
-    const item = parseItem(parsed, mappingId)
-    return item ? [item] : []
+    const obj = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>
+    if (typeof obj.expression !== 'string') return null
+    const example = (() => {
+      if (!obj.example || typeof obj.example !== 'object') return { input: '', output: '' }
+      const ex = obj.example as Record<string, unknown>
+      return {
+        input: typeof ex.input === 'string' ? ex.input : '',
+        output: typeof ex.output === 'string' ? ex.output : '',
+      }
+    })()
+    return {
+      expression: obj.expression,
+      label: typeof obj.label === 'string' ? obj.label : obj.expression,
+      explanation: typeof obj.explanation === 'string' ? obj.explanation : '',
+      example,
+    }
   } catch {
-    return []
+    return null
   }
 }
 
 export const useTransformationSuggestions = defineStore('transformationSuggestions', () => {
-  const generatedSuggestions = ref<Record<string, TransformationSuggestion[]>>({})
-  const loadingMappingIds = ref<Set<string>>(new Set())
+  const loadingMappingIds = ref(new Set<string>())
+  const isLoading = computed(() => loadingMappingIds.value.size > 0)
+  const mappingsStore = useMappings()
 
-  async function generateSuggestion(request: TransformationSuggestionRequested): Promise<void> {
-    const { mappingId, sourceField, targetField } = request
+  async function generateSuggestion(
+    mappingId: string,
+    sourceField: SchemaField,
+    targetField: SchemaField,
+    existingRules: TransformationRule[],
+  ): Promise<void> {
     const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined
     if (!apiKey) {
       console.warn('[TransformationSuggestions] OpenRouter API key not configured')
@@ -139,8 +111,8 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
 
     loadingMappingIds.value = new Set(loadingMappingIds.value).add(mappingId)
 
-    const prompt = buildPrompt(sourceField, targetField, request.ruleType)
-    console.log('[AI Suggestie] Prompt naar AI:\n' + prompt)
+    const prompt = buildPrompt(sourceField, targetField, existingRules)
+    console.log(`[AI Suggestie] Prompt:\n${prompt}`)
 
     try {
       const response = await fetch(OPENROUTER_API_URL, {
@@ -148,7 +120,7 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
         headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
-          max_tokens: 1024,
+          max_tokens: 300,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
@@ -157,19 +129,26 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
 
       const data = (await response.json()) as { choices: Array<{ message: { content: string } }> }
       const raw = data.choices[0]?.message?.content ?? ''
-      const suggestions = parseAIContent(raw, mappingId)
+      console.log(`[AI Suggestie] Response:\n${raw}`)
 
-      if (suggestions.length > 0) {
-        generatedSuggestions.value = { ...generatedSuggestions.value, [mappingId]: suggestions }
-        console.debug('[TransformationSuggestions] TransformationSuggestionGenerated', {
-          mappingId,
-          count: suggestions.length,
-        })
-      } else {
-        console.warn('[TransformationSuggestions] Could not parse AI response', raw)
+      const parsed = parseResponse(raw)
+      if (!parsed) return
+
+      try {
+        jsonata(parsed.expression)
+      } catch {
+        return
       }
-    } catch (e) {
-      console.warn('[TransformationSuggestions] AI service unreachable or response unparseable', e)
+
+      mappingsStore.addTransformationRule(mappingId, {
+        expression: parsed.expression,
+        label: parsed.label,
+        source: 'ai',
+        aiExplanation: parsed.explanation || undefined,
+        aiExample: parsed.example.input || parsed.example.output ? parsed.example : undefined,
+      })
+    } catch {
+      // silently discard all errors
     } finally {
       const next = new Set(loadingMappingIds.value)
       next.delete(mappingId)
@@ -177,11 +156,5 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
     }
   }
 
-  function clearSuggestion(mappingId: string): void {
-    const next = { ...generatedSuggestions.value }
-    delete next[mappingId]
-    generatedSuggestions.value = next
-  }
-
-  return { generatedSuggestions, loadingMappingIds, generateSuggestion, clearSuggestion }
+  return { isLoading, loadingMappingIds, generateSuggestion }
 })
