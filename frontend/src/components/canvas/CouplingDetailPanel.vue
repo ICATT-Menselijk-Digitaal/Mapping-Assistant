@@ -221,17 +221,20 @@ async function requestAiSuggestion() {
         <TruncationDialog
           v-if="activeDialog === 'truncate'"
           :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
           :target-max-length="targetField.maxLength"
           @close="closeDialog"
         />
         <DefaultValueDialog
           v-else-if="activeDialog === 'default'"
           :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
           @close="closeDialog"
         />
         <CastConfirmDialog
           v-else-if="activeDialog === 'cast'"
           :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
           :from-type="sourceField.dataType"
           :to-type="targetField.dataType"
           @close="closeDialog"
@@ -239,6 +242,7 @@ async function requestAiSuggestion() {
         <DateFormatDialog
           v-else-if="activeDialog === 'date-format'"
           :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
           @close="closeDialog"
         />
       </div>

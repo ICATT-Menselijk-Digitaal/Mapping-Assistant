@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useMappings } from '@/composables/useMappings'
 import { buildDefaultExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
 
-const props = defineProps<{ mappingId: string }>()
+const props = defineProps<{ mappingId: string; sourcePath: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const store = useMappings()
@@ -15,7 +15,7 @@ function save() {
   const v = value.value
   const params = { type: 'default' as const, value: v }
   store.addTransformationRule(props.mappingId, {
-    expression: buildDefaultExpression(v),
+    expression: buildDefaultExpression(v, props.sourcePath),
     label: buildSolutionLabel(params),
     source: 'mismatch-solution',
     resolvesMismatch: 'default',
@@ -42,7 +42,7 @@ function cancel() {
       />
     </label>
     <div v-if="canSave" class="text-xs text-gray-500 font-mono break-all">
-      {{ buildDefaultExpression(value) }}
+      {{ buildDefaultExpression(value, sourcePath) }}
     </div>
     <div class="flex gap-2 justify-end">
       <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">Annuleren</button>

@@ -37,7 +37,9 @@ function buildPrompt(
     ? existingRules.map((r) => `- ${r.expression}`).join('\n')
     : '- geen'
 
-  return `Je bent een JSONata-expert. Genereer één JSONata-expressie die alle onderstaande problemen oplost.
+  return `Je bent een JSONata-expert. Analyseer de twee velden hieronder en genereer één JSONata-expressie die:
+1. Alle onderstaande gedetecteerde problemen oplost.
+2. Eventuele extra problemen oplost die jij zelf signaleert op basis van de veldnamen, types en beschrijvingen.
 
 Bronveld: ${fieldDesc(sourceField)}
 Doelveld: ${fieldDesc(targetField)}
@@ -48,8 +50,8 @@ ${mismatchLines}
 Bestaande regels (niet opnieuw voorstellen):
 ${ruleLines}
 
-Geef je antwoord als JSON-object:
-{ "expression": "...", "label": "...", "explanation": "Leg in max 50 tekens uit waarom deze expressie gekozen is en wat hij doet." }`
+Geef je antwoord als ENKEL een geldig JSON-object. Geen markdown, geen uitleg buiten het object, geen tekst ervoor of erna:
+{ "expression": "...", "label": "...", "explanation": "Leg in max 100 tekens uit waarom deze expressie gekozen is en wat hij doet." }`
 }
 
 interface ParsedSuggestion {

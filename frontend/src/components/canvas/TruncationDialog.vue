@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useMappings } from '@/composables/useMappings'
 import { buildTruncationExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
 
-const props = defineProps<{ mappingId: string; targetMaxLength?: number }>()
+const props = defineProps<{ mappingId: string; sourcePath: string; targetMaxLength?: number }>()
 const emit = defineEmits<{ close: [] }>()
 
 const store = useMappings()
@@ -15,7 +15,7 @@ function save() {
   const ml = maxLength.value
   const params = { type: 'truncate' as const, maxLength: ml }
   store.addTransformationRule(props.mappingId, {
-    expression: buildTruncationExpression(ml),
+    expression: buildTruncationExpression(ml, props.sourcePath),
     label: buildSolutionLabel(params),
     source: 'mismatch-solution',
     resolvesMismatch: 'truncate',
@@ -43,7 +43,7 @@ function cancel() {
       />
     </label>
     <div v-if="maxLength && maxLength > 0" class="text-xs text-gray-500 font-mono break-all">
-      {{ buildTruncationExpression(maxLength) }}
+      {{ buildTruncationExpression(maxLength, sourcePath) }}
     </div>
     <div class="flex gap-2 justify-end">
       <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">Annuleren</button>

@@ -1,21 +1,21 @@
 import type { SolutionParams } from '@/types/mapping'
 
-export function buildTruncationExpression(maxLength: number): string {
-  return `$length($) > ${maxLength} ? $substring($, 0, ${maxLength - 3}) & "..." : $`
+export function buildTruncationExpression(maxLength: number, sourcePath: string): string {
+  return `$length(${sourcePath}) > ${maxLength} ? $substring(${sourcePath}, 0, ${maxLength - 3}) & "..." : ${sourcePath}`
 }
 
-export function buildDefaultExpression(value: string): string {
+export function buildDefaultExpression(value: string, sourcePath: string): string {
   const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-  return `$ != null ? $ : "${escaped}"`
+  return `${sourcePath} != null ? ${sourcePath} : "${escaped}"`
 }
 
-export function buildCastExpression(from: string, to: string): string {
-  if (from === 'number' && to === 'string') return '$string($)'
+export function buildCastExpression(from: string, to: string, sourcePath: string): string {
+  if (from === 'number' && to === 'string') return `$string(${sourcePath})`
   throw new Error(`Unsupported cast: ${from} → ${to}`)
 }
 
-export function buildDateFormatExpression(srcFmt: string, tgtFmt: string): string {
-  return `$fromMillis($toMillis($, "${srcFmt}"), "${tgtFmt}")`
+export function buildDateFormatExpression(srcFmt: string, tgtFmt: string, sourcePath: string): string {
+  return `$fromMillis($toMillis(${sourcePath}, "${srcFmt}"), "${tgtFmt}")`
 }
 
 export function buildSolutionLabel(params: SolutionParams): string {

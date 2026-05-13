@@ -9,42 +9,42 @@ import {
 
 describe('buildTruncationExpression', () => {
   it('generates a clip-with-ellipsis expression for maxLength 50', () => {
-    expect(buildTruncationExpression(50)).toBe(
-      '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
+    expect(buildTruncationExpression(50, 'zaak.omschrijving')).toBe(
+      '$length(zaak.omschrijving) > 50 ? $substring(zaak.omschrijving, 0, 47) & "..." : zaak.omschrijving',
     )
   })
 
   it('generates correct expression for maxLength 10', () => {
-    expect(buildTruncationExpression(10)).toBe(
-      '$length($) > 10 ? $substring($, 0, 7) & "..." : $',
+    expect(buildTruncationExpression(10, 'zaak.omschrijving')).toBe(
+      '$length(zaak.omschrijving) > 10 ? $substring(zaak.omschrijving, 0, 7) & "..." : zaak.omschrijving',
     )
   })
 })
 
 describe('buildDefaultExpression', () => {
   it('generates null-coalescing expression with the given value', () => {
-    expect(buildDefaultExpression('onbekend')).toBe('$ != null ? $ : "onbekend"')
+    expect(buildDefaultExpression('onbekend', 'zaak.status')).toBe('zaak.status != null ? zaak.status : "onbekend"')
   })
 
   it('escapes double quotes in the default value', () => {
-    const expr = buildDefaultExpression('say "hello"')
-    expect(expr).toBe('$ != null ? $ : "say \\"hello\\""')
+    const expr = buildDefaultExpression('say "hello"', 'zaak.status')
+    expect(expr).toBe('zaak.status != null ? zaak.status : "say \\"hello\\""')
   })
 })
 
 describe('buildCastExpression', () => {
-  it('generates $string($) for number → string', () => {
-    expect(buildCastExpression('number', 'string')).toBe('$string($)')
+  it('generates $string(path) for number → string', () => {
+    expect(buildCastExpression('number', 'string', 'zaak.id')).toBe('$string(zaak.id)')
   })
 
   it('throws for unsupported cast pairs', () => {
-    expect(() => buildCastExpression('boolean', 'date')).toThrow()
+    expect(() => buildCastExpression('boolean', 'date', 'zaak.id')).toThrow()
   })
 })
 
 describe('buildDateFormatExpression', () => {
   it('generates a JSONata date conversion expression', () => {
-    const expr = buildDateFormatExpression('YYYY-MM-DD', 'DD/MM/YYYY')
+    const expr = buildDateFormatExpression('YYYY-MM-DD', 'DD/MM/YYYY', 'zaak.datum')
     expect(expr).toBeTruthy()
     expect(typeof expr).toBe('string')
     expect(expr.length).toBeGreaterThan(0)

@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useMappings } from '@/composables/useMappings'
 import { buildDateFormatExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
 
-const props = defineProps<{ mappingId: string }>()
+const props = defineProps<{ mappingId: string; sourcePath: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const store = useMappings()
@@ -17,7 +17,7 @@ function save() {
   const tf = targetFormat.value.trim()
   const params = { type: 'date-format' as const, sourceFormat: sf, targetFormat: tf }
   store.addTransformationRule(props.mappingId, {
-    expression: buildDateFormatExpression(sf, tf),
+    expression: buildDateFormatExpression(sf, tf, props.sourcePath),
     label: buildSolutionLabel(params),
     source: 'mismatch-solution',
     resolvesMismatch: 'date-format',

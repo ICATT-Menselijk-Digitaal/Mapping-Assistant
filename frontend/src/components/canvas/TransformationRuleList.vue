@@ -106,8 +106,8 @@ function saveExpression() {
             {{ sourceLabel(rule.source) }}
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 font-mono truncate mt-0.5">{{ rule.expression }}</p>
-        <p v-if="rule.aiExplanation" class="text-[11px] text-violet-600 italic mt-0.5 truncate">{{ rule.aiExplanation }}</p>
+        <p class="text-[11px] text-slate-400 font-mono break-all mt-0.5">{{ rule.expression }}</p>
+        <p v-if="rule.aiExplanation" class="text-[11px] text-violet-600 italic mt-0.5 break-words">{{ rule.aiExplanation }}</p>
       </div>
       <button
         class="text-slate-400 hover:text-red-500 shrink-0 text-xs mt-0.5"

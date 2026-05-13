@@ -41,6 +41,6 @@ describe('TransformationRule', () => {
     }
 
     expect(rule.source).toBe('ai')
-    expect(rule.aiExplanation!.length).toBeLessThanOrEqual(50)
+    expect(rule.aiExplanation!.length).toBeLessThanOrEqual(100)
   })
 })

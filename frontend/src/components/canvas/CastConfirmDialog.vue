@@ -2,7 +2,7 @@
 import { useMappings } from '@/composables/useMappings'
 import { buildCastExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
 
-const props = defineProps<{ mappingId: string; fromType: string; toType: string }>()
+const props = defineProps<{ mappingId: string; sourcePath: string; fromType: string; toType: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const store = useMappings()
@@ -10,7 +10,7 @@ const store = useMappings()
 function save() {
   const params = { type: 'cast' as const, from: props.fromType, to: props.toType }
   store.addTransformationRule(props.mappingId, {
-    expression: buildCastExpression(props.fromType, props.toType),
+    expression: buildCastExpression(props.fromType, props.toType, props.sourcePath),
     label: buildSolutionLabel(params),
     source: 'mismatch-solution',
     resolvesMismatch: 'cast',
