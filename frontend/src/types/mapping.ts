@@ -4,7 +4,7 @@ export type MappingStatus = 'confirmed' | 'rejected'
 
 export type TransformationRule =
   | { type: 'direct' }
-  | { type: 'expression';   expression?: string }
+  | { type: 'expression';   expression?: string; replaces?: TransformationType }
   | { type: 'truncate';     truncationMaxLength?: number }
   | { type: 'default';      defaultValue?: string }
   | { type: 'cast';         castFrom?: string; castTo?: string }

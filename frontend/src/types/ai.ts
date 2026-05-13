@@ -1,4 +1,5 @@
 import type { SchemaField } from '@/types/schema'
+import type { TransformationType } from '@/types/mapping'
 
 export type SuggestionStatus = 'pending' | 'accepted' | 'rejected'
 
@@ -15,10 +16,12 @@ export interface TransformationSuggestionRequested {
   mappingId: string
   sourceField: SchemaField
   targetField: SchemaField
+  ruleType: TransformationType
 }
 
 export interface TransformationSuggestion {
   mappingId: string
+  mismatch: string
   expression?: string
   explanation: string
   example?: { input: string; output: string }

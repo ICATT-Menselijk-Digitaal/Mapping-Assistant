@@ -51,7 +51,9 @@ export function isMappingComplete(
 ): boolean {
   const required = getRequiredRuleTypes(source, target)
   return required.every((type) => {
-    const rule = mapping.transformations.find((r) => r.type === type)
+    const rule =
+      mapping.transformations.find((r) => r.type === type) ??
+      mapping.transformations.find((r) => r.type === 'expression' && r.replaces === type)
     return rule !== undefined && isRuleComplete(rule)
   })
 }
