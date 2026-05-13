@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { FieldMapping, TransformationRule, TransformationType, ValidatedFieldMapping } from '@/types'
+import type { FieldMapping, TransformationRule, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { getValidationStatus } from '@/utils/validationStatus'
-import { getRequiredRuleTypes } from '@/utils/transformationCompletion'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
@@ -20,35 +19,21 @@ export const useMappings = defineStore('mappings', () => {
   function createMapping({
     sourceFieldId,
     targetFieldId,
-    schemas,
   }: {
     sourceFieldId: string
     targetFieldId: string
-    schemas?: { source: Schema; target: Schema }
+    schemas?: unknown
   }): FieldMapping | null {
-    // Prevent exact duplicate pairs only
     const isDuplicate = mappings.value.some(
       (m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === targetFieldId,
     )
     if (isDuplicate) return null
 
-    const transformations: TransformationRule[] = [{ type: 'direct' }]
-
-    if (schemas) {
-      const sourceField = schemas.source.byId(sourceFieldId)
-      const targetField = schemas.target.byId(targetFieldId)
-      if (sourceField && targetField) {
-        for (const type of getRequiredRuleTypes(sourceField, targetField)) {
-          if (type !== 'direct') transformations.push({ type })
-        }
-      }
-    }
-
     const mapping: FieldMapping = {
       id: crypto.randomUUID(),
       sourceFieldId,
       targetFieldId,
-      transformations,
+      transformations: [],
       status: 'confirmed',
     }
 
@@ -61,32 +46,32 @@ export const useMappings = defineStore('mappings', () => {
     if (selectedMappingId.value === id) selectedMappingId.value = null
   }
 
-  function updateTransformation(id: string, rule: TransformationRule): void {
-    const mapping = mappings.value.find((m) => m.id === id)
-    if (!mapping) {
-      console.warn(`updateTransformation: mapping ${id} not found`)
-      return
-    }
-    const idx = mapping.transformations.findIndex((r) => {
-      if (r.type !== rule.type) return false
-      if (rule.type === 'expression' && r.type === 'expression') return r.replaces === rule.replaces
-      return true
-    })
-    if (idx >= 0) {
-      mapping.transformations[idx] = rule
-    } else {
-      mapping.transformations.push(rule)
-    }
+  function addTransformationRule(
+    mappingId: string,
+    rule: Omit<TransformationRule, 'id'>,
+  ): void {
+    const mapping = mappings.value.find((m) => m.id === mappingId)
+    if (!mapping) return
+    mapping.transformations.push({ ...rule, id: crypto.randomUUID() })
   }
 
-  function removeTransformation(id: string, type: TransformationType, replaces?: TransformationType): void {
-    const mapping = mappings.value.find((m) => m.id === id)
+  function removeTransformationRule(mappingId: string, ruleId: string): void {
+    const mapping = mappings.value.find((m) => m.id === mappingId)
     if (!mapping) return
-    mapping.transformations = mapping.transformations.filter((r) => {
-      if (r.type !== type) return true
-      if (type === 'expression' && replaces !== undefined && r.type === 'expression') return r.replaces !== replaces
-      return false
-    })
+    mapping.transformations = mapping.transformations.filter((r) => r.id !== ruleId)
+  }
+
+  function updateTransformationRule(
+    mappingId: string,
+    ruleId: string,
+    updates: Partial<TransformationRule>,
+  ): void {
+    const mapping = mappings.value.find((m) => m.id === mappingId)
+    if (!mapping) return
+    const idx = mapping.transformations.findIndex((r) => r.id === ruleId)
+    if (idx < 0) return
+    const { id: _id, ...safeUpdates } = updates as TransformationRule
+    mapping.transformations[idx] = { ...mapping.transformations[idx]!, ...safeUpdates }
   }
 
   function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
@@ -99,5 +84,16 @@ export const useMappings = defineStore('mappings', () => {
     })
   }
 
-  return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping, updateTransformation, removeTransformation, mappingsWithStatus }
+  return {
+    mappings,
+    selectedMappingId,
+    hasMapping,
+    createMapping,
+    removeMapping,
+    selectMapping,
+    addTransformationRule,
+    removeTransformationRule,
+    updateTransformationRule,
+    mappingsWithStatus,
+  }
 })

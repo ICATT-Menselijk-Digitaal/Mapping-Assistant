@@ -1,18 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useTransformationSuggestions } from '../useTransformationSuggestions'
+import { useMappings } from '../useMappings'
 import type { SchemaField } from '@/types'
+import type { TransformationRule } from '@/types/mapping'
 
-function field(overrides: Partial<SchemaField>): SchemaField {
+function field(overrides: Partial<SchemaField> = {}): SchemaField {
   return { id: crypto.randomUUID(), name: 'field', path: 'field', dataType: 'string', required: false, ...overrides }
 }
 
-function mockApiResponse(content: string) {
-  return { ok: true, json: () => Promise.resolve({ choices: [{ message: { content } }] }) }
+function makeApiResponse(content: string): Response {
+  return { ok: true, json: () => Promise.resolve({ choices: [{ message: { content } }] }) } as unknown as Response
 }
 
-const srcString = field({ id: 'src', name: 'amount', path: 'amount', dataType: 'string' })
-const tgtNumber = field({ id: 'tgt', name: 'total', path: 'total', dataType: 'number' })
+const srcLong  = field({ id: 'src', name: 'omschrijving', dataType: 'string', maxLength: 200, required: false })
+const tgtShort = field({ id: 'tgt', name: 'label',        dataType: 'string', maxLength: 50,  required: false })
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -25,148 +27,180 @@ afterEach(() => {
 })
 
 describe('useTransformationSuggestions — generateSuggestion', () => {
-  it('stores array of suggestions with expression, explanation and example on success', async () => {
-    const payload = JSON.stringify([{
-      mismatch: 'type mismatch: source is string, target is number',
-      expression: '$number($)',
-      explanation: 'Converteert een string naar een getal via JSONata $number()',
-      example: { input: '"42"', output: '42' },
-    }])
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
-
-    const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm1', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
-
-    expect(store.generatedSuggestions['m1']).toHaveLength(1)
-    expect(store.generatedSuggestions['m1']![0]).toMatchObject({
-      mappingId: 'm1',
-      expression: '$number($)',
-      explanation: expect.any(String),
-      example: { input: '"42"', output: '42' },
-    })
-  })
-
-  it('stores two suggestions when AI returns two mismatches', async () => {
-    const payload = JSON.stringify([
-      {
-        mismatch: 'required mismatch: source is optional, target is required',
-        expression: '$exists($) ? $ : ""',
-        explanation: 'Gebruik een lege string als de bronwaarde ontbreekt.',
-        example: { input: 'null', output: '""' },
-      },
-      {
-        mismatch: 'length constraint: source has no max length, target is limited to 50',
-        expression: '$substring($, 0, 47) & "..."',
-        explanation: 'Kap de tekst af op 47 tekens.',
-        example: { input: '"Een lange tekst"', output: '"Een lange tek..."' },
-      },
-    ])
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
-
-    const srcOpt = field({ id: 'src-opt', name: 'naam', path: 'naam', dataType: 'string', required: false })
-    const tgtReqBounded = field({ id: 'tgt-req', name: 'naam_doel', path: 'naam_doel', dataType: 'string', required: true, maxLength: 50 })
-
-    const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm1', sourceField: srcOpt, targetField: tgtReqBounded, ruleType: 'default' })
-
-    expect(store.generatedSuggestions['m1']).toHaveLength(2)
-    expect(store.generatedSuggestions['m1']![0]!.mismatch).toContain('required')
-    expect(store.generatedSuggestions['m1']![1]!.mismatch).toContain('length')
-  })
-
-  it('stores warning suggestion when AI cannot determine transformation', async () => {
-    const payload = JSON.stringify([{
-      mismatch: 'type mismatch',
-      warning: 'Kan geen veilige transformatie bepalen voor naamopsplitsing',
-      explanation: 'Voer de transformatie handmatig in',
-    }])
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
-
-    const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm2', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
-
-    const suggestions = store.generatedSuggestions['m2']!
-    expect(suggestions).toHaveLength(1)
-    expect(suggestions[0]!.warning).toBeDefined()
-    expect(suggestions[0]!.expression).toBeUndefined()
-  })
-
-  it('wraps a plain object response in an array for backward compatibility', async () => {
+  // Scenario: AI Suggestie generates a rule covering all detected mismatches
+  it('appends a rule with source "ai", expression, explanation, and example on success', async () => {
     const payload = JSON.stringify({
-      expression: '$number($)',
-      explanation: 'Converteert naar getal',
-      example: { input: '"42"', output: '42' },
+      expression: '$substring($, 0, 47) & "..."',
+      label: 'Afkappen',
+      explanation: 'Kap de tekst af op 47 tekens.',
     })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(payload)))
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm3', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
 
-    expect(store.generatedSuggestions['m3']).toHaveLength(1)
-    expect(store.generatedSuggestions['m3']![0]!.expression).toBe('$number($)')
+    const rules = mappingsStore.mappings.find((m) => m.id === mapping.id)!.transformations
+    expect(rules).toHaveLength(1)
+    expect(rules[0]!.source).toBe('ai')
+    expect(rules[0]!.expression).toBe('$substring($, 0, 47) & "..."')
+    expect(rules[0]!.aiExplanation).toBeDefined()
   })
 
-  it('does not store suggestions when AI service is unreachable', async () => {
+  // Scenario: Existing rules are sent as context so the AI does not duplicate them
+  it('includes existing rule expressions under "Bestaande regels (niet opnieuw voorstellen)" in the prompt', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: false } as unknown as Response)
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
+    const existingRule: TransformationRule = {
+      id: 'r1',
+      expression: '$string($)',
+      label: 'test',
+      source: 'manual',
+    }
+
+    const store = useTransformationSuggestions()
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [existingRule])
+
+    expect(fetchSpy).toHaveBeenCalledOnce()
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string) as { messages: Array<{ content: string }> }
+    const prompt = body.messages[0]!.content
+    expect(prompt).toContain('$string($)')
+    expect(prompt).toContain('Bestaande regels (niet opnieuw voorstellen)')
+  })
+
+  // Scenario: Existing rules empty → prompt says "geen"
+  it('writes "geen" when there are no existing rules', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: false } as unknown as Response)
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
+    const store = useTransformationSuggestions()
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string) as { messages: Array<{ content: string }> }
+    expect(body.messages[0]!.content).toContain('- geen')
+  })
+
+  // Scenario: The prompt and raw response are logged to console.log
+  it('logs the full prompt and raw response to console.log', async () => {
+    const rawResponse = JSON.stringify({
+      expression: '$string($)',
+      label: 'Cast',
+      explanation: 'Naar tekst',
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(rawResponse)))
+
+    const consoleSpy = vi.spyOn(console, 'log')
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
+    const store = useTransformationSuggestions()
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
+
+    const loggedStrings = consoleSpy.mock.calls.map((args) => String(args[0]))
+    expect(loggedStrings.some((s) => s.includes('[AI Suggestie]') && s.includes('Bronveld'))).toBe(true)
+    expect(loggedStrings.some((s) => s.includes('[AI Suggestie]') && s.includes(rawResponse))).toBe(true)
+  })
+
+  // Scenario: An invalid AI expression is silently discarded
+  it('does not add a rule when AI returns a syntactically invalid JSONata expression', async () => {
+    const payload = JSON.stringify({
+      expression: ')invalid(',
+      label: 'bad',
+      explanation: 'test',
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(payload)))
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
+    const store = useTransformationSuggestions()
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
+
+    expect(mappingsStore.mappings.find((m) => m.id === mapping.id)!.transformations).toHaveLength(0)
+  })
+
+  // Scenario: AI service unreachable — no error shown
+  it('does not add a rule and does not throw when the AI API is unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 
-    const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm4', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
-
-    expect(store.generatedSuggestions['m4']).toBeUndefined()
-  })
-
-  it('strips markdown fences and parses array response', async () => {
-    const inner = JSON.stringify([{ mismatch: 'type', expression: '$string($)', explanation: 'cast naar string', example: { input: '42', output: '"42"' } }])
-    const payload = `\`\`\`json\n${inner}\n\`\`\``
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm5', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
-
-    expect(store.generatedSuggestions['m5']![0]?.expression).toBe('$string($)')
+    await expect(store.generateSuggestion(mapping.id, srcLong, tgtShort, [])).resolves.toBeUndefined()
+    expect(mappingsStore.mappings.find((m) => m.id === mapping.id)!.transformations).toHaveLength(0)
   })
 
-  it('skips malformed items and returns the valid ones', async () => {
-    const payload = JSON.stringify([
-      { mismatch: 'type', expression: '$number($)', explanation: 'ok', example: { input: '"1"', output: '1' } },
-      { mismatch: 'bad' }, // no expression or warning
-      { mismatch: 'warn', warning: 'Niet bepaald', explanation: 'Handmatig invullen' },
-    ])
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
+  it('uses max_tokens 300 in the API request', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: false } as unknown as Response)
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm6', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
 
-    expect(store.generatedSuggestions['m6']).toHaveLength(2)
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string) as { max_tokens: number }
+    expect(body.max_tokens).toBe(300)
   })
 
-  it('sets isLoading true while request is in flight', async () => {
+  it('does not add a rule when the AI response has no expression field', async () => {
+    const payload = JSON.stringify({ label: 'no expr', explanation: 'x' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(payload)))
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
+    const store = useTransformationSuggestions()
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
+
+    expect(mappingsStore.mappings.find((m) => m.id === mapping.id)!.transformations).toHaveLength(0)
+  })
+
+  it('does not add a rule when the AI response is not valid JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse('Sure! Here is a great expression for you.')))
+
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
+    const store = useTransformationSuggestions()
+    await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
+
+    expect(mappingsStore.mappings.find((m) => m.id === mapping.id)!.transformations).toHaveLength(0)
+  })
+
+  it('sets isLoading true while the request is in flight and false after', async () => {
     let resolve!: (v: Response) => void
     const pending = new Promise<Response>((r) => (resolve = r))
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(pending))
 
+    const mappingsStore = useMappings()
+    const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+
     const store = useTransformationSuggestions()
-    const gen = store.generateSuggestion({ mappingId: 'm7', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
+    const gen = store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
 
-    expect(store.loadingMappingIds.has('m7')).toBe(true)
+    expect(store.isLoading).toBe(true)
 
-    const payload = JSON.stringify([{ mismatch: 'type', expression: '$string($)', explanation: 'x', example: { input: '1', output: '"1"' } }])
-    resolve({ ok: true, json: () => Promise.resolve({ choices: [{ message: { content: payload } }] }) } as unknown as Response)
+    const payload = JSON.stringify({
+      expression: '$string($)',
+      label: 'cast',
+      explanation: 'x',
+    })
+    resolve(makeApiResponse(payload))
     await gen
 
-    expect(store.loadingMappingIds.has('m7')).toBe(false)
-  })
-})
-
-describe('useTransformationSuggestions — clearSuggestion', () => {
-  it('removes all generated suggestions for a mapping', () => {
-    const store = useTransformationSuggestions()
-    store.generatedSuggestions = {
-      m1: [{ mappingId: 'm1', mismatch: 'type', expression: '$number($)', explanation: 'getal' }],
-    }
-
-    store.clearSuggestion('m1')
-
-    expect(store.generatedSuggestions['m1']).toBeUndefined()
+    expect(store.isLoading).toBe(false)
   })
 })

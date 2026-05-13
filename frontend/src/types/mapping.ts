@@ -1,14 +1,23 @@
-export type TransformationType = 'direct' | 'expression' | 'truncate' | 'default' | 'cast' | 'date-format'
+export type MismatchType = 'truncate' | 'default' | 'cast' | 'date-format'
+export type RuleSource = 'manual' | 'mismatch-solution' | 'ai'
+
+export interface TruncationParams { type: 'truncate'; maxLength: number }
+export interface DefaultParams    { type: 'default';  value: string }
+export interface CastParams       { type: 'cast';     from: string; to: string }
+export interface DateFormatParams { type: 'date-format'; sourceFormat: string; targetFormat: string }
+export type SolutionParams = TruncationParams | DefaultParams | CastParams | DateFormatParams
+
+export interface TransformationRule {
+  id: string
+  expression: string
+  label: string
+  source: RuleSource
+  resolvesMismatch?: MismatchType
+  solutionParams?: SolutionParams
+  aiExplanation?: string
+}
 
 export type MappingStatus = 'confirmed' | 'rejected'
-
-export type TransformationRule =
-  | { type: 'direct' }
-  | { type: 'expression';   expression?: string; replaces?: TransformationType }
-  | { type: 'truncate';     truncationMaxLength?: number }
-  | { type: 'default';      defaultValue?: string }
-  | { type: 'cast';         castFrom?: string; castTo?: string }
-  | { type: 'date-format';  sourceDateFormat?: string; targetDateFormat?: string }
 
 export interface FieldMapping {
   id: string

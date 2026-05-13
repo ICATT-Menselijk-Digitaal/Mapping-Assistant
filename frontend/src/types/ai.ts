@@ -1,5 +1,4 @@
 import type { SchemaField } from '@/types/schema'
-import type { TransformationType } from '@/types/mapping'
 
 export type SuggestionStatus = 'pending' | 'accepted' | 'rejected'
 
@@ -12,23 +11,13 @@ export interface AiSuggestion {
   status: SuggestionStatus
 }
 
-export interface TransformationSuggestionRequested {
-  mappingId: string
-  sourceField: SchemaField
-  targetField: SchemaField
-  ruleType: TransformationType
-}
-
 export interface TransformationSuggestion {
   mappingId: string
-  mismatch: string
-  expression?: string
+  expression: string
+  label: string
   explanation: string
-  example?: { input: string; output: string }
-  warning?: string
+  example: { input: string; output: string }
 }
 
-export interface TransformationSuggestionGenerated {
-  mappingId: string
-  suggestion: TransformationSuggestion
-}
+// Re-exported for external consumers that pass field context to the AI composable
+export type { SchemaField }

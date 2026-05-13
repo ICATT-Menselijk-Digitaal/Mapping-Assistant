@@ -158,18 +158,25 @@ describe('MappingOverview', () => {
     expect(icon.classes()).toContain('text-amber-600')
   })
 
-  // Scenario: Constrained coupling with all rules configured shows a checkmark
-  it('shows a green checkmark for a constrained coupling once all rules are configured', async () => {
+  // Scenario: Constrained coupling with all mismatches resolved shows a checkmark
+  it('shows a green checkmark for a constrained coupling once all mismatches are resolved', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
-    const mapping = store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short', schemas: { source: sourceSchema, target: targetSchema } })!
-    store.updateTransformation(mapping.id, { type: 'truncate', truncationMaxLength: 8 })
+    const mapping = store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' })!
     await wrapper.vm.$nextTick()
 
     const icon = wrapper.find('[data-testid="validation-status"]')
-    expect(icon.exists()).toBe(true)
+    expect(icon.classes()).toContain('text-amber-600')
+
+    store.addTransformationRule(mapping.id, {
+      expression: '$length($) > 10 ? $substring($, 0, 7) & "..." : $',
+      label: 'Afkappen',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'truncate',
+    })
+    await wrapper.vm.$nextTick()
+
     expect(icon.classes()).toContain('text-emerald-600')
-    expect(icon.text()).toBe('✓')
   })
 
   // Scenario: Incompatible coupling shows a red cross
