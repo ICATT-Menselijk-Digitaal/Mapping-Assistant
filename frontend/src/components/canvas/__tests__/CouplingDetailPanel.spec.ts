@@ -3,7 +3,6 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CouplingDetailPanel from '../CouplingDetailPanel.vue'
 import { useMappings } from '@/composables/useMappings'
-import { useTransformationSuggestions } from '@/composables/useTransformationSuggestions'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
 const sourceNodes: SchemaFieldNode[] = [
@@ -80,7 +79,7 @@ describe('CouplingDetailPanel', () => {
     await wrapper.vm.$nextTick()
 
     const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
-    expect(validationSection.text()).toMatch(/100|50|truncat/i)
+    expect(validationSection.text()).toMatch(/transformatie/i)
     expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(true)
   })
 
@@ -94,7 +93,7 @@ describe('CouplingDetailPanel', () => {
     await wrapper.vm.$nextTick()
 
     const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
-    expect(validationSection.text()).toMatch(/50|afkapping/i)
+    expect(validationSection.text()).toMatch(/transformatie/i)
     expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(true)
   })
 
@@ -583,214 +582,99 @@ describe('CouplingDetailPanel — date format section', () => {
     expect(wrapper.find('[data-testid="date-format-summary"]').exists()).toBe(false)
   })
 
-  // --- Transformation suggestion panel ---
+  // --- Per-mismatch expression mode ---
 
-  // Scenario: Single-mismatch mapping shows one suggestion card
-  it('shows expression, explanation and example when suggestion is generated for incompatible mapping', async () => {
+  // Scenario: Mismatch section shows mode toggle with Structured as default
+  it('shows a mismatch section with mode toggle for a constrained mapping', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'Converts a string to a number', example: { input: '"42"', output: '42' } }],
-    }
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="suggestion-panel"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="suggestion-expression"]').text()).toContain('$number($)')
-    expect(wrapper.find('[data-testid="suggestion-explanation"]').text()).toContain('Converts a string to a number')
-    expect(wrapper.find('[data-testid="suggestion-example"]').text()).toContain('"42"')
+    expect(wrapper.find('[data-testid="mismatch-section-truncate"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="mode-structured-truncate"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="mode-expression-truncate"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="expression-section-truncate"]').exists()).toBe(false)
   })
 
-  // Scenario: Two independent mismatches produce two suggestion cards
-  it('shows two suggestion cards when AI returns two mismatches', async () => {
+  // Scenario: Switching to Expression mode hides the structured form and shows expression textarea
+  it('switches to expression mode and shows textarea when Expression tab is clicked', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mode-expression-truncate"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="expression-section-truncate"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="expression-input-truncate"]').exists()).toBe(true)
+  })
+
+  // Scenario: Saving an expression stores it with replaces on the mapping
+  it('saves expression rule with replaces when Save is clicked in expression mode', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mode-expression-truncate"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="expression-input-truncate"]').setValue('$substring($, 0, 47) & "..."')
+    await wrapper.find('[data-testid="expression-save-truncate"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const updated = store.mappings.find((m) => m.id === mapping.id)!
+    const exprRule = updated.transformations.find((r) => r.type === 'expression' && r.replaces === 'truncate')
+    expect(exprRule).toBeDefined()
+    expect((exprRule as { expression?: string }).expression).toBe('$substring($, 0, 47) & "..."')
+  })
+
+  // Scenario: Multiple mismatches each get their own section
+  it('shows one mismatch section per required rule type for a mapping with multiple constraints', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-opt: optional string, tgt-req: required string maxLength 50 → default + truncate required
     const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req', schemas: { source: sourceSchema, target: targetSchema } })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [
-        { mappingId: mapping.id, mismatch: 'required mismatch', expression: '$exists($) ? $ : ""', explanation: 'Standaard lege string', example: { input: 'null', output: '""' } },
-        { mappingId: mapping.id, mismatch: 'length constraint', expression: '$substring($, 0, 47) & "..."', explanation: 'Afkappen', example: { input: '"lang"', output: '"la..."' } },
-      ],
-    }
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
-    const cards = wrapper.findAll('[data-testid="suggestion-content"]')
-    expect(cards).toHaveLength(2)
+    expect(wrapper.find('[data-testid="mismatch-section-default"]').exists()).toBe(true)
   })
 
-  // Scenario: Loading state is shown while the suggestion is being generated
-  it('shows loading indicator when suggestion is pending for incompatible mapping', async () => {
+  // Scenario: Resolved section shows green status indicator
+  it('shows resolved status after saving expression', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.loadingMappingIds = new Set([mapping.id])
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2', schemas: { source: sourceSchema, target: targetSchema } })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="suggestion-panel"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="suggestion-loading"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
-  })
-
-  // Scenario: AI cannot determine transformation for one mismatch — shows warning card
-  it('shows warning card when AI returned a warning instead of an expression', async () => {
-    const wrapper = mountPanel()
-    const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', warning: 'Kan geen veilige transformatie bepalen', explanation: 'Voer de transformatie handmatig in' }],
-    }
-    store.selectMapping(mapping.id)
+    await wrapper.find('[data-testid="mode-expression-truncate"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="expression-input-truncate"]').setValue('$substring($, 0, 50)')
+    await wrapper.find('[data-testid="expression-save-truncate"]').trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="suggestion-warning"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="suggestion-warning"]').text()).toContain('Kan geen veilige transformatie bepalen')
-    expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toContain('Opgelost')
   })
 
-  // Scenario: No suggestion panel for compatible field types
-  it('does not show suggestion panel for a compatible string-to-string coupling', async () => {
+  // Scenario: No mismatch sections for compatible mapping
+  it('does not show mismatch sections for a compatible string-to-string coupling', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
     store.selectMapping(mapping.id)
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="suggestion-panel"]').exists()).toBe(false)
-  })
-
-  // --- Accept / Edit / Regenerate actions ---
-
-  // Scenario: Administrator accepts the suggestion
-  it('stores expression in mapping and shows accepted state when Accept is clicked', async () => {
-    const wrapper = mountPanel()
-    const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast to number', example: { input: '"1"', output: '1' } }],
-    }
-    store.selectMapping(mapping.id)
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('[data-testid="suggestion-accept"]').trigger('click')
-    await wrapper.vm.$nextTick()
-
-    const updated = store.mappings.find((m) => m.id === mapping.id)!
-    const exprRule = updated.transformations.find((r) => r.type === 'expression')
-    expect(exprRule).toBeDefined()
-    expect((exprRule as { type: 'expression'; expression?: string }).expression).toBe('$number($)')
-    expect(wrapper.find('[data-testid="suggestion-accepted"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(false)
-  })
-
-  // Scenario: Administrator accepts one of two suggestions — other card remains
-  it('removes accepted card but keeps the remaining suggestion card', async () => {
-    const wrapper = mountPanel()
-    const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [
-        { mappingId: mapping.id, mismatch: 'required', expression: '$exists($) ? $ : ""', explanation: 'standaard' },
-        { mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'getal', example: { input: '"1"', output: '1' } },
-      ],
-    }
-    store.selectMapping(mapping.id)
-    await wrapper.vm.$nextTick()
-
-    // Accept first card
-    await wrapper.findAll('[data-testid="suggestion-accept"]')[0]!.trigger('click')
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.findAll('[data-testid="suggestion-content"]')).toHaveLength(1)
-    expect(suggestionsStore.generatedSuggestions[mapping.id]).toHaveLength(1)
-    expect(suggestionsStore.generatedSuggestions[mapping.id]![0]!.mismatch).toBe('type')
-  })
-
-  // Scenario: Administrator edits the suggestion inline and saves
-  it('shows edit form and stores edited expression when Edit and Save are clicked', async () => {
-    const wrapper = mountPanel()
-    const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } }],
-    }
-    store.selectMapping(mapping.id)
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('[data-testid="suggestion-edit"]').trigger('click')
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.find('[data-testid="suggestion-edit-form"]').exists()).toBe(true)
-    expect(wrapper.find<HTMLTextAreaElement>('[data-testid="suggestion-edit-input"]').element.value).toBe('$number($)')
-
-    await wrapper.find('[data-testid="suggestion-edit-input"]').setValue('$string($)')
-    await wrapper.find('[data-testid="suggestion-edit-save"]').trigger('click')
-    await wrapper.vm.$nextTick()
-
-    const updated = store.mappings.find((m) => m.id === mapping.id)!
-    const exprRule = updated.transformations.find((r) => r.type === 'expression')
-    expect((exprRule as { type: 'expression'; expression?: string }).expression).toBe('$string($)')
-    expect(wrapper.find('[data-testid="suggestion-accepted"]').exists()).toBe(true)
-  })
-
-  // Scenario: Administrator regenerates the suggestions
-  it('clears suggestions and shows loading when Regenerate is clicked', async () => {
-    const wrapper = mountPanel()
-    const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } }],
-    }
-    store.selectMapping(mapping.id)
-    await wrapper.vm.$nextTick()
-
-    // Stub fetch so generateSuggestion stays in loading state
-    const { vi } = await import('vitest')
-    vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
-    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})))
-
-    await wrapper.find('[data-testid="suggestion-regenerate"]').trigger('click')
-    await wrapper.vm.$nextTick()
-
-    expect(suggestionsStore.generatedSuggestions[mapping.id]).toBeUndefined()
-    expect(wrapper.find('[data-testid="suggestion-loading"]').exists()).toBe(true)
-
-    vi.restoreAllMocks()
-    vi.unstubAllEnvs()
-  })
-
-  // Scenario: Administrator cancels an inline edit
-  it('restores suggestion view and does not update mapping when Cancel is clicked', async () => {
-    const wrapper = mountPanel()
-    const store = useMappings()
-    const suggestionsStore = useTransformationSuggestions()
-    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-req-num' })!
-    suggestionsStore.generatedSuggestions = {
-      [mapping.id]: [{ mappingId: mapping.id, mismatch: 'type', expression: '$number($)', explanation: 'cast', example: { input: '"1"', output: '1' } }],
-    }
-    store.selectMapping(mapping.id)
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('[data-testid="suggestion-edit"]').trigger('click')
-    await wrapper.vm.$nextTick()
-    await wrapper.find('[data-testid="suggestion-edit-input"]').setValue('$something()')
-    await wrapper.find('[data-testid="suggestion-edit-cancel"]').trigger('click')
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.find('[data-testid="suggestion-content"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="suggestion-edit-form"]').exists()).toBe(false)
-    const updated = store.mappings.find((m) => m.id === mapping.id)!
-    expect(updated.transformations.find((r) => r.type === 'expression')).toBeUndefined()
+    expect(wrapper.find('[data-testid="mismatch-section-truncate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="mismatch-section-default"]').exists()).toBe(false)
   })
 
   // Bug regression: date (non-req) → date (required) is constrained, must still show date format section

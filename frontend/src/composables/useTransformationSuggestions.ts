@@ -2,62 +2,52 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { SchemaField } from '@/types'
 import type { TransformationSuggestion, TransformationSuggestionRequested } from '@/types/ai'
-import { isTypeCompatible } from '@/utils/typeCompatibility'
-import { useMappings } from '@/composables/useMappings'
+import type { TransformationType } from '@/types/mapping'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
-function detectMismatches(source: SchemaField, target: SchemaField): string[] {
-  const mismatches: string[] = []
-
-  if (source.dataType !== target.dataType) {
-    mismatches.push(`type mismatch: source is ${source.dataType}, target is ${target.dataType}`)
+function describeMismatch(ruleType: TransformationType, source: SchemaField, target: SchemaField): string {
+  switch (ruleType) {
+    case 'truncate':
+      if (source.maxLength === undefined) {
+        return `length constraint: source has no max length, target is limited to ${target.maxLength} characters`
+      }
+      return `length constraint: source max length (${source.maxLength}) exceeds target max length (${target.maxLength})`
+    case 'default':
+      return 'required mismatch: source is optional, target is required'
+    case 'cast':
+      return `type mismatch: source is ${source.dataType}, target is ${target.dataType}`
+    case 'date-format':
+      return 'date format conversion: both fields are of type date, but the format may differ between systems'
+    default:
+      return `transformation needed: ${source.dataType} to ${target.dataType}`
   }
-
-  if (!source.required && target.required) {
-    mismatches.push('required mismatch: source is optional, target is required')
-  }
-
-  if (source.dataType === 'string' && target.dataType === 'string' && target.maxLength !== undefined) {
-    if (source.maxLength === undefined) {
-      mismatches.push(`length constraint: source has no max length, target is limited to ${target.maxLength} characters`)
-    } else if (source.maxLength > target.maxLength) {
-      mismatches.push(`length constraint: source max length (${source.maxLength}) exceeds target max length (${target.maxLength})`)
-    }
-  }
-
-  if (mismatches.length === 0) {
-    mismatches.push(`type transformation needed: ${source.dataType} to ${target.dataType}`)
-  }
-
-  return mismatches
 }
 
-function buildPrompt(source: SchemaField, target: SchemaField): string {
-  const mismatches = detectMismatches(source, target)
-  const mismatchList = mismatches.map((m, i) => `${i + 1}. ${m}`).join('\n')
+function buildPrompt(source: SchemaField, target: SchemaField, ruleType: TransformationType): string {
+  const mismatch = describeMismatch(ruleType, source, target)
 
-  return `You are a JSONata transformation assistant. Given source and target field metadata and a list of mismatches, return a JSON array. All string values must be written in Dutch.
+  return `You are a JSONata transformation assistant. Given source and target field metadata and a mismatch, return a JSON array. All string values must be written in Dutch.
 
 Source field: name="${source.name}", path="${source.path}", dataType="${source.dataType}", required=${source.required}${source.maxLength !== undefined ? `, maxLength=${source.maxLength}` : ''}${source.description ? `, description="${source.description}"` : ''}
 Target field: name="${target.name}", path="${target.path}", dataType="${target.dataType}", required=${target.required}${target.maxLength !== undefined ? `, maxLength=${target.maxLength}` : ''}${target.description ? `, description="${target.description}"` : ''}
 
-Detected mismatches:
-${mismatchList}
+Detected mismatch:
+1. ${mismatch}
 
-Return ONLY a JSON array (no markdown). Include one object per detected mismatch (in the same order as the list above), then append any additional suggestions you think are valuable based on the field names, types, or descriptions — even if no mismatch was detected for them.
+Return ONLY a JSON array (no markdown). Include one object for the detected mismatch, then append any additional suggestions you think are valuable based on the field names, types, or descriptions.
 
 For length constraint mismatches, common practice is to truncate the value and append "..." to signal the text was cut. You may suggest an alternative if it better fits the field semantics.
 
 For each item where a safe transformation CAN be determined:
-- mismatch: string — copy the label from the detected list, or a short label describing your own suggestion
+- mismatch: string — copy the label from the detected mismatch, or a short label describing your own suggestion
 - expression: string — a JSONata expression that addresses this specific transformation
 - explanation: string — uitleg in het Nederlands
-- example: { input: string, output: string } — a concrete example
+- example: { input: string, output: string } — a concrete example (keep both values under 60 characters)
 
 For each item where NO safe transformation can be determined:
-- mismatch: string — copy the label from the detected list, or a short label
+- mismatch: string — copy the label from the detected mismatch, or a short label
 - warning: string — waarom er geen veilige transformatie gevonden kon worden
 - explanation: string — wat de beheerder in plaats daarvan moet doen`
 }
@@ -136,21 +126,8 @@ function parseAIContent(raw: string, mappingId: string): TransformationSuggestio
 }
 
 export const useTransformationSuggestions = defineStore('transformationSuggestions', () => {
-  const pendingRequests = ref<TransformationSuggestionRequested[]>([])
   const generatedSuggestions = ref<Record<string, TransformationSuggestion[]>>({})
-  const acceptedSuggestions = ref<Record<string, TransformationSuggestion[]>>({})
   const loadingMappingIds = ref<Set<string>>(new Set())
-
-  function handleMappingCreated(mappingId: string, sourceField: SchemaField, targetField: SchemaField): void {
-    if (isTypeCompatible(sourceField, targetField)) return
-    const request: TransformationSuggestionRequested = { mappingId, sourceField, targetField }
-    pendingRequests.value.push(request)
-    console.debug('[TransformationSuggestions] TransformationSuggestionRequested', {
-      mappingId,
-      sourceType: sourceField.dataType,
-      targetType: targetField.dataType,
-    })
-  }
 
   async function generateSuggestion(request: TransformationSuggestionRequested): Promise<void> {
     const { mappingId, sourceField, targetField } = request
@@ -162,7 +139,7 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
 
     loadingMappingIds.value = new Set(loadingMappingIds.value).add(mappingId)
 
-    const prompt = buildPrompt(sourceField, targetField)
+    const prompt = buildPrompt(sourceField, targetField, request.ruleType)
     console.log('[AI Suggestie] Prompt naar AI:\n' + prompt)
 
     try {
@@ -171,7 +148,7 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
         headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
-          max_tokens: 512,
+          max_tokens: 1024,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
@@ -200,44 +177,11 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
     }
   }
 
-  function acceptSuggestion(mappingId: string, expression: string, index: number): void {
-    const mappingsStore = useMappings()
-    mappingsStore.updateTransformation(mappingId, { type: 'expression', expression })
-
-    const current = generatedSuggestions.value[mappingId] ?? []
-    const accepted = current[index]
-    const remaining = current.filter((_, i) => i !== index)
-    if (remaining.length > 0) {
-      generatedSuggestions.value = { ...generatedSuggestions.value, [mappingId]: remaining }
-    } else {
-      const next = { ...generatedSuggestions.value }
-      delete next[mappingId]
-      generatedSuggestions.value = next
-    }
-
-    if (accepted) {
-      const prev = acceptedSuggestions.value[mappingId] ?? []
-      acceptedSuggestions.value = { ...acceptedSuggestions.value, [mappingId]: [...prev, accepted] }
-    }
-
-    console.debug('[TransformationSuggestions] TransformationAccepted', { mappingId, expression: expression.slice(0, 50), index })
-  }
-
   function clearSuggestion(mappingId: string): void {
-    const nextGenerated = { ...generatedSuggestions.value }
-    delete nextGenerated[mappingId]
-    generatedSuggestions.value = nextGenerated
-
-    const nextAccepted = { ...acceptedSuggestions.value }
-    delete nextAccepted[mappingId]
-    acceptedSuggestions.value = nextAccepted
+    const next = { ...generatedSuggestions.value }
+    delete next[mappingId]
+    generatedSuggestions.value = next
   }
 
-  async function regenerateSuggestion(request: TransformationSuggestionRequested): Promise<void> {
-    clearSuggestion(request.mappingId)
-    console.debug('[TransformationSuggestions] TransformationRejected', { mappingId: request.mappingId })
-    await generateSuggestion(request)
-  }
-
-  return { pendingRequests, generatedSuggestions, acceptedSuggestions, loadingMappingIds, handleMappingCreated, generateSuggestion, acceptSuggestion, clearSuggestion, regenerateSuggestion }
+  return { generatedSuggestions, loadingMappingIds, generateSuggestion, clearSuggestion }
 })

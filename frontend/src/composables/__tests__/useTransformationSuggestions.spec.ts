@@ -35,7 +35,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm1', sourceField: srcString, targetField: tgtNumber })
+    await store.generateSuggestion({ mappingId: 'm1', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     expect(store.generatedSuggestions['m1']).toHaveLength(1)
     expect(store.generatedSuggestions['m1']![0]).toMatchObject({
@@ -67,7 +67,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     const tgtReqBounded = field({ id: 'tgt-req', name: 'naam_doel', path: 'naam_doel', dataType: 'string', required: true, maxLength: 50 })
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm1', sourceField: srcOpt, targetField: tgtReqBounded })
+    await store.generateSuggestion({ mappingId: 'm1', sourceField: srcOpt, targetField: tgtReqBounded, ruleType: 'default' })
 
     expect(store.generatedSuggestions['m1']).toHaveLength(2)
     expect(store.generatedSuggestions['m1']![0]!.mismatch).toContain('required')
@@ -83,7 +83,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm2', sourceField: srcString, targetField: tgtNumber })
+    await store.generateSuggestion({ mappingId: 'm2', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     const suggestions = store.generatedSuggestions['m2']!
     expect(suggestions).toHaveLength(1)
@@ -100,7 +100,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm3', sourceField: srcString, targetField: tgtNumber })
+    await store.generateSuggestion({ mappingId: 'm3', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     expect(store.generatedSuggestions['m3']).toHaveLength(1)
     expect(store.generatedSuggestions['m3']![0]!.expression).toBe('$number($)')
@@ -110,7 +110,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm4', sourceField: srcString, targetField: tgtNumber })
+    await store.generateSuggestion({ mappingId: 'm4', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     expect(store.generatedSuggestions['m4']).toBeUndefined()
   })
@@ -121,7 +121,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm5', sourceField: srcString, targetField: tgtNumber })
+    await store.generateSuggestion({ mappingId: 'm5', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     expect(store.generatedSuggestions['m5']![0]?.expression).toBe('$string($)')
   })
@@ -135,7 +135,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockApiResponse(payload)))
 
     const store = useTransformationSuggestions()
-    await store.generateSuggestion({ mappingId: 'm6', sourceField: srcString, targetField: tgtNumber })
+    await store.generateSuggestion({ mappingId: 'm6', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     expect(store.generatedSuggestions['m6']).toHaveLength(2)
   })
@@ -146,7 +146,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(pending))
 
     const store = useTransformationSuggestions()
-    const gen = store.generateSuggestion({ mappingId: 'm7', sourceField: srcString, targetField: tgtNumber })
+    const gen = store.generateSuggestion({ mappingId: 'm7', sourceField: srcString, targetField: tgtNumber, ruleType: 'cast' })
 
     expect(store.loadingMappingIds.has('m7')).toBe(true)
 
@@ -158,29 +158,14 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
   })
 })
 
-describe('useTransformationSuggestions — acceptSuggestion', () => {
-  it('removes accepted suggestion at index and stores the expression on the mapping', async () => {
-    const store = useTransformationSuggestions()
-    store.generatedSuggestions = {
-      m1: [
-        { mappingId: 'm1', mismatch: 'required', expression: '$exists($) ? $ : ""', explanation: 'standaard' },
-        { mappingId: 'm1', mismatch: 'length', expression: '$substring($, 0, 47) & "..."', explanation: 'afkappen' },
-      ],
-    }
-
-    store.acceptSuggestion('m1', '$exists($) ? $ : ""', 0)
-
-    expect(store.generatedSuggestions['m1']).toHaveLength(1)
-    expect(store.generatedSuggestions['m1']![0]!.mismatch).toBe('length')
-  })
-
-  it('removes the mapping entry entirely when last suggestion is accepted', async () => {
+describe('useTransformationSuggestions — clearSuggestion', () => {
+  it('removes all generated suggestions for a mapping', () => {
     const store = useTransformationSuggestions()
     store.generatedSuggestions = {
       m1: [{ mappingId: 'm1', mismatch: 'type', expression: '$number($)', explanation: 'getal' }],
     }
 
-    store.acceptSuggestion('m1', '$number($)', 0)
+    store.clearSuggestion('m1')
 
     expect(store.generatedSuggestions['m1']).toBeUndefined()
   })

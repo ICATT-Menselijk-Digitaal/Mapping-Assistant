@@ -67,7 +67,11 @@ export const useMappings = defineStore('mappings', () => {
       console.warn(`updateTransformation: mapping ${id} not found`)
       return
     }
-    const idx = mapping.transformations.findIndex((r) => r.type === rule.type)
+    const idx = mapping.transformations.findIndex((r) => {
+      if (r.type !== rule.type) return false
+      if (rule.type === 'expression' && r.type === 'expression') return r.replaces === rule.replaces
+      return true
+    })
     if (idx >= 0) {
       mapping.transformations[idx] = rule
     } else {
@@ -75,10 +79,14 @@ export const useMappings = defineStore('mappings', () => {
     }
   }
 
-  function removeTransformation(id: string, type: TransformationType): void {
+  function removeTransformation(id: string, type: TransformationType, replaces?: TransformationType): void {
     const mapping = mappings.value.find((m) => m.id === id)
     if (!mapping) return
-    mapping.transformations = mapping.transformations.filter((r) => r.type !== type)
+    mapping.transformations = mapping.transformations.filter((r) => {
+      if (r.type !== type) return true
+      if (type === 'expression' && replaces !== undefined && r.type === 'expression') return r.replaces !== replaces
+      return false
+    })
   }
 
   function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
