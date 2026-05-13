@@ -15,7 +15,6 @@ export interface TransformationRule {
   resolvesMismatch?: MismatchType
   solutionParams?: SolutionParams
   aiExplanation?: string
-  aiExample?: { input: string; output: string }
 }
 
 export type MappingStatus = 'confirmed' | 'rejected'

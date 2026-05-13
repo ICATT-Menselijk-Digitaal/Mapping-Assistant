@@ -33,7 +33,6 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
       expression: '$substring($, 0, 47) & "..."',
       label: 'Afkappen',
       explanation: 'Kap de tekst af op 47 tekens.',
-      example: { input: 'Een lange tekst...', output: 'Een lange tek...' },
     })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(payload)))
 
@@ -48,7 +47,6 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     expect(rules[0]!.source).toBe('ai')
     expect(rules[0]!.expression).toBe('$substring($, 0, 47) & "..."')
     expect(rules[0]!.aiExplanation).toBeDefined()
-    expect(rules[0]!.aiExample).toMatchObject({ input: expect.any(String), output: expect.any(String) })
   })
 
   // Scenario: Existing rules are sent as context so the AI does not duplicate them
@@ -97,7 +95,6 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
       expression: '$string($)',
       label: 'Cast',
       explanation: 'Naar tekst',
-      example: { input: '42', output: '"42"' },
     })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(rawResponse)))
 
@@ -120,7 +117,6 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
       expression: ')invalid(',
       label: 'bad',
       explanation: 'test',
-      example: { input: 'x', output: 'y' },
     })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(payload)))
 
@@ -160,7 +156,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
   })
 
   it('does not add a rule when the AI response has no expression field', async () => {
-    const payload = JSON.stringify({ label: 'no expr', explanation: 'x', example: { input: 'a', output: 'b' } })
+    const payload = JSON.stringify({ label: 'no expr', explanation: 'x' })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse(payload)))
 
     const mappingsStore = useMappings()
@@ -201,7 +197,6 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
       expression: '$string($)',
       label: 'cast',
       explanation: 'x',
-      example: { input: '1', output: '"1"' },
     })
     resolve(makeApiResponse(payload))
     await gen

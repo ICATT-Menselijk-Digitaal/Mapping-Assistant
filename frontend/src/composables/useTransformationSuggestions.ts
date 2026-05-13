@@ -20,7 +20,8 @@ function fieldDesc(f: SchemaField): string {
   const parts: string[] = [f.dataType]
   if (f.maxLength !== undefined) parts.push(`max ${f.maxLength}`)
   if (f.required) parts.push('vereist')
-  return `${f.name} (${parts.join(', ')})`
+  const base = `${f.path} (${parts.join(', ')})`
+  return f.description ? `${base} — ${f.description}` : base
 }
 
 function buildPrompt(
@@ -48,14 +49,13 @@ Bestaande regels (niet opnieuw voorstellen):
 ${ruleLines}
 
 Geef je antwoord als JSON-object:
-{ "expression": "...", "label": "...", "explanation": "max 50 tekens", "example": { "input": "max 50 tekens", "output": "max 50 tekens" } }`
+{ "expression": "...", "label": "...", "explanation": "Leg in max 50 tekens uit waarom deze expressie gekozen is en wat hij doet." }`
 }
 
 interface ParsedSuggestion {
   expression: string
   label: string
   explanation: string
-  example: { input: string; output: string }
 }
 
 function parseResponse(raw: string): ParsedSuggestion | null {
@@ -73,19 +73,10 @@ function parseResponse(raw: string): ParsedSuggestion | null {
   try {
     const obj = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>
     if (typeof obj.expression !== 'string') return null
-    const example = (() => {
-      if (!obj.example || typeof obj.example !== 'object') return { input: '', output: '' }
-      const ex = obj.example as Record<string, unknown>
-      return {
-        input: typeof ex.input === 'string' ? ex.input : '',
-        output: typeof ex.output === 'string' ? ex.output : '',
-      }
-    })()
     return {
       expression: obj.expression,
       label: typeof obj.label === 'string' ? obj.label : obj.expression,
       explanation: typeof obj.explanation === 'string' ? obj.explanation : '',
-      example,
     }
   } catch {
     return null
@@ -145,7 +136,6 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
         label: parsed.label,
         source: 'ai',
         aiExplanation: parsed.explanation || undefined,
-        aiExample: parsed.example.input || parsed.example.output ? parsed.example : undefined,
       })
     } catch {
       // silently discard all errors

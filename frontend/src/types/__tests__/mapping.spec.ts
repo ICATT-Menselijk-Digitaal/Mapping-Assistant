@@ -31,19 +31,16 @@ describe('TransformationRule', () => {
     expect(rule.solutionParams).toEqual({ type: 'truncate', maxLength: 50 })
   })
 
-  it('stores aiExplanation and aiExample for AI-generated rules', () => {
+  it('stores aiExplanation for AI-generated rules', () => {
     const rule: TransformationRule = {
       id: 'rule-3',
       expression: '$string($)',
       label: 'AI: naar tekst',
       source: 'ai',
       aiExplanation: 'Converts number to string',
-      aiExample: { input: '42', output: '"42"' },
     }
 
     expect(rule.source).toBe('ai')
     expect(rule.aiExplanation!.length).toBeLessThanOrEqual(50)
-    expect(rule.aiExample!.input.length).toBeLessThanOrEqual(50)
-    expect(rule.aiExample!.output.length).toBeLessThanOrEqual(50)
   })
 })
