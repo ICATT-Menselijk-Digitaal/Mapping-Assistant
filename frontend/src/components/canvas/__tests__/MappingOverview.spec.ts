@@ -159,8 +159,25 @@ describe('MappingOverview', () => {
   })
 
   // Scenario: Constrained coupling with all mismatches resolved shows a checkmark
-  // Updated in Task 8 once isMappingComplete uses the new mismatch-resolution model
-  it.todo('shows a green checkmark for a constrained coupling once all mismatches are resolved')
+  it('shows a green checkmark for a constrained coupling once all mismatches are resolved', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' })!
+    await wrapper.vm.$nextTick()
+
+    const icon = wrapper.find('[data-testid="validation-status"]')
+    expect(icon.classes()).toContain('text-amber-600')
+
+    store.addTransformationRule(mapping.id, {
+      expression: '$length($) > 10 ? $substring($, 0, 7) & "..." : $',
+      label: 'Afkappen',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'truncate',
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(icon.classes()).toContain('text-emerald-600')
+  })
 
   // Scenario: Incompatible coupling shows a red cross
   it('shows a red cross for an incompatible coupling', async () => {
