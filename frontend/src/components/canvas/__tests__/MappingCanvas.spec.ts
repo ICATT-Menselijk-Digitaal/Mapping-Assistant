@@ -194,7 +194,7 @@ describe('Coverage rate counters', () => {
 // Scenario: Clicking a canvas line scrolls both field panels to the coupled fields
 // Scenario: Coupled fields already in view do not cause a disruptive scroll
 describe('Scroll to coupled fields on CouplingSelected', () => {
-  const scrollIntoViewMock = vi.fn()
+  const scrollIntoViewMock = vi.fn<() => void>()
 
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock

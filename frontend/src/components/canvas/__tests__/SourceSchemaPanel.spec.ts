@@ -107,7 +107,7 @@ describe('SourceSchemaPanel', () => {
 
   // Scenario: Selecting a coupling scrolls both field panels to the coupled fields
   describe('scrollToField', () => {
-    const scrollIntoViewMock = vi.fn()
+    const scrollIntoViewMock = vi.fn<() => void>()
 
     afterEach(() => {
       scrollIntoViewMock.mockReset()
