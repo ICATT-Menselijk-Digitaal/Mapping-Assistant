@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
@@ -103,5 +103,90 @@ describe('SourceSchemaPanel', () => {
     ]
     const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithMax) } })
     expect(wrapper.text()).toContain('255')
+  })
+
+  // Scenario: Selecting a coupling scrolls both field panels to the coupled fields
+  describe('scrollToField', () => {
+    const scrollIntoViewMock = vi.fn()
+
+    afterEach(() => {
+      scrollIntoViewMock.mockReset()
+    })
+
+    it('calls scrollIntoView on the target field element', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const nodes = [node({ name: 'zaakId', path: 'zaakId', id: 'zaakId' })]
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) }, attachTo: div })
+
+      await wrapper.vm.scrollToField('zaakId')
+
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    it('expands a collapsed group before scrolling to the field', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(zaakNodes) }, attachTo: div })
+      expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(false)
+
+      await wrapper.vm.scrollToField('Zaak.zaakId')
+
+      expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(true)
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    it('expands a collapsed parent field before scrolling to a child field', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const nodesWithChildren: SchemaFieldNode[] = [
+        node({
+          name: 'adres',
+          path: 'adres',
+          id: 'adres',
+          dataType: 'object',
+          children: [
+            node({ name: 'straat', path: 'adres.straat', id: 'adres.straat', dataType: 'string' }),
+          ],
+        }),
+      ]
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithChildren) }, attachTo: div })
+      expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(false)
+
+      await wrapper.vm.scrollToField('adres.straat')
+
+      expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(true)
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    it('does nothing when the fieldId is not found in the schema', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(zaakNodes) }, attachTo: div })
+
+      await wrapper.vm.scrollToField('non-existent-id')
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled()
+
+      wrapper.unmount()
+      div.remove()
+    })
   })
 })

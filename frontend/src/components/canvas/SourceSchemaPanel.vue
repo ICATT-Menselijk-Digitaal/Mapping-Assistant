@@ -3,6 +3,8 @@ import { ref, computed, nextTick } from 'vue'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
 
+const rootEl = ref<HTMLElement | null>(null)
+
 const props = defineProps<{
   schema: Schema
   side?: 'source' | 'target'
@@ -71,10 +73,31 @@ const typeConfig: Record<string, { bg: string; text: string; label: string }> = 
 function tc(dataType: string) {
   return typeConfig[dataType] ?? FALLBACK_TYPE
 }
+
+async function scrollToField(fieldId: string): Promise<void> {
+  const parent = props.schema.parentOf(fieldId)
+  const topLevel = parent ?? props.schema.byId(fieldId)
+  if (!topLevel) return
+
+  const dot = topLevel.path.indexOf('.')
+  const groupName = dot >= 0 ? topLevel.path.slice(0, dot) : ''
+  groupCollapsed.value = { ...groupCollapsed.value, [groupName]: false }
+
+  if (parent) {
+    fieldCollapsed.value = { ...fieldCollapsed.value, [parent.id]: false }
+  }
+
+  await nextTick()
+  rootEl.value
+    ?.querySelector<HTMLElement>(`[data-field-id="${fieldId}"]`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+defineExpose({ scrollToField })
 </script>
 
 <template>
-  <div class="flex flex-col h-full overflow-y-auto">
+  <div ref="rootEl" class="flex flex-col h-full overflow-y-auto">
     <!-- Empty state -->
     <div
       v-if="schema.roots.length === 0"
