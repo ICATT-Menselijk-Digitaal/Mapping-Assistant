@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MappingCanvas from '../MappingCanvas.vue'
@@ -186,6 +187,73 @@ describe('Coverage rate counters', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('0 van 8 doelvelden gekoppeld')
+  })
+})
+
+// Scenario: Selecting a coupling scrolls both field panels to the coupled fields
+// Scenario: Clicking a canvas line scrolls both field panels to the coupled fields
+// Scenario: Coupled fields already in view do not cause a disruptive scroll
+describe('Scroll to coupled fields on CouplingSelected', () => {
+  const scrollIntoViewMock = vi.fn()
+
+  beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+  })
+
+  afterEach(() => {
+    scrollIntoViewMock.mockReset()
+  })
+
+  it('calls scrollIntoView on both source and target field elements when a mapping is selected', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    await wrapper.vm.$nextTick()
+
+    store.selectMapping(mapping.id)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+    // Called for both source and target field
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+    div.remove()
+  })
+
+  it('does not scroll when selectedMappingId is cleared', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    store.selectMapping(null)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('uses block: nearest to avoid disruptive scroll when fields are already visible', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledWith(
+      expect.objectContaining({ block: 'nearest' }),
+    )
+
+    wrapper.unmount()
   })
 })
 
