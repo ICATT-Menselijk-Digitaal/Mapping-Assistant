@@ -10,7 +10,7 @@ export function buildDefaultExpression(value: string, sourcePath: string): strin
 }
 
 export function buildCastExpression(from: string, to: string, sourcePath: string): string {
-  if (from === 'number' && to === 'string') return `$string(${sourcePath})`
+  if (to === 'string') return `$string(${sourcePath})`
   throw new Error(`Unsupported cast: ${from} → ${to}`)
 }
 
