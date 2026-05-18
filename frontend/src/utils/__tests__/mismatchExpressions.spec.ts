@@ -37,6 +37,10 @@ describe('buildCastExpression', () => {
     expect(buildCastExpression('number', 'string', 'zaak.id')).toBe('$string(zaak.id)')
   })
 
+  it('generates $string(path) for boolean → string', () => {
+    expect(buildCastExpression('boolean', 'string', 'zaak.actief')).toBe('$string(zaak.actief)')
+  })
+
   it('throws for unsupported cast pairs', () => {
     expect(() => buildCastExpression('boolean', 'date', 'zaak.id')).toThrow()
   })
