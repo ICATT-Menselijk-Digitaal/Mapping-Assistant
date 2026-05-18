@@ -123,7 +123,7 @@ describe('SourceSchemaPanel', () => {
 
       await wrapper.vm.scrollToField('zaakId')
 
-      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
 
       wrapper.unmount()
       div.remove()
@@ -140,7 +140,7 @@ describe('SourceSchemaPanel', () => {
       await wrapper.vm.scrollToField('Zaak.zaakId')
 
       expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(true)
-      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
 
       wrapper.unmount()
       div.remove()
@@ -168,7 +168,7 @@ describe('SourceSchemaPanel', () => {
       await wrapper.vm.scrollToField('adres.straat')
 
       expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(true)
-      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
 
       wrapper.unmount()
       div.remove()

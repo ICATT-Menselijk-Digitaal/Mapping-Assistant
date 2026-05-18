@@ -216,7 +216,7 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     store.selectMapping(mapping.id)
     await flushPromises()
 
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
     // Called for both source and target field
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
 
@@ -241,7 +241,7 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     wrapper.unmount()
   })
 
-  it('uses block: nearest to avoid disruptive scroll when fields are already visible', async () => {
+  it('uses block: center to scroll the field to the middle of the viewport', async () => {
     const wrapper = mountCanvas()
     const store = useMappings()
 
@@ -250,7 +250,7 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     await flushPromises()
 
     expect(scrollIntoViewMock).toHaveBeenCalledWith(
-      expect.objectContaining({ block: 'nearest' }),
+      expect.objectContaining({ block: 'center' }),
     )
 
     wrapper.unmount()

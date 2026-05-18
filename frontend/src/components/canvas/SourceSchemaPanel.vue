@@ -90,7 +90,7 @@ async function scrollToField(fieldId: string): Promise<void> {
   await nextTick()
   rootEl.value
     ?.querySelector<HTMLElement>(`[data-field-id="${fieldId}"]`)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 
 defineExpose({ scrollToField })
