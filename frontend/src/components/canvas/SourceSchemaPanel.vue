@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
@@ -75,6 +75,10 @@ const displayedGroups = computed<GroupEntry[]>(() => {
 
 const hasNamedGroups = computed(() => groups.value.some((g) => g.name !== ''))
 const isFilterActive = computed(() => !!searchQuery.value || filterStatus.value !== 'all')
+
+watch([searchQuery, filterStatus], () => {
+  nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
+})
 
 // all groups and fields with children start collapsed
 const groupCollapsed = ref<Record<string, boolean>>(
