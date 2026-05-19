@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { getMismatchTypes, isMismatchResolved, isMappingComplete } from '../transformationCompletion'
 import type { SchemaField } from '@/types'
-import type { FieldMapping, TransformationRule } from '@/types/mapping'
+import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 
 function field(overrides: Partial<SchemaField> = {}): SchemaField {
   return { id: 'f', name: 'field', path: 'field', dataType: 'string', required: false, ...overrides }
@@ -103,6 +103,20 @@ describe('isMismatchResolved', () => {
     ]
     expect(isMismatchResolved('truncate', rules)).toBe(true)
   })
+
+  // Scenario: Manually resolving last mismatch turns indicator green
+  it('returns true when type is in manuallyResolvedMismatches', () => {
+    expect(isMismatchResolved('truncate', [], ['truncate'])).toBe(true)
+  })
+
+  it('returns false when type is not in manuallyResolvedMismatches', () => {
+    expect(isMismatchResolved('truncate', [], ['default'])).toBe(false)
+  })
+
+  it('returns true when resolved by rule even with empty manuallyResolvedMismatches', () => {
+    const rules = [rule({ resolvesMismatch: 'truncate', expression: '$substring($, 0, 47)' })]
+    expect(isMismatchResolved('truncate', rules, [])).toBe(true)
+  })
 })
 
 describe('isMappingComplete', () => {
@@ -129,5 +143,20 @@ describe('isMappingComplete', () => {
     const rules = [rule({ resolvesMismatch: 'truncate', expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $' })]
     // truncate is resolved but default is not
     expect(isMappingComplete(mapping(rules), src, tgt)).toBe(false)
+  })
+
+  // Scenario: Manually resolving last mismatch turns indicator green
+  it('returns true when all mismatches are manually resolved', () => {
+    const src = field({ dataType: 'string', maxLength: 100 })
+    const tgt = field({ dataType: 'string', maxLength: 50 })
+    const m = { ...mapping([]), manuallyResolvedMismatches: ['truncate' as MismatchType] }
+    expect(isMappingComplete(m, src, tgt)).toBe(true)
+  })
+
+  it('returns false when only some mismatches are manually resolved', () => {
+    const src = field({ dataType: 'string', maxLength: 100, required: false })
+    const tgt = field({ dataType: 'string', maxLength: 50, required: true })
+    const m = { ...mapping([]), manuallyResolvedMismatches: ['truncate' as MismatchType] }
+    expect(isMappingComplete(m, src, tgt)).toBe(false)
   })
 })

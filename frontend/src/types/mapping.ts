@@ -26,6 +26,7 @@ export interface FieldMapping {
   transformations: TransformationRule[]
   status: MappingStatus
   notes?: string
+  manuallyResolvedMismatches?: MismatchType[]
 }
 
 export interface ValidatedFieldMapping extends FieldMapping {
