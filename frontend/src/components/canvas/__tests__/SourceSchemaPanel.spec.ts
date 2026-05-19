@@ -187,6 +187,21 @@ describe('Search and status filter', () => {
     expect(wrapper.text()).not.toContain('postalCode')
   })
 
+  // Option D: auto-expand — matching children visible without manual group expand
+  it('shows matching child fields without requiring manual group expansion when filter is active', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedNodes) }, attachTo: div })
+    // Children subtree is hidden by default (collapsed)
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
+    // Activate search filter
+    await wrapper.find('[data-testid="search-input"]').setValue('city')
+    // Children subtree is now visible without clicking the toggle
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
+    wrapper.unmount()
+    div.remove()
+  })
+
   // Scenario: Administrator combines name search with status filter
   it('shows only unmapped fields matching the search query when both filters are active', async () => {
     const store = useMappings()

@@ -74,6 +74,7 @@ const displayedGroups = computed<GroupEntry[]>(() => {
 })
 
 const hasNamedGroups = computed(() => groups.value.some((g) => g.name !== ''))
+const isFilterActive = computed(() => !!searchQuery.value || filterStatus.value !== 'all')
 
 // all groups and fields with children start collapsed
 const groupCollapsed = ref<Record<string, boolean>>(
@@ -134,7 +135,7 @@ function tc(dataType: string) {
 
     <!-- Filter bar -->
     <template v-else>
-      <div class="px-3 py-2 border-b border-slate-100 flex flex-col gap-1.5">
+      <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100 flex flex-col gap-1.5">
         <input
           v-model="searchQuery"
           type="text"
@@ -193,7 +194,7 @@ function tc(dataType: string) {
 
         <!-- Group fields -->
         <div
-          v-show="!hasNamedGroups || isGroupExpanded(group.name)"
+          v-show="!hasNamedGroups || isGroupExpanded(group.name) || isFilterActive"
           :data-testid="hasNamedGroups ? `schema-group-fields-${group.name}` : undefined"
         >
           <template v-for="field in group.fields" :key="field.id">
@@ -220,7 +221,7 @@ function tc(dataType: string) {
 
               <!-- Children subtree -->
               <div
-                v-show="isFieldExpanded(field.id)"
+                v-show="isFieldExpanded(field.id) || isFilterActive"
                 :data-testid="`field-children-${field.id}`"
                 class="pl-4 border-l border-slate-100 ml-3"
               >
