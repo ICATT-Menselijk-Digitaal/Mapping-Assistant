@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { useMappings } from '@/composables/useMappings'
 
 function node(overrides: Partial<SchemaFieldNode> & { name: string }): SchemaFieldNode {
   return {
@@ -27,6 +29,10 @@ const statusNodes: SchemaFieldNode[] = [
 ]
 
 const multiSchemaNodes = [...zaakNodes, ...statusNodes]
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
 
 describe('SourceSchemaPanel', () => {
   // Scenario: Source fields visible after loading
@@ -103,5 +109,94 @@ describe('SourceSchemaPanel', () => {
     ]
     const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithMax) } })
     expect(wrapper.text()).toContain('255')
+  })
+})
+
+describe('Search and status filter', () => {
+  function mountPanel(nodes: SchemaFieldNode[]) {
+    return mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+  }
+
+  const flatNodes: SchemaFieldNode[] = [
+    node({ name: 'cityName', path: 'cityName', id: 'cityName' }),
+    node({ name: 'countryCode', path: 'countryCode', id: 'countryCode' }),
+    node({ name: 'postalCode', path: 'postalCode', id: 'postalCode' }),
+  ]
+
+  const nestedNodes: SchemaFieldNode[] = [
+    node({
+      name: 'address',
+      path: 'address',
+      id: 'address',
+      dataType: 'object',
+      children: [
+        node({ name: 'city', path: 'address.city', id: 'address.city' }),
+        node({ name: 'street', path: 'address.street', id: 'address.street' }),
+      ],
+    }),
+    node({ name: 'email', path: 'email', id: 'email' }),
+  ]
+
+  // Scenario: Administrator finds a field by name
+  it('shows only fields matching the search query', async () => {
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('city')
+    expect(wrapper.text()).toContain('cityName')
+    expect(wrapper.text()).not.toContain('countryCode')
+    expect(wrapper.text()).not.toContain('postalCode')
+  })
+
+  // Scenario: Nested child field is shown with its parent group as context
+  it('shows matching child field under its parent, hides non-matching siblings', async () => {
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('city')
+    expect(wrapper.text()).toContain('address')
+    expect(wrapper.text()).toContain('city')
+    expect(wrapper.text()).not.toContain('street')
+    expect(wrapper.text()).not.toContain('email')
+  })
+
+  // Scenario: Search returns no matching fields
+  it('shows no-results empty state when search matches nothing', async () => {
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('zzznomatch')
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+  })
+
+  // Scenario: Administrator filters the source panel by unmapped fields
+  it('shows only unmapped fields when Unmapped filter is active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="filter-unmapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).not.toContain('cityName')
+    expect(wrapper.text()).toContain('countryCode')
+    expect(wrapper.text()).toContain('postalCode')
+  })
+
+  // Scenario: Administrator filters the source panel by mapped fields
+  it('shows only mapped fields when Mapped filter is active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="filter-mapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('cityName')
+    expect(wrapper.text()).not.toContain('countryCode')
+    expect(wrapper.text()).not.toContain('postalCode')
+  })
+
+  // Scenario: Administrator combines name search with status filter
+  it('shows only unmapped fields matching the search query when both filters are active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('Code')
+    await wrapper.find('[data-testid="filter-unmapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('countryCode')
+    expect(wrapper.text()).toContain('postalCode')
+    expect(wrapper.text()).not.toContain('cityName')
   })
 })
