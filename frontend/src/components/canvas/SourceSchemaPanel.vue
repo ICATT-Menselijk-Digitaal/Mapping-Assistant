@@ -140,14 +140,23 @@ function tc(dataType: string) {
     <!-- Filter bar -->
     <template v-else>
       <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100 flex flex-col gap-1.5">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Zoek op veldnaam…"
-          :aria-label="side === 'target' ? 'Zoek doelvelden' : 'Zoek bronvelden'"
-          data-testid="search-input"
-          class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400"
-        />
+        <div class="relative">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Zoek op veldnaam…"
+            :aria-label="side === 'target' ? 'Zoek doelvelden' : 'Zoek bronvelden'"
+            data-testid="search-input"
+            class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 pr-6 focus:outline-none focus:border-indigo-400"
+          />
+          <button
+            v-if="searchQuery"
+            aria-label="Zoekopdracht wissen"
+            data-testid="search-clear"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 leading-none"
+            @click="searchQuery = ''"
+          >×</button>
+        </div>
         <div role="group" class="flex gap-1">
           <button
             :class="['flex-1 text-[11px] px-2 py-1 rounded border transition-colors', filterStatus === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700']"
