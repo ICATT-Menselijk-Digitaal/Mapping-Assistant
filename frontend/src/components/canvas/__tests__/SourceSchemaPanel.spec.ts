@@ -291,4 +291,11 @@ describe('Search term highlighting', () => {
     await wrapper.find('[data-testid="search-clear"]').trigger('click')
     expect(wrapper.findAll('mark').length).toBe(0)
   })
+
+  // All children of a directly matching parent are shown and accessible
+  it('shows all children of a directly matching parent field', async () => {
+    const wrapper = mountPanel(parentMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.text()).toContain('zipCode')
+  })
 })

@@ -41,8 +41,12 @@ function fieldMatchesStatus(fieldId: string): boolean {
 }
 
 function displayedChildrenOf(fieldId: string): SchemaField[] {
-  return props.schema.childrenOf(fieldId).filter(
-    (child) => fieldMatchesName(child) && fieldMatchesStatus(child.id),
+  const parent = props.schema.byId(fieldId)
+  const parentDirectMatch = parent != null && fieldMatchesName(parent)
+  return props.schema.childrenOf(fieldId).filter((child) =>
+    parentDirectMatch
+      ? fieldMatchesStatus(child.id)
+      : fieldMatchesName(child) && fieldMatchesStatus(child.id),
   )
 }
 
