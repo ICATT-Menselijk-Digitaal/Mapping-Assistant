@@ -223,7 +223,7 @@ function tc(dataType: string) {
           <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
           <template v-for="(seg, i) in highlightSegments(group.name, searchQuery)" :key="i">
             <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded font-semibold">{{ seg.text }}</mark>
-            <span v-else>{{ seg.text }}</span>
+            <template v-else>{{ seg.text }}</template>
           </template>
         </button>
 
@@ -246,7 +246,7 @@ function tc(dataType: string) {
                 <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">
                   <template v-for="(seg, i) in highlightSegments(field.name, searchQuery)" :key="i">
                     <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded">{{ seg.text }}</mark>
-                    <span v-else>{{ seg.text }}</span>
+                    <template v-else>{{ seg.text }}</template>
                   </template>
                 </span>
                 <span :class="['text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0', tc(field.dataType).bg, tc(field.dataType).text]">
@@ -278,7 +278,7 @@ function tc(dataType: string) {
                   <span class="font-mono truncate flex-1 text-slate-700 text-[13px]">
                     <template v-for="(seg, i) in highlightSegments(child.name, searchQuery)" :key="i">
                       <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded">{{ seg.text }}</mark>
-                      <span v-else>{{ seg.text }}</span>
+                      <template v-else>{{ seg.text }}</template>
                     </template>
                   </span>
                   <span :class="['text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0', tc(child.dataType).bg, tc(child.dataType).text]">
@@ -310,7 +310,7 @@ function tc(dataType: string) {
               <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">
                 <template v-for="(seg, i) in highlightSegments(field.name, searchQuery)" :key="i">
                   <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded">{{ seg.text }}</mark>
-                  <span v-else>{{ seg.text }}</span>
+                  <template v-else>{{ seg.text }}</template>
                 </template>
               </span>
               <span
