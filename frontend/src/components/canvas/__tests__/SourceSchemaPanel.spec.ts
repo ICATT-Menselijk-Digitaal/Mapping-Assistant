@@ -299,6 +299,21 @@ describe('Search term highlighting', () => {
     expect(wrapper.text()).toContain('zipCode')
   })
 
+  // Group name matches search query in multi-schema mode (top-level parent via group header)
+  it('shows a named group and highlights its header when the group name matches the search query', async () => {
+    const addressGroupNodes: SchemaFieldNode[] = [
+      node({ name: 'street', path: 'Address.street', id: 'Address.street' }),
+      node({ name: 'city', path: 'Address.city', id: 'Address.city' }),
+    ]
+    const wrapper = mountPanel(addressGroupNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.text()).toContain('Address')
+    expect(wrapper.text()).toContain('street')
+    expect(wrapper.text()).toContain('city')
+    const marks = wrapper.findAll('mark')
+    expect(marks.some((m) => m.text().toLowerCase() === 'address')).toBe(true)
+  })
+
   // Parent matched by name starts collapsed; user expands manually
   it('keeps children collapsed when parent matches by name but no children match, and expands on toggle click', async () => {
     const div = document.createElement('div')

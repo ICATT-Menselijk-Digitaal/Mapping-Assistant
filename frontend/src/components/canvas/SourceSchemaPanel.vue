@@ -73,15 +73,22 @@ const groups = computed<GroupEntry[]>(() => {
 const displayedGroups = computed<GroupEntry[]>(() => {
   if (!searchQuery.value && filterStatus.value === 'all') return groups.value
   return groups.value
-    .map((g) => ({
-      ...g,
-      fields: g.fields.filter((f) => {
-        const hasChildren = props.schema.childrenOf(f.id).length > 0
-        return hasChildren
-          ? fieldMatchesName(f) || displayedChildrenOf(f.id).length > 0
-          : fieldMatchesName(f) && fieldMatchesStatus(f.id)
-      }),
-    }))
+    .map((g) => {
+      const groupNameMatches =
+        !!searchQuery.value &&
+        !!g.name &&
+        g.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+      return {
+        ...g,
+        fields: g.fields.filter((f) => {
+          if (groupNameMatches) return fieldMatchesStatus(f.id)
+          const hasChildren = props.schema.childrenOf(f.id).length > 0
+          return hasChildren
+            ? fieldMatchesName(f) || displayedChildrenOf(f.id).length > 0
+            : fieldMatchesName(f) && fieldMatchesStatus(f.id)
+        }),
+      }
+    })
     .filter((g) => g.fields.length > 0)
 })
 
@@ -214,7 +221,10 @@ function tc(dataType: string) {
           @click="toggleGroup(group.name)"
         >
           <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
-          {{ group.name }}
+          <template v-for="(seg, i) in highlightSegments(group.name, searchQuery)" :key="i">
+            <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded font-semibold">{{ seg.text }}</mark>
+            <span v-else>{{ seg.text }}</span>
+          </template>
         </button>
 
         <!-- Group fields -->
