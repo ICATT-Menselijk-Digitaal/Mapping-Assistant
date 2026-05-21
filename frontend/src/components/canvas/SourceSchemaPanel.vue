@@ -224,7 +224,7 @@ function tc(dataType: string) {
                 <span class="shrink-0 text-slate-400 text-xs">{{ isFieldExpanded(field.id) ? '▾' : '▸' }}</span>
                 <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">
                   <template v-for="(seg, i) in highlightSegments(field.name, searchQuery)" :key="i">
-                    <mark v-if="seg.highlight" class="bg-yellow-100 text-inherit rounded">{{ seg.text }}</mark>
+                    <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded">{{ seg.text }}</mark>
                     <span v-else>{{ seg.text }}</span>
                   </template>
                 </span>
@@ -256,7 +256,7 @@ function tc(dataType: string) {
                 >
                   <span class="font-mono truncate flex-1 text-slate-700 text-[13px]">
                     <template v-for="(seg, i) in highlightSegments(child.name, searchQuery)" :key="i">
-                      <mark v-if="seg.highlight" class="bg-yellow-100 text-inherit rounded">{{ seg.text }}</mark>
+                      <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded">{{ seg.text }}</mark>
                       <span v-else>{{ seg.text }}</span>
                     </template>
                   </span>
@@ -288,7 +288,7 @@ function tc(dataType: string) {
               <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
               <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">
                 <template v-for="(seg, i) in highlightSegments(field.name, searchQuery)" :key="i">
-                  <mark v-if="seg.highlight" class="bg-yellow-100 text-inherit rounded">{{ seg.text }}</mark>
+                  <mark v-if="seg.highlight" class="bg-yellow-200 text-inherit rounded">{{ seg.text }}</mark>
                   <span v-else>{{ seg.text }}</span>
                 </template>
               </span>
