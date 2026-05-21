@@ -215,3 +215,80 @@ describe('Search and status filter', () => {
     expect(wrapper.text()).not.toContain('cityName')
   })
 })
+
+describe('Search term highlighting', () => {
+  function mountPanel(nodes: SchemaFieldNode[]) {
+    return mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+  }
+
+  const directMatchNodes: SchemaFieldNode[] = [
+    node({ name: 'customerAddress', path: 'customerAddress', id: 'customerAddress' }),
+  ]
+
+  const nestedNodes: SchemaFieldNode[] = [
+    node({
+      name: 'customer',
+      path: 'customer',
+      id: 'customer',
+      dataType: 'object',
+      children: [
+        node({ name: 'street', path: 'customer.street', id: 'customer.street' }),
+        node({ name: 'email', path: 'customer.email', id: 'customer.email' }),
+      ],
+    }),
+  ]
+
+  const parentMatchNodes: SchemaFieldNode[] = [
+    node({
+      name: 'address',
+      path: 'address',
+      id: 'address',
+      dataType: 'object',
+      children: [
+        node({ name: 'zipCode', path: 'address.zipCode', id: 'address.zipCode' }),
+      ],
+    }),
+  ]
+
+  // Scenario: Matching substring is highlighted in a directly matching field name
+  it('wraps the matching substring in a mark element for a leaf field', async () => {
+    const wrapper = mountPanel(directMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    const marks = wrapper.findAll('mark')
+    expect(marks.length).toBeGreaterThan(0)
+    expect(marks.some((m) => m.text().toLowerCase() === 'address')).toBe(true)
+  })
+
+  // Scenario: Child field name is highlighted when it directly matches the search query
+  it('highlights the matching substring in a child field name', async () => {
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('street')
+    const marks = wrapper.findAll('mark')
+    expect(marks.length).toBeGreaterThan(0)
+    expect(marks.some((m) => m.text().toLowerCase() === 'street')).toBe(true)
+  })
+
+  // Scenario: Parent field is shown when its own name matches the search query
+  it('shows a parent field when its own name matches, even if no children match', async () => {
+    const wrapper = mountPanel(parentMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.text()).toContain('address')
+    const marks = wrapper.findAll('mark')
+    expect(marks.some((m) => m.text().toLowerCase() === 'address')).toBe(true)
+  })
+
+  // Scenario: No highlight is shown when the search box is empty
+  it('renders no mark elements when the search box is empty', () => {
+    const wrapper = mountPanel(directMatchNodes)
+    expect(wrapper.findAll('mark').length).toBe(0)
+  })
+
+  // Scenario: Highlight disappears when search is cleared
+  it('removes mark elements when the search input is cleared', async () => {
+    const wrapper = mountPanel(directMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.findAll('mark').length).toBeGreaterThan(0)
+    await wrapper.find('[data-testid="search-clear"]').trigger('click')
+    expect(wrapper.findAll('mark').length).toBe(0)
+  })
+})
