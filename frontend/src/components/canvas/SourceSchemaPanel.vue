@@ -50,6 +50,13 @@ function displayedChildrenOf(fieldId: string): SchemaField[] {
   )
 }
 
+function hasMatchingChildren(fieldId: string): boolean {
+  if (!isFilterActive.value) return false
+  return props.schema.childrenOf(fieldId).some(
+    (child) => fieldMatchesName(child) && fieldMatchesStatus(child.id),
+  )
+}
+
 interface GroupEntry { name: string; fields: SchemaField[] }
 
 const groups = computed<GroupEntry[]>(() => {
@@ -244,7 +251,7 @@ function tc(dataType: string) {
 
               <!-- Children subtree -->
               <div
-                v-show="isFieldExpanded(field.id) || isFilterActive"
+                v-show="isFieldExpanded(field.id) || hasMatchingChildren(field.id)"
                 :data-testid="`field-children-${field.id}`"
                 class="pl-4 border-l border-slate-100 ml-3"
               >

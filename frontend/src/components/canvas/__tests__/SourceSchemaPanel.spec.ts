@@ -298,4 +298,17 @@ describe('Search term highlighting', () => {
     await wrapper.find('[data-testid="search-input"]').setValue('address')
     expect(wrapper.text()).toContain('zipCode')
   })
+
+  // Parent matched by name starts collapsed; user expands manually
+  it('keeps children collapsed when parent matches by name but no children match, and expands on toggle click', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(parentMatchNodes) }, attachTo: div })
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
+    await wrapper.find('[data-testid="field-toggle-address"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
+    wrapper.unmount()
+    div.remove()
+  })
 })
