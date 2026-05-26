@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
+import ExportButton from '@/components/ExportButton.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
@@ -42,18 +43,23 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
         />
       </div>
     </div>
-    <div class="w-80 shrink-0 h-full overflow-hidden">
-      <CouplingDetailPanel
-        v-if="mappingsStore.selectedMappingId !== null"
-        :source-schema="sourceSchema"
-        :target-schema="targetSchema"
-      />
-      <MappingOverview
-        v-else
-        v-model:active-tab="activeTab"
-        :source-schema="sourceSchema"
-        :target-schema="targetSchema"
-      />
+    <div class="w-80 shrink-0 h-full flex flex-col gap-2 overflow-hidden">
+      <div class="flex justify-end">
+        <ExportButton :source-schema="sourceSchema" :target-schema="targetSchema" />
+      </div>
+      <div class="flex-1 min-h-0 overflow-hidden">
+        <CouplingDetailPanel
+          v-if="mappingsStore.selectedMappingId !== null"
+          :source-schema="sourceSchema"
+          :target-schema="targetSchema"
+        />
+        <MappingOverview
+          v-else
+          v-model:active-tab="activeTab"
+          :source-schema="sourceSchema"
+          :target-schema="targetSchema"
+        />
+      </div>
     </div>
   </main>
 </template>
