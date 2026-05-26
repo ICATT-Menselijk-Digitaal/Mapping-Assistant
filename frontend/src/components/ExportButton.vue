@@ -25,7 +25,7 @@ function handleExport() {
 <template>
   <button
     :disabled="!canExport"
-    class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+    class="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
     :title="!canExport ? 'Laad eerst een bron- en doelschema' : undefined"
     @click="handleExport"
   >
