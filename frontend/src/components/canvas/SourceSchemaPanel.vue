@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { highlightHtml } from '@/utils/highlightSegments'
 
 const props = defineProps<{
   schema: Schema
@@ -40,7 +41,18 @@ function fieldMatchesStatus(fieldId: string): boolean {
 }
 
 function displayedChildrenOf(fieldId: string): SchemaField[] {
-  return props.schema.childrenOf(fieldId).filter(
+  const parent = props.schema.byId(fieldId)
+  const parentDirectMatch = parent != null && fieldMatchesName(parent)
+  return props.schema.childrenOf(fieldId).filter((child) =>
+    parentDirectMatch
+      ? fieldMatchesStatus(child.id)
+      : fieldMatchesName(child) && fieldMatchesStatus(child.id),
+  )
+}
+
+function hasMatchingChildren(fieldId: string): boolean {
+  if (!isFilterActive.value) return false
+  return props.schema.childrenOf(fieldId).some(
     (child) => fieldMatchesName(child) && fieldMatchesStatus(child.id),
   )
 }
@@ -61,15 +73,22 @@ const groups = computed<GroupEntry[]>(() => {
 const displayedGroups = computed<GroupEntry[]>(() => {
   if (!searchQuery.value && filterStatus.value === 'all') return groups.value
   return groups.value
-    .map((g) => ({
-      ...g,
-      fields: g.fields.filter((f) => {
-        const hasChildren = props.schema.childrenOf(f.id).length > 0
-        return hasChildren
-          ? displayedChildrenOf(f.id).length > 0
-          : fieldMatchesName(f) && fieldMatchesStatus(f.id)
-      }),
-    }))
+    .map((g) => {
+      const groupNameMatches =
+        !!searchQuery.value &&
+        !!g.name &&
+        g.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+      return {
+        ...g,
+        fields: g.fields.filter((f) => {
+          if (groupNameMatches) return fieldMatchesStatus(f.id)
+          const hasChildren = props.schema.childrenOf(f.id).length > 0
+          return hasChildren
+            ? fieldMatchesName(f) || displayedChildrenOf(f.id).length > 0
+            : fieldMatchesName(f) && fieldMatchesStatus(f.id)
+        }),
+      }
+    })
     .filter((g) => g.fields.length > 0)
 })
 
@@ -202,7 +221,7 @@ function tc(dataType: string) {
           @click="toggleGroup(group.name)"
         >
           <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
-          {{ group.name }}
+          <span v-html="highlightHtml(group.name, searchQuery, 'bg-yellow-200 text-inherit rounded font-semibold')" />
         </button>
 
         <!-- Group fields -->
@@ -221,7 +240,7 @@ function tc(dataType: string) {
                 @click="toggleField(field.id)"
               >
                 <span class="shrink-0 text-slate-400 text-xs">{{ isFieldExpanded(field.id) ? '▾' : '▸' }}</span>
-                <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">{{ field.name }}</span>
+                <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]" v-html="highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')" />
                 <span :class="['text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0', tc(field.dataType).bg, tc(field.dataType).text]">
                   {{ tc(field.dataType).label }}
                 </span>
@@ -234,7 +253,7 @@ function tc(dataType: string) {
 
               <!-- Children subtree -->
               <div
-                v-show="isFieldExpanded(field.id) || isFilterActive"
+                v-show="isFieldExpanded(field.id) || hasMatchingChildren(field.id)"
                 :data-testid="`field-children-${field.id}`"
                 class="pl-4 border-l border-slate-100 ml-3"
               >
@@ -248,7 +267,7 @@ function tc(dataType: string) {
                   class="w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50"
                   @click="emit('field-click', child.id)"
                 >
-                  <span class="font-mono truncate flex-1 text-slate-700 text-[13px]">{{ child.name }}</span>
+                  <span class="font-mono truncate flex-1 text-slate-700 text-[13px]" v-html="highlightHtml(child.name, searchQuery, 'bg-yellow-200 text-inherit rounded')" />
                   <span :class="['text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0', tc(child.dataType).bg, tc(child.dataType).text]">
                     {{ tc(child.dataType).label }}
                   </span>
@@ -275,7 +294,7 @@ function tc(dataType: string) {
               @click="emit('field-click', field.id)"
             >
               <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
-              <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">{{ field.name }}</span>
+              <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]" v-html="highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')" />
               <span
                 v-if="field.dataType === 'string' && field.maxLength != null"
                 class="text-[10px] text-slate-400 shrink-0"
