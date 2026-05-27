@@ -2,26 +2,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { downloadAsJson } from '../downloadHelper'
 
 describe('downloadAsJson', () => {
-  let createObjectURLMock: ReturnType<typeof vi.fn>
-  let revokeObjectURLMock: ReturnType<typeof vi.fn>
-  let clickMock: ReturnType<typeof vi.fn>
-  let appendChildMock: ReturnType<typeof vi.fn>
-  let removeChildMock: ReturnType<typeof vi.fn>
-  let anchorElement: { href: string; download: string; click: ReturnType<typeof vi.fn> }
+  let createObjectURLMock: ReturnType<typeof vi.fn<(blob: Blob) => string>>
+  let revokeObjectURLMock: ReturnType<typeof vi.fn<(url: string) => void>>
+  let clickMock: ReturnType<typeof vi.fn<() => void>>
+  let anchorElement: { href: string; download: string; click: ReturnType<typeof vi.fn<() => void>> }
 
   beforeEach(() => {
-    createObjectURLMock = vi.fn().mockReturnValue('blob:fake-url')
-    revokeObjectURLMock = vi.fn()
-    clickMock = vi.fn()
-    appendChildMock = vi.fn()
-    removeChildMock = vi.fn()
+    createObjectURLMock = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:fake-url')
+    revokeObjectURLMock = vi.fn<(url: string) => void>()
+    clickMock = vi.fn<() => void>()
 
     anchorElement = { href: '', download: '', click: clickMock }
 
     vi.stubGlobal('URL', { createObjectURL: createObjectURLMock, revokeObjectURL: revokeObjectURLMock })
     vi.spyOn(document, 'createElement').mockReturnValue(anchorElement as unknown as HTMLElement)
-    vi.spyOn(document.body, 'appendChild').mockImplementation(appendChildMock)
-    vi.spyOn(document.body, 'removeChild').mockImplementation(removeChildMock)
+    vi.spyOn(document.body, 'appendChild').mockReturnValue(anchorElement as unknown as Node)
+    vi.spyOn(document.body, 'removeChild').mockReturnValue(anchorElement as unknown as Node)
   })
 
   afterEach(() => {
@@ -36,7 +32,7 @@ describe('downloadAsJson', () => {
     downloadAsJson(data, 'koppelingsset-2026-05-26.json')
 
     expect(createObjectURLMock).toHaveBeenCalledOnce()
-    const blob: Blob = createObjectURLMock.mock.calls[0][0]
+    const blob = createObjectURLMock.mock.calls[0]![0]
     expect(blob).toBeInstanceOf(Blob)
     expect(blob.type).toBe('application/json')
 
@@ -65,7 +61,7 @@ describe('downloadAsJson', () => {
   it('triggers download with empty fieldMappings without error', () => {
     const data = { version: '1.0', sourceSchema: { name: 'src', fields: [] }, targetSchema: { name: 'tgt', fields: [] }, fieldMappings: [] }
 
-    expect(() => downloadAsJson(data, 'koppelingsset-2026-05-26.json')).not.toThrow()
+    expect(() => downloadAsJson(data, 'koppelingsset-2026-05-26.json')).not.toThrow('')
     expect(clickMock).toHaveBeenCalledOnce()
   })
 })
