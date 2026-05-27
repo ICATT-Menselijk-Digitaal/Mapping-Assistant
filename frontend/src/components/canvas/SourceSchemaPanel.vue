@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
+import { useMappings } from '@/composables/useMappings'
 
 const props = defineProps<{
   schema: Schema
@@ -11,6 +13,37 @@ const props = defineProps<{
 const emit = defineEmits<{
   'field-click': [fieldId: string]
 }>()
+
+const { mappings } = storeToRefs(useMappings())
+
+const searchQuery = ref('')
+const filterStatus = ref<'all' | 'mapped' | 'unmapped'>('all')
+
+const mappedFieldIds = computed(() => {
+  const ids = new Set<string>()
+  for (const m of mappings.value) {
+    ids.add(m.sourceFieldId)
+    ids.add(m.targetFieldId)
+  }
+  return ids
+})
+
+function fieldMatchesName(field: SchemaField): boolean {
+  if (!searchQuery.value) return true
+  return field.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+}
+
+function fieldMatchesStatus(fieldId: string): boolean {
+  if (filterStatus.value === 'all') return true
+  const mapped = mappedFieldIds.value.has(fieldId)
+  return filterStatus.value === 'mapped' ? mapped : !mapped
+}
+
+function displayedChildrenOf(fieldId: string): SchemaField[] {
+  return props.schema.childrenOf(fieldId).filter(
+    (child) => fieldMatchesName(child) && fieldMatchesStatus(child.id),
+  )
+}
 
 interface GroupEntry { name: string; fields: SchemaField[] }
 
@@ -25,7 +58,27 @@ const groups = computed<GroupEntry[]>(() => {
   return [...map.entries()].map(([name, fields]) => ({ name, fields }))
 })
 
+const displayedGroups = computed<GroupEntry[]>(() => {
+  if (!searchQuery.value && filterStatus.value === 'all') return groups.value
+  return groups.value
+    .map((g) => ({
+      ...g,
+      fields: g.fields.filter((f) => {
+        const hasChildren = props.schema.childrenOf(f.id).length > 0
+        return hasChildren
+          ? displayedChildrenOf(f.id).length > 0
+          : fieldMatchesName(f) && fieldMatchesStatus(f.id)
+      }),
+    }))
+    .filter((g) => g.fields.length > 0)
+})
+
 const hasNamedGroups = computed(() => groups.value.some((g) => g.name !== ''))
+const isFilterActive = computed(() => !!searchQuery.value || filterStatus.value !== 'all')
+
+watch([searchQuery, filterStatus], () => {
+  nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
+})
 
 // all groups and fields with children start collapsed
 const groupCollapsed = ref<Record<string, boolean>>(
@@ -84,10 +137,59 @@ function tc(dataType: string) {
       Laad een bronschema om de velden te bekijken
     </div>
 
-    <!-- Schema groups -->
+    <!-- Filter bar -->
     <template v-else>
+      <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100 flex flex-col gap-1.5">
+        <div class="relative">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Zoek op veldnaam…"
+            :aria-label="side === 'target' ? 'Zoek doelvelden' : 'Zoek bronvelden'"
+            data-testid="search-input"
+            class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 pr-6 focus:outline-none focus:border-indigo-400"
+          />
+          <button
+            v-if="searchQuery"
+            aria-label="Zoekopdracht wissen"
+            data-testid="search-clear"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 leading-none"
+            @click="searchQuery = ''"
+          >×</button>
+        </div>
+        <div role="group" class="flex gap-1">
+          <button
+            :class="['flex-1 text-[11px] px-2 py-1 rounded border transition-colors', filterStatus === 'all' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700']"
+            data-testid="filter-all"
+            @click="filterStatus = 'all'"
+          >Alle</button>
+          <button
+            :class="['flex-1 text-[11px] px-2 py-1 rounded border transition-colors', filterStatus === 'mapped' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700']"
+            data-testid="filter-mapped"
+            @click="filterStatus = 'mapped'"
+          >Gekoppeld</button>
+          <button
+            :class="['flex-1 text-[11px] px-2 py-1 rounded border transition-colors', filterStatus === 'unmapped' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700']"
+            data-testid="filter-unmapped"
+            @click="filterStatus = 'unmapped'"
+          >Niet gekoppeld</button>
+        </div>
+      </div>
+
+      <!-- No-results state -->
       <div
-        v-for="group in groups"
+        v-if="displayedGroups.length === 0"
+        data-testid="no-results"
+        class="flex-1 flex items-center justify-center p-6 text-sm text-slate-400 text-center"
+      >
+        Geen velden gevonden<template v-if="searchQuery"> voor "{{ searchQuery }}"</template>
+      </div>
+    </template>
+
+    <!-- Schema groups -->
+    <template v-if="schema.roots.length > 0 && displayedGroups.length > 0">
+      <div
+        v-for="group in displayedGroups"
         :key="group.name"
         :data-testid="hasNamedGroups ? `schema-group-${group.name}` : undefined"
       >
@@ -105,7 +207,7 @@ function tc(dataType: string) {
 
         <!-- Group fields -->
         <div
-          v-show="!hasNamedGroups || isGroupExpanded(group.name)"
+          v-show="!hasNamedGroups || isGroupExpanded(group.name) || isFilterActive"
           :data-testid="hasNamedGroups ? `schema-group-fields-${group.name}` : undefined"
         >
           <template v-for="field in group.fields" :key="field.id">
@@ -132,12 +234,12 @@ function tc(dataType: string) {
 
               <!-- Children subtree -->
               <div
-                v-show="isFieldExpanded(field.id)"
+                v-show="isFieldExpanded(field.id) || isFilterActive"
                 :data-testid="`field-children-${field.id}`"
                 class="pl-4 border-l border-slate-100 ml-3"
               >
                 <div
-                  v-for="child in schema.childrenOf(field.id)"
+                  v-for="child in displayedChildrenOf(field.id)"
                   :key="child.id"
                   :data-field-id="child.id"
                   :data-field-side="side"
