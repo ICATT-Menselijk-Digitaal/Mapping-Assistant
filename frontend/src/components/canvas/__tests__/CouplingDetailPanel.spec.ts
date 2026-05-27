@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useMappings } from '@/composables/useMappings'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { isMappingComplete } from '@/utils/transformationCompletion'
 import CouplingDetailPanel from '../CouplingDetailPanel.vue'
 import TruncationDialog from '../TruncationDialog.vue'
 
@@ -115,6 +116,68 @@ describe('CouplingDetailPanel — mismatch detection', () => {
     const { wrapper } = mountPanel('src-compatible', 'tgt-compatible')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="mismatch-card-truncate"]').exists()).toBe(false)
+  })
+})
+
+describe('CouplingDetailPanel — manual mismatch resolution', () => {
+  // Scenario: Administrator marks an unresolved mismatch as fixed
+  it('shows Markeer als opgelost button on an unresolved mismatch with no rule', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="mismatch-mark-resolved-truncate"]').exists()).toBe(true)
+  })
+
+  it('marks mismatch as manually resolved when Markeer als opgelost is clicked', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="mismatch-mark-resolved-truncate"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(store.mappings.find((m) => m.id === mapping.id)!.manuallyResolvedMismatches).toContain('truncate')
+    expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toBe('✓ Opgelost')
+  })
+
+  // Scenario: Mismatch already resolved by a transformation rule does not show the manual toggle
+  it('does not show mark-resolved toggle when mismatch is resolved by a rule', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.addTransformationRule(mapping.id, {
+      expression: '$substring($, 0, 47) & "..."',
+      label: 'Afkappen',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'truncate',
+    })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="mismatch-mark-resolved-truncate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="mismatch-mark-unresolved-truncate"]').exists()).toBe(false)
+  })
+
+  // Scenario: Administrator unmarks a manually resolved mismatch
+  it('shows Markeer als onopgelost when mismatch is manually resolved', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.toggleManualMismatchResolution(mapping.id, 'truncate')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="mismatch-mark-unresolved-truncate"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="mismatch-mark-resolved-truncate"]').exists()).toBe(false)
+  })
+
+  it('reverts mismatch to unresolved when Markeer als onopgelost is clicked', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.toggleManualMismatchResolution(mapping.id, 'truncate')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="mismatch-mark-unresolved-truncate"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(store.mappings.find((m) => m.id === mapping.id)!.manuallyResolvedMismatches).not.toContain('truncate')
+    expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toBe('● Vereist')
+  })
+
+  // Scenario: Manually resolving the last mismatch turns the mapping indicator green
+  it('isMappingComplete returns true when last mismatch is manually resolved', () => {
+    const store = useMappings()
+    const m = store.createMapping({ sourceFieldId: 'src-str-long', targetFieldId: 'tgt-str-short' })!
+    store.toggleManualMismatchResolution(m.id, 'truncate')
+    const src = sourceSchema.byId('src-str-long')!
+    const tgt = targetSchema.byId('tgt-str-short')!
+    const updatedMapping = store.mappings.find((m2) => m2.id === m.id)!
+    expect(isMappingComplete(updatedMapping, src, tgt)).toBe(true)
   })
 })
 

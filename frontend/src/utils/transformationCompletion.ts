@@ -33,9 +33,11 @@ export function getMismatchTypes(source: SchemaField, target: SchemaField): Mism
 export function isMismatchResolved(
   type: MismatchType,
   transformations: TransformationRule[],
+  manuallyResolvedMismatches?: MismatchType[],
 ): boolean {
-  return transformations.some(
-    (r) => r.resolvesMismatch === type && r.expression.trim() !== '',
+  return (
+    transformations.some((r) => r.resolvesMismatch === type && r.expression.trim() !== '') ||
+    (manuallyResolvedMismatches?.includes(type) ?? false)
   )
 }
 
@@ -45,6 +47,6 @@ export function isMappingComplete(
   target: SchemaField,
 ): boolean {
   return getMismatchTypes(source, target).every((type) =>
-    isMismatchResolved(type, mapping.transformations),
+    isMismatchResolved(type, mapping.transformations, mapping.manuallyResolvedMismatches),
   )
 }
