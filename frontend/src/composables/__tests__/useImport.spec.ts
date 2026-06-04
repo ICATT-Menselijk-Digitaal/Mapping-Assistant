@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useImport } from '../useImport'
 import { useMappings } from '../useMappings'
+import { useAISuggestions } from '../useAISuggestions'
 import { useSourceSchema } from '../useSourceSchema'
 import { useTargetSchema } from '../useTargetSchema'
 import type { MappingSetExport } from '@/utils/exportSerializer'
@@ -88,6 +89,34 @@ describe('useImport', () => {
     expect(importer.lastEvent.value?.payload.version).toBe('1.1')
   })
 
+  it('preserves resolvesMismatch on transformation rules so the mismatch stays resolved', async () => {
+    const src = useSourceSchema()
+    const tgt = useTargetSchema()
+    const mappings = useMappings()
+    const importer = useImport()
+
+    const payload = {
+      ...exportPayload,
+      fieldMappings: [
+        {
+          sourceField: 'customerId',
+          targetField: 'id',
+          transformations: [
+            {
+              expression: 'substring(0, 10)',
+              label: 'Truncate',
+              source: 'mismatch-solution',
+              resolvesMismatch: 'truncate',
+            },
+          ],
+        },
+      ],
+    }
+    await importer.importMappingSet(jsonFile(payload), src, tgt)
+
+    expect(mappings.mappings[0]!.transformations[0]!.resolvesMismatch).toBe('truncate')
+  })
+
   it('restores schemas only when fieldMappings is empty', async () => {
     const src = useSourceSchema()
     const tgt = useTargetSchema()
@@ -100,6 +129,26 @@ describe('useImport', () => {
     expect(src.schema.value.all()).toHaveLength(3)
     expect(tgt.schema.value.all()).toHaveLength(2)
     expect(mappings.mappings).toHaveLength(0)
+  })
+
+  it('restores AI statistics from the export payload', async () => {
+    const src = useSourceSchema()
+    const tgt = useTargetSchema()
+    const ai = useAISuggestions()
+    const importer = useImport()
+
+    const payload = {
+      ...exportPayload,
+      statistics: {
+        ai: { totalGenerated: 7, accepted: 3, rejected: 2, rejectedPairs: ['a::b', 'c::d'] },
+      },
+    }
+    await importer.importMappingSet(jsonFile(payload), src, tgt)
+
+    expect(ai.totalGenerated).toBe(7)
+    expect(ai.accepted).toBe(3)
+    expect(ai.rejected).toBe(2)
+    expect([...ai.rejectedPairs]).toEqual(['a::b', 'c::d'])
   })
 
   it('replaces existing state on import (does not merge)', async () => {

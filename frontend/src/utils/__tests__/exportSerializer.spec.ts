@@ -78,7 +78,7 @@ describe('serializeMappingSet', () => {
     expect('fields' in result.targetSchema).toBe(false)
   })
 
-  it('exports transformation rules as a lean { expression, label, source } shape', () => {
+  it('exports mismatch-solution rules with the resolvesMismatch type preserved', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
@@ -90,6 +90,7 @@ describe('serializeMappingSet', () => {
       expression: 'substring(0, 10)',
       label: 'Truncate',
       source: 'mismatch-solution',
+      resolvesMismatch: 'truncate',
     })
     expect(result.fieldMappings[1]).toEqual({
       sourceField: 'name',
@@ -98,7 +99,7 @@ describe('serializeMappingSet', () => {
     })
   })
 
-  it('strips id, resolvesMismatch, and solutionParams from exported rules', () => {
+  it('strips id and solutionParams from exported rules', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
@@ -107,8 +108,18 @@ describe('serializeMappingSet', () => {
     })
     const exportedRule = result.fieldMappings[0]!.transformations[0]!
     expect(exportedRule).not.toHaveProperty('id')
-    expect(exportedRule).not.toHaveProperty('resolvesMismatch')
     expect(exportedRule).not.toHaveProperty('solutionParams')
+  })
+
+  it('omits resolvesMismatch on rules that do not resolve a mismatch', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    const aiExported = result.fieldMappings[0]!.transformations[1]!
+    expect(aiExported).not.toHaveProperty('resolvesMismatch')
   })
 
   it('includes aiExplanation only when the rule source is ai', () => {

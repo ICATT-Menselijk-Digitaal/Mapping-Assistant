@@ -3,6 +3,7 @@ import type { MappingSetImported } from '@/domain/events/MappingSetImported'
 import type { MappingSetExport } from '@/utils/exportSerializer'
 import { deserializeMappingSet } from '@/utils/importDeserializer'
 import { useMappings } from './useMappings'
+import { useAISuggestions } from './useAISuggestions'
 import type { useSourceSchema } from './useSourceSchema'
 import type { useTargetSchema } from './useTargetSchema'
 
@@ -26,6 +27,9 @@ export function useImport() {
 
     const mappingsStore = useMappings()
     mappingsStore.restoreMappings(payload.fieldMappings, source.schema.value, target.schema.value)
+
+    const aiStore = useAISuggestions()
+    aiStore.restoreStatistics(payload.statistics.ai)
 
     lastEvent.value = {
       type: 'MappingSetImported',
