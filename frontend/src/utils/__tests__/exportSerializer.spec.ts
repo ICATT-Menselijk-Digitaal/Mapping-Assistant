@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { serializeMappingSet } from '../exportSerializer'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
-import type { FieldMapping } from '@/types'
+import type { FieldMapping, TransformationRule } from '@/types'
 
 function node(overrides: Partial<SchemaFieldNode> & { name: string; id: string; path: string }): SchemaFieldNode {
   return { dataType: 'string', required: false, ...overrides }
@@ -17,44 +17,127 @@ const targetSchema = buildSchema('Target', [
   node({ name: 'fullName', id: 'fullName', path: 'fullName' }),
 ])
 
+const truncationRule: TransformationRule = {
+  id: 'r1',
+  expression: 'substring(0, 10)',
+  label: 'Truncate',
+  source: 'mismatch-solution',
+  resolvesMismatch: 'truncate',
+  solutionParams: { type: 'truncate', maxLength: 10 },
+}
+
 const mappings: FieldMapping[] = [
-  { id: 'm1', sourceFieldId: 'customerId', targetFieldId: 'id', transformations: [], status: 'confirmed' },
-  { id: 'm2', sourceFieldId: 'name', targetFieldId: 'fullName', transformations: [], status: 'confirmed' },
+  { id: 'm1', sourceFieldId: 'customerId', targetFieldId: 'id', transformations: [truncationRule], status: 'confirmed' },
+  { id: 'm2', sourceFieldId: 'name', targetFieldId: 'fullName', transformations: [], status: 'rejected' },
 ]
 
+const emptyAiStats = { totalGenerated: 0, accepted: 0, rejected: 0, rejectedPairs: [] }
+
 describe('serializeMappingSet', () => {
-  // Scenario: Export object contains source schema, target schema, and mappings
-  it('includes version 1.0 in the export object', () => {
-    const result = serializeMappingSet(sourceSchema, targetSchema, mappings)
-    expect(result.version).toBe('1.0')
+  it('produces version 1.1 exports with an ISO timestamp', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: 'https://example.com/src.json' },
+      target: { schema: targetSchema, sourceUrl: 'https://example.com/tgt.json' },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    expect(result.version).toBe('1.1')
+    expect(result.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 
-  it('includes the source schema name and all its fields', () => {
-    const result = serializeMappingSet(sourceSchema, targetSchema, mappings)
-    expect(result.sourceSchema.name).toBe('Source')
+  it('serialises schemas as URL only when sourceUrl is present', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: 'https://example.com/src.json' },
+      target: { schema: targetSchema, sourceUrl: 'https://example.com/tgt.json' },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
+    expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://example.com/src.json', fields: null })
+    expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://example.com/tgt.json', fields: null })
+  })
+
+  it('falls back to parsed fields snapshot when a schema was loaded from file (no URL)', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: 'https://example.com/tgt.json' },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
+    expect(result.sourceSchema.sourceUrl).toBeNull()
+    expect(result.sourceSchema.fields).not.toBeNull()
     expect(result.sourceSchema.fields).toHaveLength(2)
-    expect(result.sourceSchema.fields.map((f) => f.path)).toContain('customerId')
+    expect(result.targetSchema.fields).toBeNull()
   })
 
-  it('includes the target schema name and all its fields', () => {
-    const result = serializeMappingSet(sourceSchema, targetSchema, mappings)
-    expect(result.targetSchema.name).toBe('Target')
-    expect(result.targetSchema.fields).toHaveLength(2)
-    expect(result.targetSchema.fields.map((f) => f.path)).toContain('fullName')
-  })
-
-  it('includes all field mappings with source and target path strings', () => {
-    const result = serializeMappingSet(sourceSchema, targetSchema, mappings)
+  it('includes per-mapping transformations and status', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
     expect(result.fieldMappings).toHaveLength(2)
-    expect(result.fieldMappings[0]).toMatchObject({ sourceField: 'customerId', targetField: 'id' })
-    expect(result.fieldMappings[1]).toMatchObject({ sourceField: 'name', targetField: 'fullName' })
+    expect(result.fieldMappings[0]).toMatchObject({
+      sourceField: 'customerId',
+      targetField: 'id',
+      status: 'confirmed',
+      transformations: [truncationRule],
+    })
+    expect(result.fieldMappings[1]).toMatchObject({
+      status: 'rejected',
+      transformations: [],
+    })
   })
 
-  // Scenario: Export without mappings contains schemas only
-  it('produces an empty fieldMappings list when no mappings are provided', () => {
-    const result = serializeMappingSet(sourceSchema, targetSchema, [])
+  it('includes AI suggestion statistics verbatim', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [],
+      aiStats: { totalGenerated: 7, accepted: 3, rejected: 2, rejectedPairs: ['a::b', 'c::d'] },
+    })
+    expect(result.statistics.ai).toEqual({
+      totalGenerated: 7,
+      accepted: 3,
+      rejected: 2,
+      rejectedPairs: ['a::b', 'c::d'],
+    })
+  })
+
+  it('computes mapping statistics from the provided mappings', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    expect(result.statistics.mappings).toEqual({
+      total: 2,
+      confirmed: 1,
+      rejected: 1,
+      withTransformations: 1,
+    })
+  })
+
+  it('produces an empty fieldMappings list and zero mapping stats when no mappings are provided', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
     expect(result.fieldMappings).toHaveLength(0)
-    expect(result.sourceSchema.name).toBe('Source')
-    expect(result.targetSchema.name).toBe('Target')
+    expect(result.statistics.mappings).toEqual({ total: 0, confirmed: 0, rejected: 0, withTransformations: 0 })
+  })
+
+  it('uses the provided exportedAt when supplied (deterministic for tests)', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [],
+      aiStats: emptyAiStats,
+      exportedAt: '2026-01-01T00:00:00.000Z',
+    })
+    expect(result.exportedAt).toBe('2026-01-01T00:00:00.000Z')
   })
 })
