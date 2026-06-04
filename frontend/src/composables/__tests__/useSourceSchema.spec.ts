@@ -177,4 +177,39 @@ describe('useSourceSchema', () => {
     expect(endpoints.value).toHaveLength(1)
     expect(endpoints.value[0]!.method).toBe('get')
   })
+
+  it('records the source URL when loaded from URL', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(validJson),
+    }))
+
+    const { sourceUrl, loadFromUrl } = useSourceSchema()
+    await loadFromUrl('https://example.com/api-docs.json')
+
+    expect(sourceUrl.value).toBe('https://example.com/api-docs.json')
+  })
+
+  it('clears the source URL when loaded from file', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(validJson),
+    }))
+
+    const { sourceUrl, loadFromUrl, loadFromFile } = useSourceSchema()
+    await loadFromUrl('https://example.com/api-docs.json')
+    expect(sourceUrl.value).toBe('https://example.com/api-docs.json')
+
+    await loadFromFile(makeFile(validJson, 'spec.json'))
+    expect(sourceUrl.value).toBeNull()
+  })
+
+  it('clears the source URL when URL load fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
+
+    const { sourceUrl, loadFromUrl } = useSourceSchema()
+    await loadFromUrl('https://example.com/missing.json')
+
+    expect(sourceUrl.value).toBeNull()
+  })
 })

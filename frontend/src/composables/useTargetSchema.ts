@@ -6,6 +6,7 @@ import { parseOpenApiSchema, parseOpenApiEndpoints } from '@/utils/openApiParser
 export function useTargetSchema() {
   const schema = ref<Schema>(EMPTY_SCHEMA)
   const rawSpec = ref<unknown>(null)
+  const sourceUrl = ref<string | null>(null)
   const error = ref<string | null>(null)
   const isLoading = ref(false)
 
@@ -34,10 +35,12 @@ export function useTargetSchema() {
     try {
       const content = await file.text()
       parseContent(content)
+      sourceUrl.value = null
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon bestand niet verwerken'
       schema.value = EMPTY_SCHEMA
       rawSpec.value = null
+      sourceUrl.value = null
     } finally {
       isLoading.value = false
     }
@@ -51,14 +54,16 @@ export function useTargetSchema() {
       if (!response.ok) throw new Error(`Kon URL niet ophalen (${response.status})`)
       const content = await response.text()
       parseContent(content)
+      sourceUrl.value = url
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon URL niet ophalen'
       schema.value = EMPTY_SCHEMA
       rawSpec.value = null
+      sourceUrl.value = null
     } finally {
       isLoading.value = false
     }
   }
 
-  return { schema, endpoints, error, isLoading, loadFromFile, loadFromUrl }
+  return { schema, endpoints, sourceUrl, error, isLoading, loadFromFile, loadFromUrl }
 }
