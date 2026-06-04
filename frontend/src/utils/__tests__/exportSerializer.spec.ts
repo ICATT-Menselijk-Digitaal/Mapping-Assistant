@@ -26,8 +26,16 @@ const truncationRule: TransformationRule = {
   solutionParams: { type: 'truncate', maxLength: 10 },
 }
 
+const aiRule: TransformationRule = {
+  id: 'r2',
+  expression: '$uppercase(name)',
+  label: 'Uppercase name',
+  source: 'ai',
+  aiExplanation: 'Target expects upper case per schema description.',
+}
+
 const mappings: FieldMapping[] = [
-  { id: 'm1', sourceFieldId: 'customerId', targetFieldId: 'id', transformations: [truncationRule], status: 'confirmed' },
+  { id: 'm1', sourceFieldId: 'customerId', targetFieldId: 'id', transformations: [truncationRule, aiRule], status: 'confirmed' },
   { id: 'm2', sourceFieldId: 'name', targetFieldId: 'fullName', transformations: [], status: 'rejected' },
 ]
 
@@ -70,7 +78,7 @@ describe('serializeMappingSet', () => {
     expect('fields' in result.targetSchema).toBe(false)
   })
 
-  it('includes per-mapping transformations without internal id', () => {
+  it('exports transformation rules as a lean { expression, label, source } shape', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
@@ -78,17 +86,45 @@ describe('serializeMappingSet', () => {
       aiStats: emptyAiStats,
     })
     expect(result.fieldMappings).toHaveLength(2)
-    const { id: _id, ...ruleWithoutId } = truncationRule
-    expect(result.fieldMappings[0]).toEqual({
-      sourceField: 'customerId',
-      targetField: 'id',
-      transformations: [ruleWithoutId],
+    expect(result.fieldMappings[0]!.transformations[0]).toEqual({
+      expression: 'substring(0, 10)',
+      label: 'Truncate',
+      source: 'mismatch-solution',
     })
-    expect(result.fieldMappings[0]!.transformations[0]).not.toHaveProperty('id')
     expect(result.fieldMappings[1]).toEqual({
       sourceField: 'name',
       targetField: 'fullName',
       transformations: [],
+    })
+  })
+
+  it('strips id, resolvesMismatch, and solutionParams from exported rules', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    const exportedRule = result.fieldMappings[0]!.transformations[0]!
+    expect(exportedRule).not.toHaveProperty('id')
+    expect(exportedRule).not.toHaveProperty('resolvesMismatch')
+    expect(exportedRule).not.toHaveProperty('solutionParams')
+  })
+
+  it('includes aiExplanation only when the rule source is ai', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    const [exportedTruncation, exportedAi] = result.fieldMappings[0]!.transformations
+    expect(exportedTruncation).not.toHaveProperty('aiExplanation')
+    expect(exportedAi).toEqual({
+      expression: '$uppercase(name)',
+      label: 'Uppercase name',
+      source: 'ai',
+      aiExplanation: 'Target expects upper case per schema description.',
     })
   })
 

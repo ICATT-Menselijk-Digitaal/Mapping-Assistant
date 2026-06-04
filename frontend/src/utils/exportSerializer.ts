@@ -1,5 +1,5 @@
 import type { Schema, SchemaField } from '@/domain/schema'
-import type { FieldMapping, TransformationRule } from '@/types'
+import type { FieldMapping, RuleSource, TransformationRule } from '@/types'
 
 export interface ExportedSchema {
   name: string
@@ -8,7 +8,13 @@ export interface ExportedSchema {
   fields?: SchemaField[]
 }
 
-export type ExportedTransformationRule = Omit<TransformationRule, 'id'>
+export interface ExportedTransformationRule {
+  expression: string
+  label: string
+  source: RuleSource
+  // Only present when source === 'ai'
+  aiExplanation?: string
+}
 
 export interface ExportedFieldMapping {
   sourceField: string
@@ -44,6 +50,18 @@ export interface SerializeInput {
   exportedAt?: string
 }
 
+function exportTransformationRule(rule: TransformationRule): ExportedTransformationRule {
+  const out: ExportedTransformationRule = {
+    expression: rule.expression,
+    label: rule.label,
+    source: rule.source,
+  }
+  if (rule.source === 'ai' && rule.aiExplanation !== undefined) {
+    out.aiExplanation = rule.aiExplanation
+  }
+  return out
+}
+
 function serializeSchema(schema: Schema, sourceUrl: string | null): ExportedSchema {
   if (sourceUrl === null) {
     return { name: schema.name, sourceUrl: null, fields: [...schema.all()] }
@@ -61,7 +79,7 @@ export function serializeMappingSet(input: SerializeInput): MappingSetExport {
     fieldMappings: mappings.map((m) => ({
       sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
       targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
-      transformations: m.transformations.map(({ id: _id, ...rule }) => rule),
+      transformations: m.transformations.map(exportTransformationRule),
     })),
     statistics: { ai: aiStats },
   }
