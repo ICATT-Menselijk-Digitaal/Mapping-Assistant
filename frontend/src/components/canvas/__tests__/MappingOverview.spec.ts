@@ -355,4 +355,44 @@ describe('MappingOverview', () => {
     expect(icons).toHaveLength(1)
     expect(icons[0]!.classes()).toContain('text-emerald-600')
   })
+
+  // Scenario: Orphaned mappings after import — warning indicator visible
+  it('shows a warning indicator for orphaned mappings', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [
+        { sourceField: 'src-1', targetField: 'tgt-1', transformations: [] },
+        { sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] },
+      ],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(rows).toHaveLength(2)
+
+    const orphanIndicators = wrapper.findAll('[data-testid="orphan-indicator"]')
+    expect(orphanIndicators).toHaveLength(1)
+    expect(orphanIndicators[0]!.attributes('title')).toMatch(/orphan|niet-bestaand|verweesd/i)
+  })
+
+  it('still lets the administrator remove an orphaned mapping', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    await row.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(store.mappings).toHaveLength(0)
+  })
 })

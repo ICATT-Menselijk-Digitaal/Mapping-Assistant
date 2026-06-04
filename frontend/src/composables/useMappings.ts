@@ -83,8 +83,8 @@ export const useMappings = defineStore('mappings', () => {
     selectedMappingId.value = null
     const restored: FieldMapping[] = []
     for (const m of exported) {
-      if (!sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)) continue
-      restored.push({
+      const orphaned = !sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)
+      const mapping: FieldMapping = {
         id: crypto.randomUUID(),
         sourceFieldId: m.sourceField,
         targetFieldId: m.targetField,
@@ -93,7 +93,9 @@ export const useMappings = defineStore('mappings', () => {
           id: crypto.randomUUID(),
         })) as TransformationRule[],
         status: 'confirmed',
-      })
+      }
+      if (orphaned) mapping.orphaned = true
+      restored.push(mapping)
     }
     mappings.value = restored
   }

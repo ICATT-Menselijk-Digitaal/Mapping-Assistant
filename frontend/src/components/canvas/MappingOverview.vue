@@ -61,6 +61,7 @@ const rows = computed(() =>
       sourceFieldId: m.sourceFieldId,
       targetFieldId: m.targetFieldId,
       validationStatus: m.validationStatus,
+      orphaned: m.orphaned === true,
       source,
       target,
       isComplete: source && target ? isMappingComplete(m, source, target) : false,
@@ -185,7 +186,7 @@ function cancelDelete() {
         v-for="row in filteredRows"
         :key="row.id"
         :ref="(el) => setRowRef(row.id, el as HTMLElement | null)"
-        :class="['flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId }]"
+        :class="['flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId, 'bg-amber-50/40': row.orphaned }]"
         data-testid="mapping-row"
         @click.stop="store.selectMapping(row.id)"
       >
@@ -194,6 +195,15 @@ function cancelDelete() {
           :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIcon(row).text]"
           data-testid="validation-status"
         >{{ statusIcon(row).symbol }}</span>
+
+        <!-- Orphaned mapping indicator -->
+        <span
+          v-if="row.orphaned"
+          class="shrink-0 text-amber-600 text-[13px] leading-none"
+          data-testid="orphan-indicator"
+          title="Verweesde koppeling: verwijst naar een niet-bestaand veld"
+          aria-label="Verweesde koppeling"
+        >⚠</span>
 
         <!-- Source field -->
         <div class="flex-1 min-w-0 flex items-center gap-1.5">
