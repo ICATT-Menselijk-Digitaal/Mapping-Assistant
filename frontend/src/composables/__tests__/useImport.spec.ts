@@ -229,6 +229,31 @@ describe('useImport', () => {
       expect(importer.error.value).toBeNull()
     })
 
+    it('clearError() resets the error ref', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      await importer.importMappingSet(invalidShapeFile(), src, tgt)
+      expect(importer.error.value).toBeTruthy()
+
+      importer.clearError()
+      expect(importer.error.value).toBeNull()
+    })
+
+    it('clearWarnings() resets the warnings ref', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      const payload = { ...exportPayload, version: '2.0' }
+      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+      expect(importer.warnings.value.length).toBeGreaterThan(0)
+
+      importer.clearWarnings()
+      expect(importer.warnings.value).toEqual([])
+    })
+
     it('surfaces deserializer warnings (unknown version)', async () => {
       const src = useSourceSchema()
       const tgt = useTargetSchema()

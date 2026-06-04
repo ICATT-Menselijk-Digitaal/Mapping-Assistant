@@ -63,5 +63,13 @@ export function useImport() {
     return payload
   }
 
-  return { importMappingSet, lastEvent, error, warnings }
+  function clearError() {
+    error.value = null
+  }
+
+  function clearWarnings() {
+    warnings.value = []
+  }
+
+  return { importMappingSet, lastEvent, error, warnings, clearError, clearWarnings }
 }

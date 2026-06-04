@@ -15,7 +15,13 @@ const target = useTargetSchema()
 const { schema: sourceSchema, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = source
 const { schema: targetSchema, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = target
 const mappingsStore = useMappings()
-const { importMappingSet, error: importError, warnings: importWarnings } = useImport()
+const {
+  importMappingSet,
+  error: importError,
+  warnings: importWarnings,
+  clearError: clearImportError,
+  clearWarnings: clearImportWarnings,
+} = useImport()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 
@@ -67,6 +73,8 @@ async function onImportFileSelected(file: File) { await importMappingSet(file, s
         :error="importError"
         :warnings="importWarnings"
         @file-selected="onImportFileSelected"
+        @dismiss-error="clearImportError"
+        @dismiss-warnings="clearImportWarnings"
       />
       <ExportButton
         :source-schema="sourceSchema"
