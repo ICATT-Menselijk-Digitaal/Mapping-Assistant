@@ -38,7 +38,7 @@ describe('deserializeMappingSet', () => {
   })
 
   it('throws when input is not an object', () => {
-    expect(() => deserializeMappingSet('nope')).toThrow()
-    expect(() => deserializeMappingSet(null)).toThrow()
+    expect(() => deserializeMappingSet('nope')).toThrow(/not an object/i)
+    expect(() => deserializeMappingSet(null)).toThrow(/not an object/i)
   })
 })
