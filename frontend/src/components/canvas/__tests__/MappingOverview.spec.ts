@@ -378,6 +378,21 @@ describe('MappingOverview', () => {
     expect(orphanIndicators[0]!.attributes('title')).toMatch(/orphan|niet-bestaand|verweesd/i)
   })
 
+  it('does not select an orphaned mapping when its row is clicked', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    await row.trigger('click')
+    expect(store.selectedMappingId).toBeNull()
+  })
+
   it('still lets the administrator remove an orphaned mapping', async () => {
     const wrapper = mountOverview()
     const store = useMappings()

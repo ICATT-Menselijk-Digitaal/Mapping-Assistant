@@ -186,9 +186,14 @@ function cancelDelete() {
         v-for="row in filteredRows"
         :key="row.id"
         :ref="(el) => setRowRef(row.id, el as HTMLElement | null)"
-        :class="['flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId, 'bg-amber-50/40': row.orphaned }]"
+        :class="[
+          'flex items-center gap-2 px-3 py-2 text-sm',
+          row.orphaned
+            ? 'cursor-default bg-amber-50/40'
+            : ['cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId }],
+        ]"
         data-testid="mapping-row"
-        @click.stop="store.selectMapping(row.id)"
+        @click.stop="row.orphaned ? null : store.selectMapping(row.id)"
       >
         <!-- Validation status icon -->
         <span
