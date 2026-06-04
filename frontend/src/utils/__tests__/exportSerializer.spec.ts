@@ -70,7 +70,7 @@ describe('serializeMappingSet', () => {
     expect('fields' in result.targetSchema).toBe(false)
   })
 
-  it('includes per-mapping transformations (without internal id) and status', () => {
+  it('includes per-mapping transformations without internal id', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
@@ -79,17 +79,29 @@ describe('serializeMappingSet', () => {
     })
     expect(result.fieldMappings).toHaveLength(2)
     const { id: _id, ...ruleWithoutId } = truncationRule
-    expect(result.fieldMappings[0]).toMatchObject({
+    expect(result.fieldMappings[0]).toEqual({
       sourceField: 'customerId',
       targetField: 'id',
-      status: 'confirmed',
       transformations: [ruleWithoutId],
     })
     expect(result.fieldMappings[0]!.transformations[0]).not.toHaveProperty('id')
-    expect(result.fieldMappings[1]).toMatchObject({
-      status: 'rejected',
+    expect(result.fieldMappings[1]).toEqual({
+      sourceField: 'name',
+      targetField: 'fullName',
       transformations: [],
     })
+  })
+
+  it('does not include a status field on exported mappings', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    for (const m of result.fieldMappings) {
+      expect(m).not.toHaveProperty('status')
+    }
   })
 
   it('includes AI suggestion statistics verbatim', () => {
@@ -107,22 +119,17 @@ describe('serializeMappingSet', () => {
     })
   })
 
-  it('computes mapping statistics from the provided mappings', () => {
+  it('does not include a derivable mappings stats block', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
       mappings,
       aiStats: emptyAiStats,
     })
-    expect(result.statistics.mappings).toEqual({
-      total: 2,
-      confirmed: 1,
-      rejected: 1,
-      withTransformations: 1,
-    })
+    expect(result.statistics).not.toHaveProperty('mappings')
   })
 
-  it('produces an empty fieldMappings list and zero mapping stats when no mappings are provided', () => {
+  it('produces an empty fieldMappings list when no mappings are provided', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
@@ -130,7 +137,6 @@ describe('serializeMappingSet', () => {
       aiStats: emptyAiStats,
     })
     expect(result.fieldMappings).toHaveLength(0)
-    expect(result.statistics.mappings).toEqual({ total: 0, confirmed: 0, rejected: 0, withTransformations: 0 })
   })
 
   it('uses the provided exportedAt when supplied (deterministic for tests)', () => {

@@ -1,5 +1,5 @@
 import type { Schema, SchemaField } from '@/domain/schema'
-import type { FieldMapping, MappingStatus, TransformationRule } from '@/types'
+import type { FieldMapping, TransformationRule } from '@/types'
 
 export interface ExportedSchema {
   name: string
@@ -14,7 +14,6 @@ export interface ExportedFieldMapping {
   sourceField: string
   targetField: string
   transformations: ExportedTransformationRule[]
-  status: MappingStatus
 }
 
 export interface ExportedAIStatistics {
@@ -24,16 +23,8 @@ export interface ExportedAIStatistics {
   rejectedPairs: string[]
 }
 
-export interface ExportedMappingStatistics {
-  total: number
-  confirmed: number
-  rejected: number
-  withTransformations: number
-}
-
 export interface ExportStatistics {
   ai: ExportedAIStatistics
-  mappings: ExportedMappingStatistics
 }
 
 export interface MappingSetExport {
@@ -60,15 +51,6 @@ function serializeSchema(schema: Schema, sourceUrl: string | null): ExportedSche
   return { name: schema.name, sourceUrl }
 }
 
-function computeMappingStats(mappings: FieldMapping[]): ExportedMappingStatistics {
-  return {
-    total: mappings.length,
-    confirmed: mappings.filter((m) => m.status === 'confirmed').length,
-    rejected: mappings.filter((m) => m.status === 'rejected').length,
-    withTransformations: mappings.filter((m) => m.transformations.length > 0).length,
-  }
-}
-
 export function serializeMappingSet(input: SerializeInput): MappingSetExport {
   const { source, target, mappings, aiStats } = input
   return {
@@ -80,11 +62,7 @@ export function serializeMappingSet(input: SerializeInput): MappingSetExport {
       sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
       targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
       transformations: m.transformations.map(({ id: _id, ...rule }) => rule),
-      status: m.status,
     })),
-    statistics: {
-      ai: aiStats,
-      mappings: computeMappingStats(mappings),
-    },
+    statistics: { ai: aiStats },
   }
 }

@@ -36,8 +36,9 @@ describe('useExport', () => {
     expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://src' })
     expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://tgt' })
     expect(result.fieldMappings).toHaveLength(1)
-    expect(result.fieldMappings[0]).toMatchObject({ sourceField: 'customerId', targetField: 'id', status: 'confirmed' })
-    expect(result.statistics.mappings.total).toBe(1)
+    expect(result.fieldMappings[0]).toMatchObject({ sourceField: 'customerId', targetField: 'id' })
+    expect(result.fieldMappings[0]).not.toHaveProperty('status')
+    expect(result.statistics.ai.totalGenerated).toBe(0)
   })
 
   it('reads AI statistics from the useAISuggestions store', () => {
@@ -83,6 +84,5 @@ describe('useExport', () => {
     )
 
     expect(result.fieldMappings).toHaveLength(0)
-    expect(result.statistics.mappings.total).toBe(0)
   })
 })
