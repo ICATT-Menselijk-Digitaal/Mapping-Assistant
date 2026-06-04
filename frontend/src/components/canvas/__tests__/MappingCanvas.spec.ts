@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MappingCanvas from '../MappingCanvas.vue'
 import { useMappings } from '@/composables/useMappings'
-import { buildSchema, EMPTY_SCHEMA, type SchemaFieldNode } from '@/domain/schema'
+import { buildSchema, EMPTY_SCHEMA, type SchemaFieldNode, type ParsedEndpoint } from '@/domain/schema'
 
 const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
@@ -186,6 +186,104 @@ describe('Coverage rate counters', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('0 van 8 doelvelden gekoppeld')
+  })
+})
+
+describe('Endpoint selection', () => {
+  const endpointNodes: SchemaFieldNode[] = [
+    { id: 'ep-id', name: 'id', path: 'id', dataType: 'string', required: true },
+  ]
+  const endpointSchema = buildSchema('', endpointNodes)
+
+  function makeEndpoint(path: string, method: ParsedEndpoint['method']): ParsedEndpoint {
+    return { path, method, schema: endpointSchema }
+  }
+
+  const getEndpoint = makeEndpoint('/zaken', 'get')
+  const postEndpoint = makeEndpoint('/zaken', 'post')
+  const putEndpoint = makeEndpoint('/zaken/{id}', 'put')
+
+  // Scenario: Target panel lists POST and PUT endpoints separately
+  it('shows endpoint picker in source column when sourceEndpoints provided', () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: EMPTY_SCHEMA, targetSchema: EMPTY_SCHEMA, sourceEndpoints: [getEndpoint] },
+    })
+    expect(wrapper.find('[data-testid="source-column"] [data-testid="endpoint-picker"]').exists()).toBe(true)
+  })
+
+  it('shows both POST and PUT endpoints in target picker', () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: EMPTY_SCHEMA,
+        targetSchema: EMPTY_SCHEMA,
+        targetEndpoints: [postEndpoint, putEndpoint],
+      },
+    })
+    const picker = wrapper.find('[data-testid="target-column"] [data-testid="endpoint-picker"]')
+    expect(picker.exists()).toBe(true)
+    const options = picker.findAll('option')
+    expect(options.some((o) => o.text() === 'POST /zaken')).toBe(true)
+    expect(options.some((o) => o.text() === 'PUT /zaken/{id}')).toBe(true)
+  })
+
+  // Scenario: Selecting a source endpoint populates the source panel with its fields
+  it('shows fields from selected source endpoint after endpoint-select', async () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: EMPTY_SCHEMA,
+        targetSchema: EMPTY_SCHEMA,
+        sourceEndpoints: [getEndpoint],
+      },
+    })
+    const picker = wrapper.find('[data-testid="source-column"] [data-testid="endpoint-picker"]')
+    await picker.setValue('/zaken::get')
+    expect(wrapper.find('[data-testid="source-column"]').text()).toContain('id')
+  })
+
+  // Scenario: Selecting a target endpoint populates the target panel with its fields
+  it('shows fields from selected target endpoint after endpoint-select', async () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: EMPTY_SCHEMA,
+        targetSchema: EMPTY_SCHEMA,
+        targetEndpoints: [postEndpoint],
+      },
+    })
+    const picker = wrapper.find('[data-testid="target-column"] [data-testid="endpoint-picker"]')
+    await picker.setValue('/zaken::post')
+    expect(wrapper.find('[data-testid="target-column"]').text()).toContain('id')
+  })
+
+  it('emits SourceEndpointChanged when source endpoint is selected', async () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: EMPTY_SCHEMA,
+        targetSchema: EMPTY_SCHEMA,
+        sourceEndpoints: [getEndpoint],
+      },
+    })
+    await wrapper.find('[data-testid="source-column"] [data-testid="endpoint-picker"]').setValue('/zaken::get')
+    expect(wrapper.emitted('SourceEndpointChanged')).toBeTruthy()
+    expect(wrapper.emitted('SourceEndpointChanged')![0]).toEqual([getEndpoint])
+  })
+
+  it('emits TargetEndpointChanged when target endpoint is selected', async () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: EMPTY_SCHEMA,
+        targetSchema: EMPTY_SCHEMA,
+        targetEndpoints: [postEndpoint],
+      },
+    })
+    await wrapper.find('[data-testid="target-column"] [data-testid="endpoint-picker"]').setValue('/zaken::post')
+    expect(wrapper.emitted('TargetEndpointChanged')).toBeTruthy()
+    expect(wrapper.emitted('TargetEndpointChanged')![0]).toEqual([postEndpoint])
   })
 })
 

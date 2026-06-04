@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { Schema } from '@/domain/schema'
+import type { Schema, ParsedEndpoint } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
@@ -11,6 +11,8 @@ const props = defineProps<{
   targetSchema: Schema
   sourceLabel?: string
   targetLabel?: string
+  sourceEndpoints?: readonly ParsedEndpoint[]
+  targetEndpoints?: readonly ParsedEndpoint[]
 }>()
 
 const emit = defineEmits<{
@@ -20,21 +22,39 @@ const emit = defineEmits<{
   SourceUrlEntered: [url: string]
   TargetFileSelected: [file: File]
   TargetUrlEntered: [url: string]
+  SourceEndpointChanged: [endpoint: ParsedEndpoint]
+  TargetEndpointChanged: [endpoint: ParsedEndpoint]
 }>()
+
+const selectedSourceEndpoint = ref<ParsedEndpoint | null>(null)
+const selectedTargetEndpoint = ref<ParsedEndpoint | null>(null)
+
+const activeSourceSchema = computed<Schema>(() => selectedSourceEndpoint.value?.schema ?? props.sourceSchema)
+const activeTargetSchema = computed<Schema>(() => selectedTargetEndpoint.value?.schema ?? props.targetSchema)
+
+function onSourceEndpointSelect(endpoint: ParsedEndpoint) {
+  selectedSourceEndpoint.value = endpoint
+  emit('SourceEndpointChanged', endpoint)
+}
+
+function onTargetEndpointSelect(endpoint: ParsedEndpoint) {
+  selectedTargetEndpoint.value = endpoint
+  emit('TargetEndpointChanged', endpoint)
+}
 
 const mappingsStore = useMappings()
 const selectedSourceId = ref<string | null>(null)
 
 const sourceCounter = computed(() => {
   const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
-  return { mapped: mappedIds.size, total: props.sourceSchema.all().length }
+  return { mapped: mappedIds.size, total: activeSourceSchema.value.all().length }
 })
 
 const targetCounter = computed(() => {
   const mappedTargetIds = new Set(mappingsStore.mappings.map((m) => m.targetFieldId))
   return {
-    mapped: props.targetSchema.all().filter((f) => mappedTargetIds.has(f.id)).length,
-    total: props.targetSchema.all().length,
+    mapped: activeTargetSchema.value.all().filter((f) => mappedTargetIds.has(f.id)).length,
+    total: activeTargetSchema.value.all().length,
   }
 })
 
@@ -48,7 +68,7 @@ function onTargetFieldClick(fieldId: string) {
   const mapping = mappingsStore.createMapping({
     sourceFieldId: selectedSourceId.value,
     targetFieldId: fieldId,
-    schemas: { source: props.sourceSchema, target: props.targetSchema },
+    schemas: { source: activeSourceSchema.value, target: activeTargetSchema.value },
   })
 
   if (mapping) {
@@ -97,9 +117,9 @@ function onTargetUrlSubmit() {
       >
         <SchemaColumnHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" :counter="sourceCounter" />
 
-        <!-- Upload UI when no source schema loaded -->
+        <!-- Upload UI when no source schema and no endpoints -->
         <div
-          v-if="sourceSchema.all().length === 0"
+          v-if="sourceSchema.all().length === 0 && !sourceEndpoints?.length"
           class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="source-upload"
         >
@@ -138,14 +158,17 @@ function onTargetUrlSubmit() {
           </form>
         </div>
 
-        <!-- Field tree -->
+        <!-- Field tree (with optional endpoint picker) -->
         <SourceSchemaPanel
           v-else
           class="flex-1 overflow-y-auto"
           data-scroll-container
-          :schema="sourceSchema"
+          :schema="activeSourceSchema"
+          :endpoints="sourceEndpoints"
+          :selected-endpoint="selectedSourceEndpoint"
           side="source"
           @field-click="onSourceFieldClick"
+          @endpoint-select="onSourceEndpointSelect"
         />
       </div>
 
@@ -156,9 +179,9 @@ function onTargetUrlSubmit() {
       >
         <SchemaColumnHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" :counter="targetCounter" />
 
-        <!-- Upload UI when no target schema loaded -->
+        <!-- Upload UI when no target schema and no endpoints -->
         <div
-          v-if="targetSchema.all().length === 0"
+          v-if="targetSchema.all().length === 0 && !targetEndpoints?.length"
           class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="target-upload"
         >
@@ -195,14 +218,17 @@ function onTargetUrlSubmit() {
           </form>
         </div>
 
-        <!-- Field tree -->
+        <!-- Field tree (with optional endpoint picker) -->
         <SourceSchemaPanel
           v-else
           class="flex-1 overflow-y-auto"
           data-scroll-container
-          :schema="targetSchema"
+          :schema="activeTargetSchema"
+          :endpoints="targetEndpoints"
+          :selected-endpoint="selectedTargetEndpoint"
           side="target"
           @field-click="onTargetFieldClick"
+          @endpoint-select="onTargetEndpointSelect"
         />
       </div>
 
