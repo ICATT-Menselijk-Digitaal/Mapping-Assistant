@@ -7,6 +7,8 @@ import { downloadAsJson } from '@/utils/downloadHelper'
 const props = defineProps<{
   sourceSchema: Schema
   targetSchema: Schema
+  sourceUrl: string | null
+  targetUrl: string | null
 }>()
 
 const { exportMappingSet } = useExport()
@@ -16,7 +18,10 @@ const canExport = computed(
 )
 
 function handleExport() {
-  const payload = exportMappingSet(props.sourceSchema, props.targetSchema)
+  const payload = exportMappingSet(
+    { schema: props.sourceSchema, sourceUrl: props.sourceUrl },
+    { schema: props.targetSchema, sourceUrl: props.targetUrl },
+  )
   const date = new Date().toISOString().slice(0, 10)
   downloadAsJson(payload, `koppelingsset-${date}.json`)
 }

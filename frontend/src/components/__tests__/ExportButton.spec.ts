@@ -35,26 +35,35 @@ beforeEach(() => {
   mockDownload.mockReset()
 })
 
+const defaultProps = {
+  sourceSchema: loadedSource,
+  targetSchema: loadedTarget,
+  sourceUrl: null,
+  targetUrl: null,
+}
+
 describe('ExportButton', () => {
   // Edge case: schemas not loaded
   it('is disabled when source schema is empty', () => {
-    const wrapper = mount(ExportButton, { props: { sourceSchema: EMPTY_SCHEMA, targetSchema: loadedTarget } })
+    const wrapper = mount(ExportButton, { props: { ...defaultProps, sourceSchema: EMPTY_SCHEMA } })
     expect(wrapper.find('button').attributes('disabled')).toBeDefined()
   })
 
   it('is disabled when target schema is empty', () => {
-    const wrapper = mount(ExportButton, { props: { sourceSchema: loadedSource, targetSchema: EMPTY_SCHEMA } })
+    const wrapper = mount(ExportButton, { props: { ...defaultProps, targetSchema: EMPTY_SCHEMA } })
     expect(wrapper.find('button').attributes('disabled')).toBeDefined()
   })
 
   it('is disabled when both schemas are empty', () => {
-    const wrapper = mount(ExportButton, { props: { sourceSchema: EMPTY_SCHEMA, targetSchema: EMPTY_SCHEMA } })
+    const wrapper = mount(ExportButton, {
+      props: { ...defaultProps, sourceSchema: EMPTY_SCHEMA, targetSchema: EMPTY_SCHEMA },
+    })
     expect(wrapper.find('button').attributes('disabled')).toBeDefined()
   })
 
   // Scenario: Administrator downloads the mapping set as JSON file
   it('is enabled when both schemas are loaded', () => {
-    const wrapper = mount(ExportButton, { props: { sourceSchema: loadedSource, targetSchema: loadedTarget } })
+    const wrapper = mount(ExportButton, { props: defaultProps })
     expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
   })
 
@@ -62,7 +71,7 @@ describe('ExportButton', () => {
     const mappingsStore = useMappings()
     mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
 
-    const wrapper = mount(ExportButton, { props: { sourceSchema: loadedSource, targetSchema: loadedTarget } })
+    const wrapper = mount(ExportButton, { props: defaultProps })
     await wrapper.find('button').trigger('click')
 
     expect(mockDownload).toHaveBeenCalledOnce()
@@ -72,7 +81,7 @@ describe('ExportButton', () => {
   })
 
   it('includes source schema and target schema in the download payload', async () => {
-    const wrapper = mount(ExportButton, { props: { sourceSchema: loadedSource, targetSchema: loadedTarget } })
+    const wrapper = mount(ExportButton, { props: defaultProps })
     await wrapper.find('button').trigger('click')
 
     const [payload] = mockDownload.mock.calls[0]! as [{ sourceSchema: { name: string }; targetSchema: { name: string } }, string]
@@ -80,9 +89,23 @@ describe('ExportButton', () => {
     expect(payload.targetSchema.name).toBe('Doel')
   })
 
+  it('passes the schema source URLs through to the payload', async () => {
+    const wrapper = mount(ExportButton, {
+      props: { ...defaultProps, sourceUrl: 'https://example.com/src.json', targetUrl: 'https://example.com/tgt.json' },
+    })
+    await wrapper.find('button').trigger('click')
+
+    const [payload] = mockDownload.mock.calls[0]! as [
+      { sourceSchema: { sourceUrl: string | null }; targetSchema: { sourceUrl: string | null } },
+      string,
+    ]
+    expect(payload.sourceSchema.sourceUrl).toBe('https://example.com/src.json')
+    expect(payload.targetSchema.sourceUrl).toBe('https://example.com/tgt.json')
+  })
+
   // Scenario: Export button available without mappings
   it('calls downloadAsJson with empty fieldMappings when no mappings defined', async () => {
-    const wrapper = mount(ExportButton, { props: { sourceSchema: loadedSource, targetSchema: loadedTarget } })
+    const wrapper = mount(ExportButton, { props: defaultProps })
     await wrapper.find('button').trigger('click')
 
     expect(mockDownload).toHaveBeenCalledOnce()

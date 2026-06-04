@@ -8,8 +8,8 @@ import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
 
-const { schema: sourceSchema, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
-const { schema: targetSchema, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const { schema: sourceSchema, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
+const { schema: targetSchema, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
 const mappingsStore = useMappings()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
@@ -57,7 +57,12 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
       />
     </div>
     <div class="fixed bottom-4 right-4 z-40">
-      <ExportButton :source-schema="sourceSchema" :target-schema="targetSchema" />
+      <ExportButton
+        :source-schema="sourceSchema"
+        :target-schema="targetSchema"
+        :source-url="sourceSchemaUrl"
+        :target-url="targetSchemaUrl"
+      />
     </div>
   </main>
 </template>
