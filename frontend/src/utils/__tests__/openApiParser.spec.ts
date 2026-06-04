@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpenApiSchema } from '../openApiParser'
+import { parseOpenApiSchema, parseOpenApiEndpoints } from '../openApiParser'
 
 const minimalOpenApi3 = {
   openapi: '3.0.0',
@@ -228,5 +228,271 @@ describe('parseOpenApiSchema', () => {
     const metaChildren = schema.childrenOf(meta!.id)
     expect(metaChildren).toHaveLength(2)
     expect(metaChildren.find((c) => c.name === 'key')).toBeDefined()
+  })
+})
+
+describe('parseOpenApiEndpoints', () => {
+  const multiPathSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Test', version: '1.0' },
+    paths: {
+      '/zaken': {
+        get: {
+          operationId: 'listZaken',
+          summary: 'List zaken',
+          responses: {
+            '200': {
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Zaak' },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          operationId: 'createZaak',
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Zaak' },
+              },
+            },
+          },
+          responses: { '201': {} },
+        },
+      },
+      '/zaken/{id}': {
+        put: {
+          operationId: 'updateZaak',
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Zaak' },
+              },
+            },
+          },
+          responses: { '200': {} },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Zaak: {
+          type: 'object',
+          required: ['zaakId'],
+          properties: {
+            zaakId: { type: 'string' },
+            omschrijving: { type: 'string' },
+          },
+        },
+      },
+    },
+  }
+
+  // Scenario: Endpoints from a parsed spec are grouped by resource
+  it('returns one endpoint per operation in the spec', () => {
+    const endpoints = parseOpenApiEndpoints(multiPathSpec)
+    expect(endpoints).toHaveLength(3)
+    const methods = endpoints.map((e) => e.method)
+    expect(methods).toContain('get')
+    expect(methods).toContain('post')
+    expect(methods).toContain('put')
+  })
+
+  it('each endpoint carries its path and method', () => {
+    const endpoints = parseOpenApiEndpoints(multiPathSpec)
+    const get = endpoints.find((e) => e.method === 'get')
+    expect(get?.path).toBe('/zaken')
+    const put = endpoints.find((e) => e.method === 'put')
+    expect(put?.path).toBe('/zaken/{id}')
+  })
+
+  it('includes operationId and summary when present', () => {
+    const endpoints = parseOpenApiEndpoints(multiPathSpec)
+    const get = endpoints.find((e) => e.method === 'get')
+    expect(get?.operationId).toBe('listZaken')
+    expect(get?.summary).toBe('List zaken')
+  })
+
+  // Scenario: Fields are derived depth-first from an endpoint's schema
+  it('fields use dot-notation paths rooted at the response schema', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string' },
+                        address: {
+                          type: 'object',
+                          properties: {
+                            street: { type: 'string' },
+                            city: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    expect(endpoints).toHaveLength(1)
+    const schema = endpoints[0].schema
+    expect(schema.all().find((f) => f.path === 'name')).toBeDefined()
+    expect(schema.all().find((f) => f.path === 'address')).toBeDefined()
+    expect(schema.all().find((f) => f.path === 'address.street')).toBeDefined()
+    expect(schema.all().find((f) => f.path === 'address.city')).toBeDefined()
+  })
+
+  // Scenario: allOf properties are merged into the parent field level
+  it('merges allOf properties into the parent level', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      allOf: [
+                        {
+                          type: 'object',
+                          properties: { id: { type: 'string' } },
+                        },
+                        {
+                          type: 'object',
+                          properties: { name: { type: 'string' } },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    const schema = endpoints[0].schema
+    expect(schema.all().find((f) => f.name === 'id')).toBeDefined()
+    expect(schema.all().find((f) => f.name === 'name')).toBeDefined()
+  })
+
+  // Scenario: Circular schema references do not cause infinite traversal
+  it('handles circular $ref without infinite recursion', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/Node' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          Node: {
+            type: 'object',
+            properties: {
+              value: { type: 'string' },
+              child: { $ref: '#/components/schemas/Node' },
+            },
+          },
+        },
+      },
+    }
+    expect(() => parseOpenApiEndpoints(spec)).not.toThrow()
+    const endpoints = parseOpenApiEndpoints(spec)
+    expect(endpoints).toHaveLength(1)
+    const schema = endpoints[0].schema
+    expect(schema.all().find((f) => f.name === 'value')).toBeDefined()
+  })
+
+  // Scenario: Deeply nested schemas are capped at the depth limit
+  it('caps field traversal at the depth limit', () => {
+    function makeNested(depth: number): Record<string, unknown> {
+      if (depth === 0) return { type: 'string' }
+      return { type: 'object', properties: { nested: makeNested(depth - 1) } }
+    }
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/deep': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': { schema: makeNested(15) },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    const schema = endpoints[0].schema
+    const allFields = schema.all()
+    const tooDeep = allFields.find((f) => (f.path.match(/\./g) ?? []).length >= 10)
+    expect(tooDeep).toBeUndefined()
+  })
+
+  // Scenario: POST and PUT operations are available separately as target endpoints
+  it('returns POST and PUT as distinct endpoints with their own field trees', () => {
+    const endpoints = parseOpenApiEndpoints(multiPathSpec)
+    const post = endpoints.find((e) => e.method === 'post' && e.path === '/zaken')
+    const put = endpoints.find((e) => e.method === 'put' && e.path === '/zaken/{id}')
+    expect(post).toBeDefined()
+    expect(put).toBeDefined()
+    expect(post?.schema.all().find((f) => f.name === 'zaakId')).toBeDefined()
+    expect(put?.schema.all().find((f) => f.name === 'zaakId')).toBeDefined()
+  })
+
+  it('returns an empty array for a spec without paths', () => {
+    const spec = { openapi: '3.0.0', components: { schemas: {} } }
+    expect(parseOpenApiEndpoints(spec)).toHaveLength(0)
+  })
+
+  it('returns empty schema for an operation with no response body', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: { '200': {} },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    expect(endpoints).toHaveLength(1)
+    expect(endpoints[0].schema.all()).toHaveLength(0)
   })
 })

@@ -74,5 +74,13 @@ export function buildSchema(name: string, tree: readonly SchemaFieldNode[]): Sch
 
 export const EMPTY_SCHEMA: Schema = buildSchema('', [])
 
+export interface ParsedEndpoint {
+  path: string
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete'
+  operationId?: string
+  summary?: string
+  schema: Schema
+}
+
 // Re-export DataType so domain consumers can import everything from one place.
 export type { DataType, SchemaField }
