@@ -175,6 +175,6 @@ describe('useSourceSchema', () => {
     expect(endpoints.value).toHaveLength(0)
     await loadFromFile(makeFile(specWithPaths, 'spec.json'))
     expect(endpoints.value).toHaveLength(1)
-    expect(endpoints.value[0].method).toBe('get')
+    expect(endpoints.value[0]!.method).toBe('get')
   })
 })

@@ -350,7 +350,7 @@ describe('parseOpenApiEndpoints', () => {
     }
     const endpoints = parseOpenApiEndpoints(spec)
     expect(endpoints).toHaveLength(1)
-    const schema = endpoints[0].schema
+    const schema = endpoints[0]!.schema
     expect(schema.all().find((f) => f.path === 'name')).toBeDefined()
     expect(schema.all().find((f) => f.path === 'address')).toBeDefined()
     expect(schema.all().find((f) => f.path === 'address.street')).toBeDefined()
@@ -390,7 +390,7 @@ describe('parseOpenApiEndpoints', () => {
       components: { schemas: {} },
     }
     const endpoints = parseOpenApiEndpoints(spec)
-    const schema = endpoints[0].schema
+    const schema = endpoints[0]!.schema
     expect(schema.all().find((f) => f.name === 'id')).toBeDefined()
     expect(schema.all().find((f) => f.name === 'name')).toBeDefined()
   })
@@ -429,7 +429,7 @@ describe('parseOpenApiEndpoints', () => {
     expect(() => parseOpenApiEndpoints(spec)).not.toThrow()
     const endpoints = parseOpenApiEndpoints(spec)
     expect(endpoints).toHaveLength(1)
-    const schema = endpoints[0].schema
+    const schema = endpoints[0]!.schema
     expect(schema.all().find((f) => f.name === 'value')).toBeDefined()
   })
 
@@ -457,7 +457,7 @@ describe('parseOpenApiEndpoints', () => {
       components: { schemas: {} },
     }
     const endpoints = parseOpenApiEndpoints(spec)
-    const schema = endpoints[0].schema
+    const schema = endpoints[0]!.schema
     const allFields = schema.all()
     const tooDeep = allFields.find((f) => (f.path.match(/\./g) ?? []).length >= 10)
     expect(tooDeep).toBeUndefined()
@@ -493,6 +493,193 @@ describe('parseOpenApiEndpoints', () => {
     }
     const endpoints = parseOpenApiEndpoints(spec)
     expect(endpoints).toHaveLength(1)
-    expect(endpoints[0].schema.all()).toHaveLength(0)
+    expect(endpoints[0]!.schema.all()).toHaveLength(0)
+  })
+
+  it('resolves Swagger 2.0 request body schema via schema property', () => {
+    const swagger2Paths = {
+      swagger: '2.0',
+      info: { title: 'Test', version: '1.0' },
+      paths: {
+        '/items': {
+          post: {
+            operationId: 'createItem',
+            parameters: [
+              {
+                in: 'body',
+                name: 'body',
+                schema: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                  },
+                },
+              },
+            ],
+            responses: { '201': { description: 'Created' } },
+          },
+          get: {
+            operationId: 'listItems',
+            responses: {
+              '200': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      definitions: {},
+    }
+    const endpoints = parseOpenApiEndpoints(swagger2Paths)
+    const get = endpoints.find((e) => e.method === 'get')
+    expect(get).toBeDefined()
+    expect(get!.schema.all().find((f) => f.name === 'id')).toBeDefined()
+  })
+
+  it('handles allOf at the property level within an endpoint schema', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        details: {
+                          allOf: [
+                            { type: 'object', properties: { x: { type: 'string' } } },
+                            { type: 'object', properties: { y: { type: 'number' } } },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    const schema = endpoints[0]!.schema
+    expect(schema.all().find((f) => f.name === 'details')).toBeDefined()
+  })
+
+  it('returns empty array for non-object or non-OpenAPI spec', () => {
+    expect(parseOpenApiEndpoints(null)).toHaveLength(0)
+    expect(parseOpenApiEndpoints('string')).toHaveLength(0)
+    expect(parseOpenApiEndpoints({ foo: 'bar' })).toHaveLength(0)
+  })
+
+  it('handles nested allOf within a child property', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        parent: {
+                          type: 'object',
+                          properties: {
+                            child: {
+                              allOf: [
+                                { type: 'object', properties: { a: { type: 'string' } } },
+                                { type: 'object', properties: { b: { type: 'number' } } },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    const schema = endpoints[0]!.schema
+    expect(schema.all().find((f) => f.name === 'parent')).toBeDefined()
+    expect(schema.all().find((f) => f.name === 'child')).toBeDefined()
+  })
+
+  it('handles a Swagger 2.0 response with a $ref schema', () => {
+    const spec = {
+      swagger: '2.0',
+      info: { title: 'Test', version: '1.0' },
+      paths: {
+        '/items': {
+          get: {
+            operationId: 'listItems',
+            responses: {
+              '200': {
+                schema: { $ref: '#/definitions/Item' },
+              },
+            },
+          },
+        },
+      },
+      definitions: {
+        Item: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+        },
+      },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    const get = endpoints.find((e) => e.method === 'get')
+    expect(get).toBeDefined()
+    expect(get!.schema.all().find((f) => f.name === 'id')).toBeDefined()
+  })
+
+  it('handles an array property without items gracefully', () => {
+    const spec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        tags: { type: 'array' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const endpoints = parseOpenApiEndpoints(spec)
+    expect(endpoints[0]!.schema.all().find((f) => f.name === 'tags')).toBeDefined()
   })
 })
