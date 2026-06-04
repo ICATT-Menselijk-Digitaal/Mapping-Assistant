@@ -4,13 +4,18 @@ import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import ExportButton from '@/components/ExportButton.vue'
+import ImportButton from '@/components/ImportButton.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
+import { useImport } from '@/composables/useImport'
 
-const { schema: sourceSchema, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
-const { schema: targetSchema, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const source = useSourceSchema()
+const target = useTargetSchema()
+const { schema: sourceSchema, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = source
+const { schema: targetSchema, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = target
 const mappingsStore = useMappings()
+const { importMappingSet } = useImport()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 
@@ -18,6 +23,7 @@ async function onSourceFileSelected(file: File) { await loadSourceFromFile(file)
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
 async function onTargetFileSelected(file: File) { await loadTargetFromFile(file) }
 async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
+async function onImportFileSelected(file: File) { await importMappingSet(file, source, target) }
 </script>
 
 <template>
@@ -56,7 +62,8 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
         :target-schema="targetSchema"
       />
     </div>
-    <div class="fixed bottom-4 right-4 z-40">
+    <div class="fixed bottom-4 right-4 z-40 flex gap-2">
+      <ImportButton @file-selected="onImportFileSelected" />
       <ExportButton
         :source-schema="sourceSchema"
         :target-schema="targetSchema"
