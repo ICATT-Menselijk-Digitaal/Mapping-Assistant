@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Schema } from '@/domain/schema'
+import type { Schema, ParsedEndpoint } from '@/domain/schema'
 import { useExport } from '@/composables/useExport'
 import { downloadAsJson } from '@/utils/downloadHelper'
 
@@ -9,6 +9,8 @@ const props = defineProps<{
   targetSchema: Schema
   sourceUrl: string | null
   targetUrl: string | null
+  selectedSourceEndpoint?: ParsedEndpoint | null
+  selectedTargetEndpoint?: ParsedEndpoint | null
 }>()
 
 const { exportMappingSet } = useExport()
@@ -19,8 +21,8 @@ const canExport = computed(
 
 function handleExport() {
   const payload = exportMappingSet(
-    { schema: props.sourceSchema, sourceUrl: props.sourceUrl },
-    { schema: props.targetSchema, sourceUrl: props.targetUrl },
+    { schema: props.sourceSchema, sourceUrl: props.sourceUrl, selectedEndpoint: props.selectedSourceEndpoint ?? null },
+    { schema: props.targetSchema, sourceUrl: props.targetUrl, selectedEndpoint: props.selectedTargetEndpoint ?? null },
   )
   const date = new Date().toISOString().slice(0, 10)
   downloadAsJson(payload, `koppelingsset-${date}.json`)

@@ -7,12 +7,15 @@ import ExportButton from '@/components/ExportButton.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
+import type { ParsedEndpoint } from '@/domain/schema'
 
-const { schema: sourceSchema, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
-const { schema: targetSchema, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const { schema: sourceSchema, endpoints: sourceEndpoints, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
+const { schema: targetSchema, endpoints: targetEndpoints, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
 const mappingsStore = useMappings()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
+const selectedSourceEndpoint = ref<ParsedEndpoint | null>(null)
+const selectedTargetEndpoint = ref<ParsedEndpoint | null>(null)
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
@@ -36,10 +39,14 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
           :target-schema="targetSchema"
           :source-label="sourceSchema.name || 'Bronschema'"
           :target-label="targetSchema.name || 'Doelschema'"
+          :source-endpoints="sourceEndpoints"
+          :target-endpoints="targetEndpoints"
           @source-file-selected="onSourceFileSelected"
           @source-url-entered="onSourceUrlEntered"
           @target-file-selected="onTargetFileSelected"
           @target-url-entered="onTargetUrlEntered"
+          @source-endpoint-changed="selectedSourceEndpoint = $event"
+          @target-endpoint-changed="selectedTargetEndpoint = $event"
         />
       </div>
     </div>
@@ -62,6 +69,8 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
         :target-schema="targetSchema"
         :source-url="sourceSchemaUrl"
         :target-url="targetSchemaUrl"
+        :selected-source-endpoint="selectedSourceEndpoint"
+        :selected-target-endpoint="selectedTargetEndpoint"
       />
     </div>
   </main>

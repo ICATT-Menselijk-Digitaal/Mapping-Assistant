@@ -6,6 +6,7 @@ export interface ExportedSchema {
   sourceUrl: string | null
   // Snapshot present only when sourceUrl is null (file-loaded); reload from URL otherwise.
   fields?: SchemaField[]
+  selectedEndpoint?: { path: string; method: string }
 }
 
 export interface ExportedTransformationRule {
@@ -43,8 +44,8 @@ export interface MappingSetExport {
 }
 
 export interface SerializeInput {
-  source: { schema: Schema; sourceUrl: string | null }
-  target: { schema: Schema; sourceUrl: string | null }
+  source: { schema: Schema; sourceUrl: string | null; selectedEndpoint?: { path: string; method: string } | null }
+  target: { schema: Schema; sourceUrl: string | null; selectedEndpoint?: { path: string; method: string } | null }
   mappings: FieldMapping[]
   aiStats: ExportedAIStatistics
   exportedAt?: string
@@ -62,11 +63,18 @@ function exportTransformationRule(rule: TransformationRule): ExportedTransformat
   return out
 }
 
-function serializeSchema(schema: Schema, sourceUrl: string | null): ExportedSchema {
-  if (sourceUrl === null) {
-    return { name: schema.name, sourceUrl: null, fields: [...schema.all()] }
+function serializeSchema(
+  schema: Schema,
+  sourceUrl: string | null,
+  selectedEndpoint?: { path: string; method: string } | null,
+): ExportedSchema {
+  const base: ExportedSchema = sourceUrl === null
+    ? { name: schema.name, sourceUrl: null, fields: [...schema.all()] }
+    : { name: schema.name, sourceUrl }
+  if (selectedEndpoint) {
+    base.selectedEndpoint = { path: selectedEndpoint.path, method: selectedEndpoint.method }
   }
-  return { name: schema.name, sourceUrl }
+  return base
 }
 
 export function serializeMappingSet(input: SerializeInput): MappingSetExport {
@@ -74,8 +82,8 @@ export function serializeMappingSet(input: SerializeInput): MappingSetExport {
   return {
     version: '1.1',
     exportedAt: input.exportedAt ?? new Date().toISOString(),
-    sourceSchema: serializeSchema(source.schema, source.sourceUrl),
-    targetSchema: serializeSchema(target.schema, target.sourceUrl),
+    sourceSchema: serializeSchema(source.schema, source.sourceUrl, source.selectedEndpoint),
+    targetSchema: serializeSchema(target.schema, target.sourceUrl, target.selectedEndpoint),
     fieldMappings: mappings.map((m) => ({
       sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
       targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,

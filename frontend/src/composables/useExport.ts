@@ -9,6 +9,7 @@ import { useAISuggestions } from './useAISuggestions'
 export interface ExportSchemaInput {
   schema: Schema
   sourceUrl: string | null
+  selectedEndpoint?: { path: string; method: string } | null
 }
 
 export function useExport() {

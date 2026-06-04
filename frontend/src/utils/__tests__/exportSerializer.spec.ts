@@ -185,4 +185,27 @@ describe('serializeMappingSet', () => {
     })
     expect(result.exportedAt).toBe('2026-01-01T00:00:00.000Z')
   })
+
+  // Scenario: Selected endpoints are preserved in the exported mapping set
+  it('records the selected source endpoint path and method when provided', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null, selectedEndpoint: { path: '/customers', method: 'get' } },
+      target: { schema: targetSchema, sourceUrl: null, selectedEndpoint: { path: '/users', method: 'post' } },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
+    expect(result.sourceSchema.selectedEndpoint).toEqual({ path: '/customers', method: 'get' })
+    expect(result.targetSchema.selectedEndpoint).toEqual({ path: '/users', method: 'post' })
+  })
+
+  it('omits selectedEndpoint from the exported schema when none is provided', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
+    expect(result.sourceSchema).not.toHaveProperty('selectedEndpoint')
+    expect(result.targetSchema).not.toHaveProperty('selectedEndpoint')
+  })
 })

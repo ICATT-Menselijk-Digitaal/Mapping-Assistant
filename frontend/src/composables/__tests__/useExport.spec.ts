@@ -85,4 +85,29 @@ describe('useExport', () => {
 
     expect(result.fieldMappings).toHaveLength(0)
   })
+
+  // Scenario: Selected endpoints are preserved in the exported mapping set
+  it('records the selected endpoint for source and target when provided', () => {
+    const exporter = useExport()
+    const result = exporter.exportMappingSet(
+      { schema: sourceSchema, sourceUrl: null, selectedEndpoint: { path: '/customers', method: 'get' } },
+      { schema: targetSchema, sourceUrl: null, selectedEndpoint: { path: '/users', method: 'post' } },
+    )
+    expect(result.sourceSchema.selectedEndpoint).toEqual({ path: '/customers', method: 'get' })
+    expect(result.targetSchema.selectedEndpoint).toEqual({ path: '/users', method: 'post' })
+  })
+
+  // Scenario: Importing a mapping set restores the previously selected endpoints
+  // The selectedEndpoint field is preserved through JSON serialisation so it is available on import.
+  // Full UI restoration is implemented as part of the import feature (tasks #30/#31).
+  it('preserves selectedEndpoint through JSON serialisation round-trip', () => {
+    const exporter = useExport()
+    const exported = exporter.exportMappingSet(
+      { schema: sourceSchema, sourceUrl: 'https://src', selectedEndpoint: { path: '/customers', method: 'get' } },
+      { schema: targetSchema, sourceUrl: 'https://tgt', selectedEndpoint: { path: '/users', method: 'post' } },
+    )
+    const parsed = JSON.parse(JSON.stringify(exported))
+    expect(parsed.sourceSchema.selectedEndpoint).toEqual({ path: '/customers', method: 'get' })
+    expect(parsed.targetSchema.selectedEndpoint).toEqual({ path: '/users', method: 'post' })
+  })
 })
