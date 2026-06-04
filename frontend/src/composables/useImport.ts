@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import type { MappingSetImported } from '@/domain/events/MappingSetImported'
 import type { MappingSetExport } from '@/utils/exportSerializer'
-import { deserializeMappingSet } from '@/utils/importDeserializer'
+import { deserializeMappingSet, ImportFormatError } from '@/utils/importDeserializer'
 import { useMappings } from './useMappings'
 import { useAISuggestions } from './useAISuggestions'
 import type { useSourceSchema } from './useSourceSchema'
@@ -12,15 +12,38 @@ export type TargetSchemaHandle = ReturnType<typeof useTargetSchema>
 
 export function useImport() {
   const lastEvent = ref<MappingSetImported | null>(null)
+  const error = ref<string | null>(null)
+  const warnings = ref<string[]>([])
 
   async function importMappingSet(
     file: File,
     source: SourceSchemaHandle,
     target: TargetSchemaHandle,
-  ): Promise<MappingSetExport> {
+  ): Promise<MappingSetExport | null> {
+    error.value = null
+    warnings.value = []
+
     const text = await file.text()
-    const parsed: unknown = JSON.parse(text)
-    const payload = deserializeMappingSet(parsed)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      error.value = 'Ongeldig importbestand: geen geldige JSON.'
+      return null
+    }
+
+    let payload: MappingSetExport
+    try {
+      const result = deserializeMappingSet(parsed)
+      payload = result.payload
+      warnings.value = result.warnings
+    } catch (e) {
+      if (e instanceof ImportFormatError) {
+        error.value = `Ongeldig importbestand: ${e.message}`
+        return null
+      }
+      throw e
+    }
 
     await source.restoreFromExport(payload.sourceSchema)
     await target.restoreFromExport(payload.targetSchema)
@@ -40,5 +63,5 @@ export function useImport() {
     return payload
   }
 
-  return { importMappingSet, lastEvent }
+  return { importMappingSet, lastEvent, error, warnings }
 }

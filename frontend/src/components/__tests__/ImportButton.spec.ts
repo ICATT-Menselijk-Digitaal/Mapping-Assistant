@@ -36,4 +36,25 @@ describe('ImportButton', () => {
     expect(clicked).toBe(true)
     wrapper.unmount()
   })
+
+  it('renders an inline error message when error prop is set', () => {
+    const wrapper = mount(ImportButton, { props: { error: 'Ongeldig importbestand' } })
+    const errorEl = wrapper.find('[data-testid="import-error"]')
+    expect(errorEl.exists()).toBe(true)
+    expect(errorEl.text()).toContain('Ongeldig importbestand')
+  })
+
+  it('does not render the error element when error prop is empty', () => {
+    const wrapper = mount(ImportButton, { props: { error: null } })
+    expect(wrapper.find('[data-testid="import-error"]').exists()).toBe(false)
+  })
+
+  it('renders inline warnings when warnings prop is non-empty', () => {
+    const wrapper = mount(ImportButton, {
+      props: { warnings: ['Unknown version 2.0'] },
+    })
+    const warnEl = wrapper.find('[data-testid="import-warning"]')
+    expect(warnEl.exists()).toBe(true)
+    expect(warnEl.text()).toContain('Unknown version 2.0')
+  })
 })
