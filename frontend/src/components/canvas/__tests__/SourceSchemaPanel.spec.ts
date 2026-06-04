@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
-import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { buildSchema, type SchemaFieldNode, type ParsedEndpoint } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 
 function node(overrides: Partial<SchemaFieldNode> & { name: string }): SchemaFieldNode {
@@ -325,5 +325,84 @@ describe('Search term highlighting', () => {
     expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
     wrapper.unmount()
     div.remove()
+  })
+})
+
+describe('Endpoint picker', () => {
+  const fieldNodes: SchemaFieldNode[] = [
+    node({ name: 'id', path: 'id', id: 'id', dataType: 'string', required: true }),
+    node({ name: 'name', path: 'name', id: 'name', dataType: 'string', required: false }),
+  ]
+
+  function makeEndpoint(path: string, method: ParsedEndpoint['method']): ParsedEndpoint {
+    return { path, method, schema: schemaOf(fieldNodes) }
+  }
+
+  const getEndpoint = makeEndpoint('/zaken', 'get')
+  const postEndpoint = makeEndpoint('/zaken', 'post')
+
+  // Scenario: Source panel lists available GET endpoints
+  it('shows endpoint picker when endpoints prop is provided', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf([]), endpoints: [getEndpoint] },
+    })
+    expect(wrapper.find('[data-testid="endpoint-picker"]').exists()).toBe(true)
+  })
+
+  it('renders one option per endpoint in the picker', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf([]), endpoints: [getEndpoint, postEndpoint] },
+    })
+    const options = wrapper.findAll('[data-testid="endpoint-picker"] option')
+    expect(options.length).toBe(3) // placeholder + 2 endpoints
+  })
+
+  it('labels each endpoint as METHOD /path', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf([]), endpoints: [getEndpoint] },
+    })
+    const options = wrapper.findAll('[data-testid="endpoint-picker"] option')
+    expect(options[1]?.text()).toBe('GET /zaken')
+  })
+
+  it('shows no-endpoint-selected prompt when endpoints present but none selected', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf([]), endpoints: [getEndpoint], selectedEndpoint: null },
+    })
+    expect(wrapper.find('[data-testid="endpoint-prompt"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="search-input"]').exists()).toBe(false)
+  })
+
+  it('shows field tree when an endpoint is selected', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(fieldNodes), endpoints: [getEndpoint], selectedEndpoint: getEndpoint },
+    })
+    expect(wrapper.find('[data-testid="endpoint-prompt"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="search-input"]').exists()).toBe(true)
+  })
+
+  // Scenario: Selecting a source endpoint emits endpoint-select
+  it('emits endpoint-select when an endpoint option is chosen', async () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf([]), endpoints: [getEndpoint, postEndpoint] },
+    })
+    const picker = wrapper.find('[data-testid="endpoint-picker"]')
+    await picker.setValue('/zaken::get')
+    expect(wrapper.emitted('endpoint-select')).toBeTruthy()
+    expect(wrapper.emitted('endpoint-select')![0]).toEqual([getEndpoint])
+  })
+
+  it('does not show endpoint picker when no endpoints prop provided', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(fieldNodes) },
+    })
+    expect(wrapper.find('[data-testid="endpoint-picker"]').exists()).toBe(false)
+  })
+
+  it('does not show endpoint picker when endpoints list is empty', () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(fieldNodes), endpoints: [] },
+    })
+    expect(wrapper.find('[data-testid="endpoint-picker"]').exists()).toBe(false)
   })
 })

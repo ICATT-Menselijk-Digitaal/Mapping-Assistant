@@ -2,18 +2,34 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { SchemaField } from '@/types'
-import type { Schema } from '@/domain/schema'
+import type { Schema, ParsedEndpoint } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { highlightHtml } from '@/utils/highlightSegments'
 
 const props = defineProps<{
   schema: Schema
   side?: 'source' | 'target'
+  endpoints?: readonly ParsedEndpoint[]
+  selectedEndpoint?: ParsedEndpoint | null
 }>()
 
 const emit = defineEmits<{
   'field-click': [fieldId: string]
+  'endpoint-select': [endpoint: ParsedEndpoint]
 }>()
+
+const hasEndpoints = computed(() => (props.endpoints?.length ?? 0) > 0)
+const showFieldTree = computed(() => !hasEndpoints.value || props.selectedEndpoint != null)
+
+function endpointKey(ep: ParsedEndpoint): string {
+  return `${ep.path}::${ep.method}`
+}
+
+function onEndpointChange(event: Event) {
+  const value = (event.target as HTMLSelectElement).value
+  const ep = props.endpoints?.find((e) => endpointKey(e) === value)
+  if (ep) emit('endpoint-select', ep)
+}
 
 const { mappings } = storeToRefs(useMappings())
 
@@ -147,9 +163,38 @@ function tc(dataType: string) {
 
 <template>
   <div class="flex flex-col h-full overflow-y-auto">
-    <!-- Empty state -->
+    <!-- Endpoint picker (when endpoints are available) -->
     <div
-      v-if="schema.roots.length === 0"
+      v-if="hasEndpoints"
+      class="sticky top-0 z-20 bg-white px-3 py-2 border-b border-slate-200"
+    >
+      <select
+        data-testid="endpoint-picker"
+        class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400 bg-white"
+        :value="selectedEndpoint ? endpointKey(selectedEndpoint) : ''"
+        @change="onEndpointChange"
+      >
+        <option value="" disabled>Kies een endpoint…</option>
+        <option
+          v-for="ep in endpoints"
+          :key="endpointKey(ep)"
+          :value="endpointKey(ep)"
+        >{{ ep.method.toUpperCase() }} {{ ep.path }}</option>
+      </select>
+    </div>
+
+    <!-- No-endpoint-selected prompt -->
+    <div
+      v-if="hasEndpoints && !selectedEndpoint"
+      data-testid="endpoint-prompt"
+      class="flex-1 flex items-center justify-center p-6 text-sm text-slate-400 text-center"
+    >
+      Kies een endpoint om de velden te bekijken
+    </div>
+
+    <!-- Empty state (no schema loaded, no endpoints) -->
+    <div
+      v-else-if="!hasEndpoints && schema.roots.length === 0"
       data-testid="empty-state"
       class="flex-1 flex items-center justify-center p-6 text-sm text-slate-400 text-center"
     >
@@ -157,7 +202,7 @@ function tc(dataType: string) {
     </div>
 
     <!-- Filter bar -->
-    <template v-else>
+    <template v-else-if="showFieldTree">
       <div class="sticky top-0 z-10 bg-white px-3 py-2 border-b border-slate-100 flex flex-col gap-1.5">
         <div class="relative">
           <input
@@ -206,7 +251,7 @@ function tc(dataType: string) {
     </template>
 
     <!-- Schema groups -->
-    <template v-if="schema.roots.length > 0 && displayedGroups.length > 0">
+    <template v-if="showFieldTree && schema.roots.length > 0 && displayedGroups.length > 0">
       <div
         v-for="group in displayedGroups"
         :key="group.name"
