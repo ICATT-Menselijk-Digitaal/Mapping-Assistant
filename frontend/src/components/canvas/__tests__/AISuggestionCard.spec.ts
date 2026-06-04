@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AISuggestionCard from '../AISuggestionCard.vue'
 
-function mountCard(props = { suggestionId: 'sug-1', sourceName: 'customerId', targetName: 'client_id', confidenceScore: 0.97 }) {
+function mountCard(
+  props = {
+    suggestionId: 'sug-1',
+    sourceName: 'customerId',
+    targetName: 'client_id',
+    confidenceScore: 0.97,
+  },
+) {
   return mount(AISuggestionCard, { props })
 }
 
@@ -22,7 +29,12 @@ describe('AISuggestionCard', () => {
   })
 
   it('shows Middel badge for score 0.5–0.79', () => {
-    const wrapper = mountCard({ suggestionId: 'sug-1', sourceName: 'a', targetName: 'b', confidenceScore: 0.72 })
+    const wrapper = mountCard({
+      suggestionId: 'sug-1',
+      sourceName: 'a',
+      targetName: 'b',
+      confidenceScore: 0.72,
+    })
     const badge = wrapper.find('[data-testid="confidence-badge"]')
     expect(badge.text()).toContain('Middel')
     expect(badge.text()).toContain('72%')
@@ -30,7 +42,12 @@ describe('AISuggestionCard', () => {
   })
 
   it('shows Laag badge for score < 0.5', () => {
-    const wrapper = mountCard({ suggestionId: 'sug-1', sourceName: 'a', targetName: 'b', confidenceScore: 0.3 })
+    const wrapper = mountCard({
+      suggestionId: 'sug-1',
+      sourceName: 'a',
+      targetName: 'b',
+      confidenceScore: 0.3,
+    })
     const badge = wrapper.find('[data-testid="confidence-badge"]')
     expect(badge.text()).toContain('Laag')
     expect(badge.text()).toContain('30%')
@@ -51,7 +68,13 @@ describe('AISuggestionCard', () => {
 
   it('hides accept and reject buttons when interactive is false', () => {
     const wrapper = mount(AISuggestionCard, {
-      props: { suggestionId: 'sug-1', sourceName: 'a', targetName: 'b', confidenceScore: 0.60, interactive: false },
+      props: {
+        suggestionId: 'sug-1',
+        sourceName: 'a',
+        targetName: 'b',
+        confidenceScore: 0.6,
+        interactive: false,
+      },
     })
     expect(wrapper.find('[data-testid="accept-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="reject-button"]').exists()).toBe(false)

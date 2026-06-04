@@ -9,7 +9,14 @@ const sourceNodes: SchemaFieldNode[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
   { id: 'src-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
   { id: 'src-num', name: 'bedrag', path: 'bedrag', dataType: 'number', required: false },
-  { id: 'src-long', name: 'beschrijving', path: 'beschrijving', dataType: 'string', maxLength: 200, required: false },
+  {
+    id: 'src-long',
+    name: 'beschrijving',
+    path: 'beschrijving',
+    dataType: 'string',
+    maxLength: 200,
+    required: false,
+  },
   { id: 'src-obj', name: 'adres', path: 'adres', dataType: 'object', required: false },
 ]
 
@@ -17,7 +24,14 @@ const targetNodes: SchemaFieldNode[] = [
   { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true, maxLength: 36 },
   { id: 'tgt-2', name: 'startdatum', path: 'startdatum', dataType: 'date', required: false },
   { id: 'tgt-str', name: 'label', path: 'label', dataType: 'string', required: false },
-  { id: 'tgt-short', name: 'code', path: 'code', dataType: 'string', maxLength: 10, required: false },
+  {
+    id: 'tgt-short',
+    name: 'code',
+    path: 'code',
+    dataType: 'string',
+    maxLength: 10,
+    required: false,
+  },
 ]
 
 const sourceSchema = buildSchema('', sourceNodes)
@@ -195,7 +209,13 @@ describe('MappingOverview', () => {
   it('shows only matching rows when a search query is entered', async () => {
     const searchNodes: SchemaFieldNode[] = [
       { id: 'n-voornaam', name: 'voornaam', path: 'voornaam', dataType: 'string', required: false },
-      { id: 'n-achternaam', name: 'achternaam', path: 'achternaam', dataType: 'string', required: false },
+      {
+        id: 'n-achternaam',
+        name: 'achternaam',
+        path: 'achternaam',
+        dataType: 'string',
+        required: false,
+      },
       { id: 'n-postcode', name: 'postcode', path: 'postcode', dataType: 'string', required: false },
     ]
     const schema = buildSchema('', searchNodes)
@@ -271,7 +291,13 @@ describe('MappingOverview', () => {
   it('matches on target field name', async () => {
     const filterNodes: SchemaFieldNode[] = [
       { id: 'n-id', name: 'id', path: 'id', dataType: 'string', required: false },
-      { id: 'n-gemeente', name: 'gemeente_code', path: 'gemeente_code', dataType: 'string', required: false },
+      {
+        id: 'n-gemeente',
+        name: 'gemeente_code',
+        path: 'gemeente_code',
+        dataType: 'string',
+        required: false,
+      },
     ]
     const schema = buildSchema('', filterNodes)
     const wrapper = mount(MappingOverview, {
@@ -343,9 +369,9 @@ describe('MappingOverview', () => {
 
     expect(wrapper.findAll('[data-testid="validation-status"]')).toHaveLength(2)
 
-    const incompatibleRow = wrapper.findAll('[data-testid="mapping-row"]').find((r) =>
-      r.find('[data-testid="validation-status"]').classes().includes('text-red-500'),
-    )!
+    const incompatibleRow = wrapper
+      .findAll('[data-testid="mapping-row"]')
+      .find((r) => r.find('[data-testid="validation-status"]').classes().includes('text-red-500'))!
     await incompatibleRow.find('[data-testid="remove-mapping"]').trigger('click')
     await wrapper.vm.$nextTick()
     await wrapper.find('[data-testid="confirm-delete"]').trigger('click')

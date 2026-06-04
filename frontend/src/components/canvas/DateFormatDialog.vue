@@ -53,7 +53,9 @@ function cancel() {
       />
     </label>
     <div class="flex gap-2 justify-end">
-      <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">Annuleren</button>
+      <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">
+        Annuleren
+      </button>
       <button
         data-testid="save-button"
         class="px-3 py-1 text-sm bg-blue-600 text-white rounded disabled:opacity-40"

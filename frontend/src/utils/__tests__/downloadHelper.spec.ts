@@ -14,7 +14,10 @@ describe('downloadAsJson', () => {
 
     anchorElement = { href: '', download: '', click: clickMock }
 
-    vi.stubGlobal('URL', { createObjectURL: createObjectURLMock, revokeObjectURL: revokeObjectURLMock })
+    vi.stubGlobal('URL', {
+      createObjectURL: createObjectURLMock,
+      revokeObjectURL: revokeObjectURLMock,
+    })
     vi.spyOn(document, 'createElement').mockReturnValue(anchorElement as unknown as HTMLElement)
     vi.spyOn(document.body, 'appendChild').mockReturnValue(anchorElement as unknown as Node)
     vi.spyOn(document.body, 'removeChild').mockReturnValue(anchorElement as unknown as Node)
@@ -27,7 +30,12 @@ describe('downloadAsJson', () => {
 
   // Scenario: Administrator downloads the mapping set as JSON file
   it('creates a blob from the data and triggers a download', () => {
-    const data = { version: '1.0', sourceSchema: { name: 'src', fields: [] }, targetSchema: { name: 'tgt', fields: [] }, fieldMappings: [{ sourceField: 'a', targetField: 'b' }] }
+    const data = {
+      version: '1.0',
+      sourceSchema: { name: 'src', fields: [] },
+      targetSchema: { name: 'tgt', fields: [] },
+      fieldMappings: [{ sourceField: 'a', targetField: 'b' }],
+    }
 
     downloadAsJson(data, 'koppelingsset-2026-05-26.json')
 
@@ -59,7 +67,12 @@ describe('downloadAsJson', () => {
 
   // Scenario: Export button available without mappings
   it('triggers download with empty fieldMappings without error', () => {
-    const data = { version: '1.0', sourceSchema: { name: 'src', fields: [] }, targetSchema: { name: 'tgt', fields: [] }, fieldMappings: [] }
+    const data = {
+      version: '1.0',
+      sourceSchema: { name: 'src', fields: [] },
+      targetSchema: { name: 'tgt', fields: [] },
+      fieldMappings: [],
+    }
 
     expect(() => downloadAsJson(data, 'koppelingsset-2026-05-26.json')).not.toThrow('')
     expect(clickMock).toHaveBeenCalledOnce()

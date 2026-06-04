@@ -24,8 +24,20 @@ function makeSchema(name: string, fields: SchemaField[]): Schema {
   }
 }
 
-const sourceField: SchemaField = { id: 'src-1', name: 'zaakId', path: 'zaak.zaakId', dataType: 'string', required: true }
-const targetField: SchemaField = { id: 'tgt-1', name: 'identificatie', path: 'zaak.identificatie', dataType: 'string', required: true }
+const sourceField: SchemaField = {
+  id: 'src-1',
+  name: 'zaakId',
+  path: 'zaak.zaakId',
+  dataType: 'string',
+  required: true,
+}
+const targetField: SchemaField = {
+  id: 'tgt-1',
+  name: 'identificatie',
+  path: 'zaak.identificatie',
+  dataType: 'string',
+  required: true,
+}
 
 const loadedSource = makeSchema('Bron', [sourceField])
 const loadedTarget = makeSchema('Doel', [targetField])
@@ -75,7 +87,10 @@ describe('ExportButton', () => {
     await wrapper.find('button').trigger('click')
 
     expect(mockDownload).toHaveBeenCalledOnce()
-    const [payload, filename] = mockDownload.mock.calls[0]! as [{ fieldMappings: unknown[] }, string]
+    const [payload, filename] = mockDownload.mock.calls[0]! as [
+      { fieldMappings: unknown[] },
+      string,
+    ]
     expect(payload.fieldMappings).toHaveLength(1)
     expect(filename).toMatch(/^koppelingsset-\d{4}-\d{2}-\d{2}\.json$/)
   })
@@ -84,14 +99,21 @@ describe('ExportButton', () => {
     const wrapper = mount(ExportButton, { props: defaultProps })
     await wrapper.find('button').trigger('click')
 
-    const [payload] = mockDownload.mock.calls[0]! as [{ sourceSchema: { name: string }; targetSchema: { name: string } }, string]
+    const [payload] = mockDownload.mock.calls[0]! as [
+      { sourceSchema: { name: string }; targetSchema: { name: string } },
+      string,
+    ]
     expect(payload.sourceSchema.name).toBe('Bron')
     expect(payload.targetSchema.name).toBe('Doel')
   })
 
   it('passes the schema source URLs through to the payload', async () => {
     const wrapper = mount(ExportButton, {
-      props: { ...defaultProps, sourceUrl: 'https://example.com/src.json', targetUrl: 'https://example.com/tgt.json' },
+      props: {
+        ...defaultProps,
+        sourceUrl: 'https://example.com/src.json',
+        targetUrl: 'https://example.com/tgt.json',
+      },
     })
     await wrapper.find('button').trigger('click')
 

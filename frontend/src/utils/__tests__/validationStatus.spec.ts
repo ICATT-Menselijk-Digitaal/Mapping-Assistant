@@ -16,12 +16,16 @@ function field(overrides: Partial<SchemaField> = {}): SchemaField {
 describe('getValidationStatus', () => {
   // Scenario: Same-type fields are compatible
   it('returns compatible for same-type fields', () => {
-    expect(getValidationStatus(field({ dataType: 'string' }), field({ dataType: 'string' }))).toBe('compatible')
+    expect(getValidationStatus(field({ dataType: 'string' }), field({ dataType: 'string' }))).toBe(
+      'compatible',
+    )
   })
 
   // Scenario: Castable type pair (number to string) is compatible
   it('returns compatible for number → string', () => {
-    expect(getValidationStatus(field({ dataType: 'number' }), field({ dataType: 'string' }))).toBe('compatible')
+    expect(getValidationStatus(field({ dataType: 'number' }), field({ dataType: 'string' }))).toBe(
+      'compatible',
+    )
   })
 
   // Scenario: String-to-string with source maxLength exceeding target maxLength is constrained
@@ -46,23 +50,33 @@ describe('getValidationStatus', () => {
 
   // Scenario: Either field has type unknown is constrained
   it('returns constrained when source type is unknown', () => {
-    expect(getValidationStatus(field({ dataType: 'unknown' }), field({ dataType: 'string' }))).toBe('constrained')
+    expect(getValidationStatus(field({ dataType: 'unknown' }), field({ dataType: 'string' }))).toBe(
+      'constrained',
+    )
   })
 
   it('returns constrained when target type is unknown', () => {
-    expect(getValidationStatus(field({ dataType: 'string' }), field({ dataType: 'unknown' }))).toBe('constrained')
+    expect(getValidationStatus(field({ dataType: 'string' }), field({ dataType: 'unknown' }))).toBe(
+      'constrained',
+    )
   })
 
   // Scenario: Structurally incompatible types are incompatible
   it('returns incompatible for object → string', () => {
-    expect(getValidationStatus(field({ dataType: 'object' }), field({ dataType: 'string' }))).toBe('incompatible')
+    expect(getValidationStatus(field({ dataType: 'object' }), field({ dataType: 'string' }))).toBe(
+      'incompatible',
+    )
   })
 
   it('returns incompatible for array → number', () => {
-    expect(getValidationStatus(field({ dataType: 'array' }), field({ dataType: 'number' }))).toBe('incompatible')
+    expect(getValidationStatus(field({ dataType: 'array' }), field({ dataType: 'number' }))).toBe(
+      'incompatible',
+    )
   })
 
   it('returns incompatible for boolean → date', () => {
-    expect(getValidationStatus(field({ dataType: 'boolean' }), field({ dataType: 'date' }))).toBe('incompatible')
+    expect(getValidationStatus(field({ dataType: 'boolean' }), field({ dataType: 'date' }))).toBe(
+      'incompatible',
+    )
   })
 })

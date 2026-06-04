@@ -1,10 +1,24 @@
 export type MismatchType = 'truncate' | 'default' | 'cast' | 'date-format'
 export type RuleSource = 'manual' | 'mismatch-solution' | 'ai'
 
-export interface TruncationParams { type: 'truncate'; maxLength: number }
-export interface DefaultParams    { type: 'default';  value: string }
-export interface CastParams       { type: 'cast';     from: string; to: string }
-export interface DateFormatParams { type: 'date-format'; sourceFormat: string; targetFormat: string }
+export interface TruncationParams {
+  type: 'truncate'
+  maxLength: number
+}
+export interface DefaultParams {
+  type: 'default'
+  value: string
+}
+export interface CastParams {
+  type: 'cast'
+  from: string
+  to: string
+}
+export interface DateFormatParams {
+  type: 'date-format'
+  sourceFormat: string
+  targetFormat: string
+}
 export type SolutionParams = TruncationParams | DefaultParams | CastParams | DateFormatParams
 
 export interface TransformationRule {

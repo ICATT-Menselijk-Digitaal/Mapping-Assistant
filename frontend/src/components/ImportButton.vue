@@ -71,7 +71,9 @@ function onChange(event: Event) {
               aria-label="Sluiten"
               data-testid="import-error-dismiss"
               @click="emit('dismiss-error')"
-            >×</button>
+            >
+              ×
+            </button>
           </div>
           <div
             v-if="warnings && warnings.length > 0"
@@ -88,7 +90,9 @@ function onChange(event: Event) {
               aria-label="Sluiten"
               data-testid="import-warning-dismiss"
               @click="emit('dismiss-warnings')"
-            >×</button>
+            >
+              ×
+            </button>
           </div>
         </div>
       </div>

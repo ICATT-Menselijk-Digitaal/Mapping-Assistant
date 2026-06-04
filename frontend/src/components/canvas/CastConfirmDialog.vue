@@ -2,7 +2,12 @@
 import { useMappings } from '@/composables/useMappings'
 import { buildCastExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
 
-const props = defineProps<{ mappingId: string; sourcePath: string; fromType: string; toType: string }>()
+const props = defineProps<{
+  mappingId: string
+  sourcePath: string
+  fromType: string
+  toType: string
+}>()
 const emit = defineEmits<{ close: [] }>()
 
 const store = useMappings()
@@ -28,10 +33,14 @@ function cancel() {
   <div class="p-4 space-y-3">
     <h3 class="font-medium text-sm">Type conversie bevestigen</h3>
     <p class="text-sm text-gray-600">
-      Converteer <span class="font-mono">{{ fromType }}</span> naar <span class="font-mono">{{ toType }}</span>.
+      Converteer <span class="font-mono">{{ fromType }}</span> naar
+      <span class="font-mono">{{ toType }}</span
+      >.
     </p>
     <div class="flex gap-2 justify-end">
-      <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">Annuleren</button>
+      <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">
+        Annuleren
+      </button>
       <button
         data-testid="save-button"
         class="px-3 py-1 text-sm bg-blue-600 text-white rounded"

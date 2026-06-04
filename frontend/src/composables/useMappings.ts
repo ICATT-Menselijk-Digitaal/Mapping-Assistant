@@ -47,10 +47,7 @@ export const useMappings = defineStore('mappings', () => {
     if (selectedMappingId.value === id) selectedMappingId.value = null
   }
 
-  function addTransformationRule(
-    mappingId: string,
-    rule: Omit<TransformationRule, 'id'>,
-  ): void {
+  function addTransformationRule(mappingId: string, rule: Omit<TransformationRule, 'id'>): void {
     const mapping = mappings.value.find((m) => m.id === mappingId)
     if (!mapping) return
     mapping.transformations.push({ ...rule, id: crypto.randomUUID() })

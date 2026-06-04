@@ -12,8 +12,20 @@ import { useImport } from '@/composables/useImport'
 
 const source = useSourceSchema()
 const target = useTargetSchema()
-const { schema: sourceSchema, sourceUrl: sourceSchemaUrl, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = source
-const { schema: targetSchema, sourceUrl: targetSchemaUrl, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = target
+const {
+  schema: sourceSchema,
+  sourceUrl: sourceSchemaUrl,
+  error: sourceError,
+  loadFromFile: loadSourceFromFile,
+  loadFromUrl: loadSourceFromUrl,
+} = source
+const {
+  schema: targetSchema,
+  sourceUrl: targetSchemaUrl,
+  error: targetError,
+  loadFromFile: loadTargetFromFile,
+  loadFromUrl: loadTargetFromUrl,
+} = target
 const mappingsStore = useMappings()
 const {
   importMappingSet,
@@ -25,11 +37,21 @@ const {
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 
-async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
-async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
-async function onTargetFileSelected(file: File) { await loadTargetFromFile(file) }
-async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
-async function onImportFileSelected(file: File) { await importMappingSet(file, source, target) }
+async function onSourceFileSelected(file: File) {
+  await loadSourceFromFile(file)
+}
+async function onSourceUrlEntered(url: string) {
+  await loadSourceFromUrl(url)
+}
+async function onTargetFileSelected(file: File) {
+  await loadTargetFromFile(file)
+}
+async function onTargetUrlEntered(url: string) {
+  await loadTargetFromUrl(url)
+}
+async function onImportFileSelected(file: File) {
+  await importMappingSet(file, source, target)
+}
 </script>
 
 <template>
@@ -42,7 +64,7 @@ async function onImportFileSelected(file: File) { await importMappingSet(file, s
       {{ sourceError || targetError }}
     </div>
     <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
-<div class="flex-1 min-h-0">
+      <div class="flex-1 min-h-0">
         <MappingCanvas
           :source-schema="sourceSchema"
           :target-schema="targetSchema"

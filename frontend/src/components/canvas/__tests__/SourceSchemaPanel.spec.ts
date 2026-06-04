@@ -20,12 +20,28 @@ function schemaOf(nodes: SchemaFieldNode[]) {
 }
 
 const zaakNodes: SchemaFieldNode[] = [
-  node({ name: 'zaakId', path: 'Zaak.zaakId', id: 'Zaak.zaakId', dataType: 'string', required: true }),
-  node({ name: 'omschrijving', path: 'Zaak.omschrijving', id: 'Zaak.omschrijving', dataType: 'string' }),
+  node({
+    name: 'zaakId',
+    path: 'Zaak.zaakId',
+    id: 'Zaak.zaakId',
+    dataType: 'string',
+    required: true,
+  }),
+  node({
+    name: 'omschrijving',
+    path: 'Zaak.omschrijving',
+    id: 'Zaak.omschrijving',
+    dataType: 'string',
+  }),
 ]
 
 const statusNodes: SchemaFieldNode[] = [
-  node({ name: 'statusCode', path: 'Status.statusCode', id: 'Status.statusCode', dataType: 'string' }),
+  node({
+    name: 'statusCode',
+    path: 'Status.statusCode',
+    id: 'Status.statusCode',
+    dataType: 'string',
+  }),
 ]
 
 const multiSchemaNodes = [...zaakNodes, ...statusNodes]
@@ -68,7 +84,10 @@ describe('SourceSchemaPanel', () => {
   it('expands and collapses a schema group on header click', async () => {
     const div = document.createElement('div')
     document.body.appendChild(div)
-    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(multiSchemaNodes) }, attachTo: div })
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(multiSchemaNodes) },
+      attachTo: div,
+    })
     expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(false)
     await wrapper.find('[data-testid="schema-group-toggle-Zaak"]').trigger('click')
     expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(true)
@@ -93,7 +112,10 @@ describe('SourceSchemaPanel', () => {
     ]
     const div = document.createElement('div')
     document.body.appendChild(div)
-    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithChildren) }, attachTo: div })
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(nodesWithChildren) },
+      attachTo: div,
+    })
     expect(wrapper.text()).toContain('adres')
     expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(false)
     await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
@@ -125,7 +147,10 @@ describe('SourceSchemaPanel', () => {
       document.body.appendChild(div)
 
       const nodes = [node({ name: 'zaakId', path: 'zaakId', id: 'zaakId' })]
-      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) }, attachTo: div })
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(nodes) },
+        attachTo: div,
+      })
 
       await wrapper.vm.scrollToField('zaakId')
 
@@ -140,7 +165,10 @@ describe('SourceSchemaPanel', () => {
       const div = document.createElement('div')
       document.body.appendChild(div)
 
-      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(zaakNodes) }, attachTo: div })
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(zaakNodes) },
+        attachTo: div,
+      })
       expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(false)
 
       await wrapper.vm.scrollToField('Zaak.zaakId')
@@ -168,7 +196,10 @@ describe('SourceSchemaPanel', () => {
           ],
         }),
       ]
-      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithChildren) }, attachTo: div })
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(nodesWithChildren) },
+        attachTo: div,
+      })
       expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(false)
 
       await wrapper.vm.scrollToField('adres.straat')
@@ -185,7 +216,10 @@ describe('SourceSchemaPanel', () => {
       const div = document.createElement('div')
       document.body.appendChild(div)
 
-      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(zaakNodes) }, attachTo: div })
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(zaakNodes) },
+        attachTo: div,
+      })
 
       await wrapper.vm.scrollToField('non-existent-id')
 
@@ -276,7 +310,10 @@ describe('Search and status filter', () => {
   it('shows matching child fields without requiring manual group expansion when filter is active', async () => {
     const div = document.createElement('div')
     document.body.appendChild(div)
-    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedNodes) }, attachTo: div })
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(nestedNodes) },
+      attachTo: div,
+    })
     // Children subtree is hidden by default (collapsed)
     expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
     // Activate search filter
@@ -329,9 +366,7 @@ describe('Search term highlighting', () => {
       path: 'address',
       id: 'address',
       dataType: 'object',
-      children: [
-        node({ name: 'zipCode', path: 'address.zipCode', id: 'address.zipCode' }),
-      ],
+      children: [node({ name: 'zipCode', path: 'address.zipCode', id: 'address.zipCode' })],
     }),
   ]
 
@@ -403,7 +438,10 @@ describe('Search term highlighting', () => {
   it('keeps children collapsed when parent matches by name but no children match, and expands on toggle click', async () => {
     const div = document.createElement('div')
     document.body.appendChild(div)
-    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(parentMatchNodes) }, attachTo: div })
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(parentMatchNodes) },
+      attachTo: div,
+    })
     await wrapper.find('[data-testid="search-input"]').setValue('address')
     expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
     await wrapper.find('[data-testid="field-toggle-address"]').trigger('click')

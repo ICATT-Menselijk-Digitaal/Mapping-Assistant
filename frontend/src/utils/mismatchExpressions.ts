@@ -14,15 +14,25 @@ export function buildCastExpression(from: string, to: string, sourcePath: string
   throw new Error(`Unsupported cast: ${from} → ${to}`)
 }
 
-export function buildDateFormatExpression(srcFmt: string, tgtFmt: string, sourcePath: string): string {
+export function buildDateFormatExpression(
+  srcFmt: string,
+  tgtFmt: string,
+  sourcePath: string,
+): string {
   return `$fromMillis($toMillis(${sourcePath}, "${srcFmt}"), "${tgtFmt}")`
 }
 
 export function buildSolutionLabel(params: SolutionParams): string {
   switch (params.type) {
-    case 'truncate':    return `Afkappen op ${params.maxLength} tekens`
-    case 'default':     return `Standaardwaarde: ${params.value}`
-    case 'cast':        return params.from === 'number' && params.to === 'string' ? 'Getal naar tekst' : `${params.from} naar ${params.to}`
-    case 'date-format': return `Datumnotatie: ${params.sourceFormat} → ${params.targetFormat}`
+    case 'truncate':
+      return `Afkappen op ${params.maxLength} tekens`
+    case 'default':
+      return `Standaardwaarde: ${params.value}`
+    case 'cast':
+      return params.from === 'number' && params.to === 'string'
+        ? 'Getal naar tekst'
+        : `${params.from} naar ${params.to}`
+    case 'date-format':
+      return `Datumnotatie: ${params.sourceFormat} → ${params.targetFormat}`
   }
 }

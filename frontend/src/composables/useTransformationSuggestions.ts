@@ -10,9 +10,9 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
 const MISMATCH_LABELS: Record<MismatchType, string> = {
-  truncate:      'Maximale lengte overschreden',
-  default:       'Bronveld is optioneel, doelveld is verplicht',
-  cast:          'Type conversie vereist',
+  truncate: 'Maximale lengte overschreden',
+  default: 'Bronveld is optioneel, doelveld is verplicht',
+  cast: 'Type conversie vereist',
   'date-format': 'Datumformaat conversie',
 }
 
@@ -30,12 +30,12 @@ function buildPrompt(
   existingRules: TransformationRule[],
 ): string {
   const mismatches = getMismatchTypes(sourceField, targetField)
-  const mismatchLines = mismatches.length > 0
-    ? mismatches.map((m) => `- ${MISMATCH_LABELS[m]}`).join('\n')
-    : '- geen gedetecteerde problemen'
-  const ruleLines = existingRules.length > 0
-    ? existingRules.map((r) => `- ${r.expression}`).join('\n')
-    : '- geen'
+  const mismatchLines =
+    mismatches.length > 0
+      ? mismatches.map((m) => `- ${MISMATCH_LABELS[m]}`).join('\n')
+      : '- geen gedetecteerde problemen'
+  const ruleLines =
+    existingRules.length > 0 ? existingRules.map((r) => `- ${r.expression}`).join('\n') : '- geen'
 
   return `Je bent een JSONata-expert. Analyseer de twee velden hieronder en genereer één JSONata-expressie die:
 1. Alle onderstaande gedetecteerde problemen oplost.

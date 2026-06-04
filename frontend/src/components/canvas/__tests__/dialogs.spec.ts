@@ -15,7 +15,13 @@ describe('TruncationDialog', () => {
   function mount_() {
     const store = useMappings()
     const mapping = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
-    return { wrapper: mount(TruncationDialog, { props: { mappingId: mapping.id, sourcePath: 'zaak.omschrijving' } }), store, mapping }
+    return {
+      wrapper: mount(TruncationDialog, {
+        props: { mappingId: mapping.id, sourcePath: 'zaak.omschrijving' },
+      }),
+      store,
+      mapping,
+    }
   }
 
   it('saves a truncation rule on confirm', async () => {
@@ -27,7 +33,9 @@ describe('TruncationDialog', () => {
     expect(rules).toHaveLength(1)
     expect(rules[0]!.resolvesMismatch).toBe('truncate')
     expect(rules[0]!.source).toBe('mismatch-solution')
-    expect(rules[0]!.expression).toBe('$length(zaak.omschrijving) > 50 ? $substring(zaak.omschrijving, 0, 47) & "..." : zaak.omschrijving')
+    expect(rules[0]!.expression).toBe(
+      '$length(zaak.omschrijving) > 50 ? $substring(zaak.omschrijving, 0, 47) & "..." : zaak.omschrijving',
+    )
   })
 
   it('emits close after save', async () => {
@@ -55,7 +63,13 @@ describe('DefaultValueDialog', () => {
   function mount_() {
     const store = useMappings()
     const mapping = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
-    return { wrapper: mount(DefaultValueDialog, { props: { mappingId: mapping.id, sourcePath: 'zaak.status' } }), store, mapping }
+    return {
+      wrapper: mount(DefaultValueDialog, {
+        props: { mappingId: mapping.id, sourcePath: 'zaak.status' },
+      }),
+      store,
+      mapping,
+    }
   }
 
   it('saves a default value rule on confirm', async () => {
@@ -81,7 +95,14 @@ describe('CastConfirmDialog', () => {
     const store = useMappings()
     const mapping = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
     return {
-      wrapper: mount(CastConfirmDialog, { props: { mappingId: mapping.id, sourcePath: 'zaak.id', fromType: 'number', toType: 'string' } }),
+      wrapper: mount(CastConfirmDialog, {
+        props: {
+          mappingId: mapping.id,
+          sourcePath: 'zaak.id',
+          fromType: 'number',
+          toType: 'string',
+        },
+      }),
       store,
       mapping,
     }
@@ -108,7 +129,13 @@ describe('DateFormatDialog', () => {
   function mount_() {
     const store = useMappings()
     const mapping = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
-    return { wrapper: mount(DateFormatDialog, { props: { mappingId: mapping.id, sourcePath: 'zaak.datum' } }), store, mapping }
+    return {
+      wrapper: mount(DateFormatDialog, {
+        props: { mappingId: mapping.id, sourcePath: 'zaak.datum' },
+      }),
+      store,
+      mapping,
+    }
   }
 
   it('saves a date-format rule on confirm', async () => {
@@ -121,7 +148,11 @@ describe('DateFormatDialog', () => {
     const rules = store.mappings.find((m) => m.id === mapping.id)!.transformations
     expect(rules[0]!.resolvesMismatch).toBe('date-format')
     expect(rules[0]!.source).toBe('mismatch-solution')
-    expect(rules[0]!.solutionParams).toMatchObject({ type: 'date-format', sourceFormat: 'YYYY-MM-DD', targetFormat: 'DD/MM/YYYY' })
+    expect(rules[0]!.solutionParams).toMatchObject({
+      type: 'date-format',
+      sourceFormat: 'YYYY-MM-DD',
+      targetFormat: 'DD/MM/YYYY',
+    })
   })
 
   it('disables save button when either format is empty', () => {

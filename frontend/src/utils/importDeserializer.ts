@@ -30,9 +30,12 @@ export function deserializeMappingSet(raw: unknown): DeserializeResult {
     )
   }
 
-  if (!isObject(raw.sourceSchema)) throw new ImportFormatError('Invalid import: missing sourceSchema')
-  if (!isObject(raw.targetSchema)) throw new ImportFormatError('Invalid import: missing targetSchema')
-  if (!Array.isArray(raw.fieldMappings)) throw new ImportFormatError('Invalid import: missing fieldMappings')
+  if (!isObject(raw.sourceSchema))
+    throw new ImportFormatError('Invalid import: missing sourceSchema')
+  if (!isObject(raw.targetSchema))
+    throw new ImportFormatError('Invalid import: missing targetSchema')
+  if (!Array.isArray(raw.fieldMappings))
+    throw new ImportFormatError('Invalid import: missing fieldMappings')
 
   return { payload: raw as unknown as MappingSetExport, warnings }
 }

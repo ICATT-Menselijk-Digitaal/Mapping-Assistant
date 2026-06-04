@@ -5,10 +5,13 @@ import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
-export const CONFIDENCE_THRESHOLD = 0.70
+export const CONFIDENCE_THRESHOLD = 0.7
 
 export class AIServiceError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+  ) {
     super(message)
     this.name = 'AIServiceError'
   }
@@ -54,8 +57,12 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     if (!apiKey) throw new AIServiceError('OpenRouter API key not configured')
 
     // Capped to control prompt size and keep API costs low during PoC
-    const sourceEntries = sourceFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
-    const targetEntries = unmappedTargetFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
+    const sourceEntries = sourceFields
+      .slice(0, 5)
+      .map((f) => ({ path: f.path, description: f.description }))
+    const targetEntries = unmappedTargetFields
+      .slice(0, 5)
+      .map((f) => ({ path: f.path, description: f.description }))
 
     const systemPrompt =
       'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
@@ -70,7 +77,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'content-type': 'application/json',
         },
         body: JSON.stringify({
@@ -101,7 +108,8 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
 
     try {
       const raw =
-        (responseData as { choices: Array<{ message: { content: string } }> }).choices[0]?.message?.content ?? ''
+        (responseData as { choices: Array<{ message: { content: string } }> }).choices[0]?.message
+          ?.content ?? ''
       const start = raw.indexOf('{')
       const end = raw.lastIndexOf('}')
       const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
@@ -124,10 +132,19 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         return acc
       }, [])
 
-      console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
+      console.log(
+        '[AI] Suggestions',
+        resolved.map((s) => ({
+          sourceFieldId: s.sourceFieldId,
+          targetFieldId: s.targetFieldId,
+          score: s.confidenceScore,
+        })),
+      )
       totalGenerated.value += resolved.length
       suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
-      lowConfidenceSuggestions.value = resolved.filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
+      lowConfidenceSuggestions.value = resolved.filter(
+        (s) => s.confidenceScore < CONFIDENCE_THRESHOLD,
+      )
 
       return resolved
     } catch (e) {
@@ -146,7 +163,11 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     if (!suggestion) return
 
     const mappingsStore = useMappings()
-    mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId, schemas })
+    mappingsStore.createMapping({
+      sourceFieldId: suggestion.sourceFieldId,
+      targetFieldId: suggestion.targetFieldId,
+      schemas,
+    })
 
     if (inHigh) {
       suggestions.value = suggestions.value.filter((s) => s.id !== id)
@@ -180,5 +201,18 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     rejectedPairs.value = new Set(stats.rejectedPairs)
   }
 
-  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, rejectedPairs, generateSuggestions, acceptSuggestion, rejectSuggestion, restoreStatistics }
+  return {
+    suggestions,
+    lowConfidenceSuggestions,
+    isLoading,
+    error,
+    accepted,
+    rejected,
+    totalGenerated,
+    rejectedPairs,
+    generateSuggestions,
+    acceptSuggestion,
+    rejectSuggestion,
+    restoreStatistics,
+  }
 })

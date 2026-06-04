@@ -14,9 +14,21 @@ const exportPayload: MappingSetExport = {
     name: 'Source',
     sourceUrl: null,
     fields: [
-      { id: 'customerId', name: 'customerId', path: 'customerId', dataType: 'string', required: true },
+      {
+        id: 'customerId',
+        name: 'customerId',
+        path: 'customerId',
+        dataType: 'string',
+        required: true,
+      },
       { id: 'address', name: 'address', path: 'address', dataType: 'object', required: false },
-      { id: 'address.city', name: 'city', path: 'address.city', dataType: 'string', required: false },
+      {
+        id: 'address.city',
+        name: 'city',
+        path: 'address.city',
+        dataType: 'string',
+        required: false,
+      },
     ],
   },
   targetSchema: {
@@ -31,7 +43,9 @@ const exportPayload: MappingSetExport = {
     {
       sourceField: 'customerId',
       targetField: 'id',
-      transformations: [{ expression: 'substring(0, 10)', label: 'Truncate', source: 'mismatch-solution' }],
+      transformations: [
+        { expression: 'substring(0, 10)', label: 'Truncate', source: 'mismatch-solution' },
+      ],
     },
     { sourceField: 'address.city', targetField: 'city', transformations: [] },
   ],
@@ -56,7 +70,11 @@ describe('useImport', () => {
     await importer.importMappingSet(jsonFile(exportPayload), src, tgt)
 
     expect(src.schema.value.name).toBe('Source')
-    expect(src.schema.value.all().map((f) => f.id)).toEqual(['customerId', 'address', 'address.city'])
+    expect(src.schema.value.all().map((f) => f.id)).toEqual([
+      'customerId',
+      'address',
+      'address.city',
+    ])
     expect(tgt.schema.value.name).toBe('Target')
     expect(tgt.schema.value.all().map((f) => f.id)).toEqual(['id', 'city'])
 
@@ -169,7 +187,9 @@ describe('useImport', () => {
       return new File(['{not-json'], 'broken.json', { type: 'application/json' })
     }
     function invalidShapeFile(): File {
-      return new File([JSON.stringify({ version: '1.1' })], 'bad.json', { type: 'application/json' })
+      return new File([JSON.stringify({ version: '1.1' })], 'bad.json', {
+        type: 'application/json',
+      })
     }
 
     it('sets error and returns null when the file is not valid JSON', async () => {

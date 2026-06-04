@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-background: hsl(225, 25%, 96%);
@@ -12,7 +12,7 @@
   --color-destructive: hsl(0, 68%, 52%);
 
   --font-sans: Inter, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 html,

@@ -25,7 +25,8 @@ const emit = defineEmits<{
         :class="props.resolved || props.manuallyResolved ? 'text-emerald-600' : 'text-amber-600'"
         class="text-[10px] font-medium shrink-0"
         :data-testid="`mismatch-status-${props.type}`"
-      >{{ props.resolved || props.manuallyResolved ? '✓ Opgelost' : '● Vereist' }}</span>
+        >{{ props.resolved || props.manuallyResolved ? '✓ Opgelost' : '● Vereist' }}</span
+      >
       <!-- Right column: label + buttons indented together -->
       <div class="min-w-0 flex-1">
         <span class="text-xs text-slate-700">{{ props.label }}</span>
@@ -35,7 +36,9 @@ const emit = defineEmits<{
             class="inline-flex items-center h-6 text-xs text-blue-600 border border-blue-300 rounded px-2 hover:bg-blue-50 transition-colors"
             :data-testid="`mismatch-solve-${props.type}`"
             @click="emit('solve')"
-          >Oplossen</button>
+          >
+            Oplossen
+          </button>
           <span v-if="!props.manuallyResolved" class="relative group inline-flex">
             <button
               class="inline-flex items-center h-6 text-xs text-slate-500 border border-slate-300 rounded px-2 hover:bg-slate-50 transition-colors"
@@ -43,8 +46,12 @@ const emit = defineEmits<{
               :aria-pressed="false"
               :data-testid="`mismatch-mark-resolved-${props.type}`"
               @click="emit('toggle-manual-resolution')"
-            >✓</button>
-            <span class="pointer-events-none absolute bottom-full left-0 mb-1 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] text-white invisible group-hover:visible">
+            >
+              ✓
+            </button>
+            <span
+              class="pointer-events-none absolute bottom-full left-0 mb-1 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] text-white invisible group-hover:visible"
+            >
               Markeer als opgelost
             </span>
           </span>
@@ -55,8 +62,12 @@ const emit = defineEmits<{
               :aria-pressed="true"
               :data-testid="`mismatch-mark-unresolved-${props.type}`"
               @click="emit('toggle-manual-resolution')"
-            >↩</button>
-            <span class="pointer-events-none absolute bottom-full left-0 mb-1 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] text-white invisible group-hover:visible">
+            >
+              ↩
+            </button>
+            <span
+              class="pointer-events-none absolute bottom-full left-0 mb-1 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-[10px] text-white invisible group-hover:visible"
+            >
               Markeer als onopgelost
             </span>
           </span>
