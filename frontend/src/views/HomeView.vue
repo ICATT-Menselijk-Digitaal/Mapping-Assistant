@@ -68,7 +68,7 @@ async function onImportFileSelected(file: File) { await importMappingSet(file, s
         :target-schema="targetSchema"
       />
     </div>
-    <div class="fixed bottom-4 right-4 z-40 flex gap-2">
+    <div class="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
       <ImportButton
         :error="importError"
         :warnings="importWarnings"
