@@ -1,12 +1,20 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import * as yaml from 'js-yaml'
-import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
-import { parseOpenApiSchema } from '@/utils/openApiParser'
+import { EMPTY_SCHEMA, type Schema, type ParsedEndpoint } from '@/domain/schema'
+import { parseOpenApiSchema, parseOpenApiEndpoints } from '@/utils/openApiParser'
 
 export function useTargetSchema() {
   const schema = ref<Schema>(EMPTY_SCHEMA)
+  const rawSpec = ref<unknown>(null)
   const error = ref<string | null>(null)
   const isLoading = ref(false)
+
+  const endpoints = computed<readonly ParsedEndpoint[]>(() => {
+    if (!rawSpec.value) return []
+    return parseOpenApiEndpoints(rawSpec.value).filter((e) =>
+      (['post', 'put', 'patch'] as const).includes(e.method as 'post' | 'put' | 'patch'),
+    )
+  })
 
   function parseContent(content: string): void {
     let spec: unknown
@@ -16,6 +24,7 @@ export function useTargetSchema() {
       throw new Error('Ongeldig bestand: geen geldige YAML, JSON of OpenAPI-spec')
     }
     schema.value = parseOpenApiSchema(spec)
+    rawSpec.value = spec
     error.value = null
   }
 
@@ -28,6 +37,7 @@ export function useTargetSchema() {
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon bestand niet verwerken'
       schema.value = EMPTY_SCHEMA
+      rawSpec.value = null
     } finally {
       isLoading.value = false
     }
@@ -44,10 +54,11 @@ export function useTargetSchema() {
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon URL niet ophalen'
       schema.value = EMPTY_SCHEMA
+      rawSpec.value = null
     } finally {
       isLoading.value = false
     }
   }
 
-  return { schema, error, isLoading, loadFromFile, loadFromUrl }
+  return { schema, endpoints, error, isLoading, loadFromFile, loadFromUrl }
 }

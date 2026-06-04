@@ -131,4 +131,50 @@ describe('useSourceSchema', () => {
 
     expect(schema.value.name).toBe('Test')
   })
+
+  it('exposes GET endpoints after loading a spec', async () => {
+    const specWithPaths = JSON.stringify({
+      openapi: '3.0.0',
+      info: { title: 'Test', version: '1.0' },
+      paths: {
+        '/zaken': {
+          get: {
+            operationId: 'listZaken',
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/Zaak' },
+                  },
+                },
+              },
+            },
+          },
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Zaak' },
+                },
+              },
+            },
+            responses: { '201': {} },
+          },
+        },
+      },
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: { zaakId: { type: 'string' } },
+          },
+        },
+      },
+    })
+    const { endpoints, loadFromFile } = useSourceSchema()
+    expect(endpoints.value).toHaveLength(0)
+    await loadFromFile(makeFile(specWithPaths, 'spec.json'))
+    expect(endpoints.value).toHaveLength(1)
+    expect(endpoints.value[0].method).toBe('get')
+  })
 })
