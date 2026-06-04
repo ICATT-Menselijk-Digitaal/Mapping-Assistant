@@ -56,12 +56,15 @@ const rows = computed(() =>
   store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => {
     const source = props.sourceSchema.byId(m.sourceFieldId)
     const target = props.targetSchema.byId(m.targetFieldId)
+    const orphaned = m.orphaned === true
     return {
       id: m.id,
       sourceFieldId: m.sourceFieldId,
       targetFieldId: m.targetFieldId,
       validationStatus: m.validationStatus,
-      orphaned: m.orphaned === true,
+      orphaned,
+      missingSource: orphaned && !source,
+      missingTarget: orphaned && !target,
       source,
       target,
       isComplete: source && target ? isMappingComplete(m, source, target) : false,
@@ -187,7 +190,7 @@ function cancelDelete() {
         :key="row.id"
         :ref="(el) => setRowRef(row.id, el as HTMLElement | null)"
         :class="[
-          'flex items-center gap-2 px-3 py-2 text-sm',
+          'flex flex-col gap-1 px-3 py-2 text-sm',
           row.orphaned
             ? 'cursor-default bg-amber-50/40'
             : ['cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId }],
@@ -195,53 +198,69 @@ function cancelDelete() {
         data-testid="mapping-row"
         @click.stop="row.orphaned ? null : store.selectMapping(row.id)"
       >
-        <!-- Validation status icon -->
-        <span
-          :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIcon(row).text]"
-          data-testid="validation-status"
-        >{{ statusIcon(row).symbol }}</span>
+        <div class="flex items-center gap-2">
+          <!-- Validation status icon -->
+          <span
+            :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIcon(row).text]"
+            data-testid="validation-status"
+          >{{ statusIcon(row).symbol }}</span>
 
-        <!-- Orphaned mapping indicator -->
-        <span
+          <!-- Orphaned mapping indicator -->
+          <span
+            v-if="row.orphaned"
+            class="shrink-0 text-amber-600 text-[13px] leading-none"
+            data-testid="orphan-indicator"
+            title="Verweesde koppeling: verwijst naar een niet-bestaand veld"
+            aria-label="Verweesde koppeling"
+          >⚠</span>
+
+          <!-- Source field -->
+          <div class="flex-1 min-w-0 flex items-center gap-1.5">
+            <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
+              {{ row.source?.name ?? row.sourceFieldId }}
+            </span>
+            <span
+              v-if="row.source"
+              :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.source.dataType).bg, typeOf(row.source.dataType).text]"
+            >{{ typeOf(row.source.dataType).label }}</span>
+          </div>
+
+          <!-- Arrow -->
+          <span class="text-slate-300 shrink-0">→</span>
+
+          <!-- Target field -->
+          <div class="flex-1 min-w-0 flex items-center gap-1.5">
+            <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
+              {{ row.target?.name ?? row.targetFieldId }}
+            </span>
+            <span
+              v-if="row.target"
+              :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.target.dataType).bg, typeOf(row.target.dataType).text]"
+            >{{ typeOf(row.target.dataType).label }}</span>
+          </div>
+
+          <!-- Remove button -->
+          <button
+            class="shrink-0 text-slate-300 hover:text-red-500 transition-colors font-bold px-1 leading-none"
+            data-testid="remove-mapping"
+            aria-label="Verwijder koppeling"
+            @click.stop="requestDelete(row.id)"
+          >×</button>
+        </div>
+
+        <!-- Orphan details: list each missing field -->
+        <div
           v-if="row.orphaned"
-          class="shrink-0 text-amber-600 text-[13px] leading-none"
-          data-testid="orphan-indicator"
-          title="Verweesde koppeling: verwijst naar een niet-bestaand veld"
-          aria-label="Verweesde koppeling"
-        >⚠</span>
-
-        <!-- Source field -->
-        <div class="flex-1 min-w-0 flex items-center gap-1.5">
-          <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
-            {{ row.source?.name ?? row.sourceFieldId }}
-          </span>
-          <span
-            v-if="row.source"
-            :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.source.dataType).bg, typeOf(row.source.dataType).text]"
-          >{{ typeOf(row.source.dataType).label }}</span>
+          class="pl-6 text-[11px] text-amber-700 space-y-0.5"
+          data-testid="orphan-details"
+        >
+          <div v-if="row.missingSource" data-testid="orphan-missing-source">
+            Bronveld niet gevonden: <span class="font-mono">{{ row.sourceFieldId }}</span>
+          </div>
+          <div v-if="row.missingTarget" data-testid="orphan-missing-target">
+            Doelveld niet gevonden: <span class="font-mono">{{ row.targetFieldId }}</span>
+          </div>
         </div>
-
-        <!-- Arrow -->
-        <span class="text-slate-300 shrink-0">→</span>
-
-        <!-- Target field -->
-        <div class="flex-1 min-w-0 flex items-center gap-1.5">
-          <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
-            {{ row.target?.name ?? row.targetFieldId }}
-          </span>
-          <span
-            v-if="row.target"
-            :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.target.dataType).bg, typeOf(row.target.dataType).text]"
-          >{{ typeOf(row.target.dataType).label }}</span>
-        </div>
-
-        <!-- Remove button -->
-        <button
-          class="shrink-0 text-slate-300 hover:text-red-500 transition-colors font-bold px-1 leading-none"
-          data-testid="remove-mapping"
-          aria-label="Verwijder koppeling"
-          @click.stop="requestDelete(row.id)"
-        >×</button>
       </div>
     </div>
 
