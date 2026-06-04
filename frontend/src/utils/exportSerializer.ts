@@ -4,14 +4,16 @@ import type { FieldMapping, MappingStatus, TransformationRule } from '@/types'
 export interface ExportedSchema {
   name: string
   sourceUrl: string | null
-  // Snapshot only when sourceUrl is null (file-loaded); reload from URL otherwise.
-  fields: SchemaField[] | null
+  // Snapshot present only when sourceUrl is null (file-loaded); reload from URL otherwise.
+  fields?: SchemaField[]
 }
+
+export type ExportedTransformationRule = Omit<TransformationRule, 'id'>
 
 export interface ExportedFieldMapping {
   sourceField: string
   targetField: string
-  transformations: TransformationRule[]
+  transformations: ExportedTransformationRule[]
   status: MappingStatus
 }
 
@@ -52,11 +54,10 @@ export interface SerializeInput {
 }
 
 function serializeSchema(schema: Schema, sourceUrl: string | null): ExportedSchema {
-  return {
-    name: schema.name,
-    sourceUrl,
-    fields: sourceUrl === null ? [...schema.all()] : null,
+  if (sourceUrl === null) {
+    return { name: schema.name, sourceUrl: null, fields: [...schema.all()] }
   }
+  return { name: schema.name, sourceUrl }
 }
 
 function computeMappingStats(mappings: FieldMapping[]): ExportedMappingStatistics {
@@ -78,7 +79,7 @@ export function serializeMappingSet(input: SerializeInput): MappingSetExport {
     fieldMappings: mappings.map((m) => ({
       sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
       targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
-      transformations: m.transformations,
+      transformations: m.transformations.map(({ id: _id, ...rule }) => rule),
       status: m.status,
     })),
     statistics: {

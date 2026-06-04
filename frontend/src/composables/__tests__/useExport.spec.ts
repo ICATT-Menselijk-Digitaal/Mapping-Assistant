@@ -33,8 +33,8 @@ describe('useExport', () => {
     )
 
     expect(result.version).toBe('1.1')
-    expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://src', fields: null })
-    expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://tgt', fields: null })
+    expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://src' })
+    expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://tgt' })
     expect(result.fieldMappings).toHaveLength(1)
     expect(result.fieldMappings[0]).toMatchObject({ sourceField: 'customerId', targetField: 'id', status: 'confirmed' })
     expect(result.statistics.mappings.total).toBe(1)

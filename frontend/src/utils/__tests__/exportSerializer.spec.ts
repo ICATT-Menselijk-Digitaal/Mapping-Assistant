@@ -45,15 +45,17 @@ describe('serializeMappingSet', () => {
     expect(result.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 
-  it('serialises schemas as URL only when sourceUrl is present', () => {
+  it('serialises schemas as URL only (no fields key) when sourceUrl is present', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: 'https://example.com/src.json' },
       target: { schema: targetSchema, sourceUrl: 'https://example.com/tgt.json' },
       mappings: [],
       aiStats: emptyAiStats,
     })
-    expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://example.com/src.json', fields: null })
-    expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://example.com/tgt.json', fields: null })
+    expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://example.com/src.json' })
+    expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://example.com/tgt.json' })
+    expect('fields' in result.sourceSchema).toBe(false)
+    expect('fields' in result.targetSchema).toBe(false)
   })
 
   it('falls back to parsed fields snapshot when a schema was loaded from file (no URL)', () => {
@@ -64,12 +66,11 @@ describe('serializeMappingSet', () => {
       aiStats: emptyAiStats,
     })
     expect(result.sourceSchema.sourceUrl).toBeNull()
-    expect(result.sourceSchema.fields).not.toBeNull()
     expect(result.sourceSchema.fields).toHaveLength(2)
-    expect(result.targetSchema.fields).toBeNull()
+    expect('fields' in result.targetSchema).toBe(false)
   })
 
-  it('includes per-mapping transformations and status', () => {
+  it('includes per-mapping transformations (without internal id) and status', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
       target: { schema: targetSchema, sourceUrl: null },
@@ -77,12 +78,14 @@ describe('serializeMappingSet', () => {
       aiStats: emptyAiStats,
     })
     expect(result.fieldMappings).toHaveLength(2)
+    const { id: _id, ...ruleWithoutId } = truncationRule
     expect(result.fieldMappings[0]).toMatchObject({
       sourceField: 'customerId',
       targetField: 'id',
       status: 'confirmed',
-      transformations: [truncationRule],
+      transformations: [ruleWithoutId],
     })
+    expect(result.fieldMappings[0]!.transformations[0]).not.toHaveProperty('id')
     expect(result.fieldMappings[1]).toMatchObject({
       status: 'rejected',
       transformations: [],
