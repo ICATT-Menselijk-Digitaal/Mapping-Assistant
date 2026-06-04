@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
+import ExportButton from '@/components/ExportButton.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
@@ -54,6 +55,9 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
         :source-schema="sourceSchema"
         :target-schema="targetSchema"
       />
+    </div>
+    <div class="fixed bottom-4 right-4 z-40">
+      <ExportButton :source-schema="sourceSchema" :target-schema="targetSchema" />
     </div>
   </main>
 </template>
