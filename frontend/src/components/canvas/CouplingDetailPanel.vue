@@ -87,6 +87,10 @@ function isMismatchResolvedForMapping(type: MismatchType): boolean {
     : false
 }
 
+function isMismatchManuallyResolvedForMapping(type: MismatchType): boolean {
+  return selectedMapping.value?.manuallyResolvedMismatches?.includes(type) ?? false
+}
+
 const activeDialog = ref<MismatchType | null>(null)
 
 function openDialog(type: MismatchType) {
@@ -206,8 +210,10 @@ async function requestAiSuggestion() {
             :key="type"
             :type="type"
             :resolved="isMismatchResolvedForMapping(type)"
+            :manually-resolved="isMismatchManuallyResolvedForMapping(type)"
             :label="mismatchLabel(type)"
             @solve="openDialog(type)"
+            @toggle-manual-resolution="store.toggleManualMismatchResolution(selectedMapping!.id, type)"
           />
         </div>
       </div>
