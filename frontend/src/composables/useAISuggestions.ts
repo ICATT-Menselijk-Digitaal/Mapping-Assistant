@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
 export const CONFIDENCE_THRESHOLD = 0.70
 
@@ -170,5 +171,14 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     rejectedPairs.value.add(`${suggestion.sourceFieldId}::${suggestion.targetFieldId}`)
   }
 
-  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, rejectedPairs, generateSuggestions, acceptSuggestion, rejectSuggestion }
+  function restoreStatistics(stats: ExportedAIStatistics): void {
+    suggestions.value = []
+    lowConfidenceSuggestions.value = []
+    totalGenerated.value = stats.totalGenerated
+    accepted.value = stats.accepted
+    rejected.value = stats.rejected
+    rejectedPairs.value = new Set(stats.rejectedPairs)
+  }
+
+  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, rejectedPairs, generateSuggestions, acceptSuggestion, rejectSuggestion, restoreStatistics }
 })

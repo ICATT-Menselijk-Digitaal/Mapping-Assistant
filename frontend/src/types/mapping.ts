@@ -27,6 +27,9 @@ export interface FieldMapping {
   status: MappingStatus
   notes?: string
   manuallyResolvedMismatches?: MismatchType[]
+  // True when restored from an import file whose source or target path
+  // does not resolve against the imported schemas.
+  orphaned?: boolean
 }
 
 export interface ValidatedFieldMapping extends FieldMapping {

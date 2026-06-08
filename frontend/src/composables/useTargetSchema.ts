@@ -2,9 +2,12 @@ import { ref } from 'vue'
 import * as yaml from 'js-yaml'
 import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
 import { parseOpenApiSchema } from '@/utils/openApiParser'
+import { buildSchemaFromFields } from '@/utils/schemaFromFields'
+import type { ExportedSchema } from '@/utils/exportSerializer'
 
 export function useTargetSchema() {
   const schema = ref<Schema>(EMPTY_SCHEMA)
+  const sourceUrl = ref<string | null>(null)
   const error = ref<string | null>(null)
   const isLoading = ref(false)
 
@@ -25,9 +28,11 @@ export function useTargetSchema() {
     try {
       const content = await file.text()
       parseContent(content)
+      sourceUrl.value = null
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon bestand niet verwerken'
       schema.value = EMPTY_SCHEMA
+      sourceUrl.value = null
     } finally {
       isLoading.value = false
     }
@@ -41,13 +46,25 @@ export function useTargetSchema() {
       if (!response.ok) throw new Error(`Kon URL niet ophalen (${response.status})`)
       const content = await response.text()
       parseContent(content)
+      sourceUrl.value = url
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon URL niet ophalen'
       schema.value = EMPTY_SCHEMA
+      sourceUrl.value = null
     } finally {
       isLoading.value = false
     }
   }
 
-  return { schema, error, isLoading, loadFromFile, loadFromUrl }
+  async function restoreFromExport(exported: ExportedSchema): Promise<void> {
+    if (exported.sourceUrl) {
+      await loadFromUrl(exported.sourceUrl)
+      return
+    }
+    schema.value = buildSchemaFromFields(exported.name, exported.fields ?? [])
+    sourceUrl.value = null
+    error.value = null
+  }
+
+  return { schema, sourceUrl, error, isLoading, loadFromFile, loadFromUrl, restoreFromExport }
 }

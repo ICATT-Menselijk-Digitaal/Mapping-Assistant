@@ -189,6 +189,82 @@ describe('useMappings', () => {
     })
   })
 
+  describe('restoreMappings', () => {
+    function makeSchema(fields: { id: string; dataType: string }[]) {
+      const nodes: SchemaFieldNode[] = fields.map((f) => ({
+        id: f.id, name: f.id, path: f.id,
+        dataType: f.dataType as SchemaFieldNode['dataType'],
+        required: false, children: [],
+      }))
+      return buildSchema('test', nodes)
+    }
+
+    it('flags mappings whose source field is missing as orphaned (does not drop them)', () => {
+      const store = useMappings()
+      const src = makeSchema([])
+      const tgt = makeSchema([{ id: 'tgt-1', dataType: 'string' }])
+
+      store.restoreMappings(
+        [{ sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] }],
+        src,
+        tgt,
+      )
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]!.orphaned).toBe(true)
+      expect(store.mappings[0]!.sourceFieldId).toBe('missing-src')
+      expect(store.mappings[0]!.targetFieldId).toBe('tgt-1')
+    })
+
+    it('flags mappings whose target field is missing as orphaned', () => {
+      const store = useMappings()
+      const src = makeSchema([{ id: 'src-1', dataType: 'string' }])
+      const tgt = makeSchema([])
+
+      store.restoreMappings(
+        [{ sourceField: 'src-1', targetField: 'missing-tgt', transformations: [] }],
+        src,
+        tgt,
+      )
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]!.orphaned).toBe(true)
+    })
+
+    it('does not flag fully-resolved mappings as orphaned', () => {
+      const store = useMappings()
+      const src = makeSchema([{ id: 'src-1', dataType: 'string' }])
+      const tgt = makeSchema([{ id: 'tgt-1', dataType: 'string' }])
+
+      store.restoreMappings(
+        [{ sourceField: 'src-1', targetField: 'tgt-1', transformations: [] }],
+        src,
+        tgt,
+      )
+
+      expect(store.mappings[0]!.orphaned).toBeFalsy()
+    })
+
+    it('keeps both orphaned and resolved mappings in one import', () => {
+      const store = useMappings()
+      const src = makeSchema([{ id: 'src-1', dataType: 'string' }])
+      const tgt = makeSchema([{ id: 'tgt-1', dataType: 'string' }])
+
+      store.restoreMappings(
+        [
+          { sourceField: 'src-1', targetField: 'tgt-1', transformations: [] },
+          { sourceField: 'src-1', targetField: 'gone', transformations: [] },
+        ],
+        src,
+        tgt,
+      )
+
+      expect(store.mappings).toHaveLength(2)
+      expect(store.mappings[0]!.orphaned).toBeFalsy()
+      expect(store.mappings[1]!.orphaned).toBe(true)
+    })
+  })
+
   describe('mappingsWithStatus', () => {
     function makeSchema(fields: { id: string; dataType: string }[]) {
       const nodes: SchemaFieldNode[] = fields.map((f) => ({

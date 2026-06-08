@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { FieldMapping, MismatchType, TransformationRule, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { getValidationStatus } from '@/utils/validationStatus'
+import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
@@ -74,6 +75,31 @@ export const useMappings = defineStore('mappings', () => {
     mapping.transformations[idx] = { ...mapping.transformations[idx]!, ...safeUpdates }
   }
 
+  function restoreMappings(
+    exported: readonly ExportedFieldMapping[],
+    sourceSchema: Schema,
+    targetSchema: Schema,
+  ): void {
+    selectedMappingId.value = null
+    const restored: FieldMapping[] = []
+    for (const m of exported) {
+      const orphaned = !sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)
+      const mapping: FieldMapping = {
+        id: crypto.randomUUID(),
+        sourceFieldId: m.sourceField,
+        targetFieldId: m.targetField,
+        transformations: m.transformations.map((t) => ({
+          ...t,
+          id: crypto.randomUUID(),
+        })) as TransformationRule[],
+        status: 'confirmed',
+      }
+      if (orphaned) mapping.orphaned = true
+      restored.push(mapping)
+    }
+    mappings.value = restored
+  }
+
   function toggleManualMismatchResolution(mappingId: string, type: MismatchType): void {
     const mapping = mappings.value.find((m) => m.id === mappingId)
     if (!mapping) return
@@ -103,6 +129,7 @@ export const useMappings = defineStore('mappings', () => {
     addTransformationRule,
     removeTransformationRule,
     updateTransformationRule,
+    restoreMappings,
     toggleManualMismatchResolution,
     mappingsWithStatus,
   }
