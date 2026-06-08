@@ -1,5 +1,5 @@
 import type { Schema, SchemaField } from '@/domain/schema'
-import type { FieldMapping, RuleSource, TransformationRule } from '@/types'
+import type { FieldMapping, MismatchType, RuleSource, TransformationRule } from '@/types'
 
 export interface ExportedSchema {
   name: string
@@ -12,6 +12,8 @@ export interface ExportedTransformationRule {
   expression: string
   label: string
   source: RuleSource
+  // Present when the rule was added to resolve a specific mismatch.
+  resolvesMismatch?: MismatchType
   // Only present when source === 'ai'
   aiExplanation?: string
 }
@@ -55,6 +57,9 @@ function exportTransformationRule(rule: TransformationRule): ExportedTransformat
     expression: rule.expression,
     label: rule.label,
     source: rule.source,
+  }
+  if (rule.resolvesMismatch !== undefined) {
+    out.resolvesMismatch = rule.resolvesMismatch
   }
   if (rule.source === 'ai' && rule.aiExplanation !== undefined) {
     out.aiExplanation = rule.aiExplanation

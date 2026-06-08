@@ -2,6 +2,8 @@ import { ref } from 'vue'
 import * as yaml from 'js-yaml'
 import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
 import { parseOpenApiSchema } from '@/utils/openApiParser'
+import { buildSchemaFromFields } from '@/utils/schemaFromFields'
+import type { ExportedSchema } from '@/utils/exportSerializer'
 
 export function useTargetSchema() {
   const schema = ref<Schema>(EMPTY_SCHEMA)
@@ -54,5 +56,15 @@ export function useTargetSchema() {
     }
   }
 
-  return { schema, sourceUrl, error, isLoading, loadFromFile, loadFromUrl }
+  async function restoreFromExport(exported: ExportedSchema): Promise<void> {
+    if (exported.sourceUrl) {
+      await loadFromUrl(exported.sourceUrl)
+      return
+    }
+    schema.value = buildSchemaFromFields(exported.name, exported.fields ?? [])
+    sourceUrl.value = null
+    error.value = null
+  }
+
+  return { schema, sourceUrl, error, isLoading, loadFromFile, loadFromUrl, restoreFromExport }
 }

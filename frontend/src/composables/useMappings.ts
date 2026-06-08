@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { FieldMapping, TransformationRule, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { getValidationStatus } from '@/utils/validationStatus'
+import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
@@ -74,6 +75,29 @@ export const useMappings = defineStore('mappings', () => {
     mapping.transformations[idx] = { ...mapping.transformations[idx]!, ...safeUpdates }
   }
 
+  function restoreMappings(
+    exported: readonly ExportedFieldMapping[],
+    sourceSchema: Schema,
+    targetSchema: Schema,
+  ): void {
+    selectedMappingId.value = null
+    const restored: FieldMapping[] = []
+    for (const m of exported) {
+      if (!sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)) continue
+      restored.push({
+        id: crypto.randomUUID(),
+        sourceFieldId: m.sourceField,
+        targetFieldId: m.targetField,
+        transformations: m.transformations.map((t) => ({
+          ...t,
+          id: crypto.randomUUID(),
+        })) as TransformationRule[],
+        status: 'confirmed',
+      })
+    }
+    mappings.value = restored
+  }
+
   function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
     return mappings.value.map((m) => {
       const sourceField = sourceSchema.byId(m.sourceFieldId)
@@ -94,6 +118,7 @@ export const useMappings = defineStore('mappings', () => {
     addTransformationRule,
     removeTransformationRule,
     updateTransformationRule,
+    restoreMappings,
     mappingsWithStatus,
   }
 })
