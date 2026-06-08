@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { FieldMapping, TransformationRule, ValidatedFieldMapping } from '@/types'
+import type { FieldMapping, MismatchType, TransformationRule, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { getValidationStatus } from '@/utils/validationStatus'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
@@ -100,6 +100,15 @@ export const useMappings = defineStore('mappings', () => {
     mappings.value = restored
   }
 
+  function toggleManualMismatchResolution(mappingId: string, type: MismatchType): void {
+    const mapping = mappings.value.find((m) => m.id === mappingId)
+    if (!mapping) return
+    const current = mapping.manuallyResolvedMismatches ?? []
+    mapping.manuallyResolvedMismatches = current.includes(type)
+      ? current.filter((t) => t !== type)
+      : [...current, type]
+  }
+
   function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
     return mappings.value.map((m) => {
       const sourceField = sourceSchema.byId(m.sourceFieldId)
@@ -121,6 +130,7 @@ export const useMappings = defineStore('mappings', () => {
     removeTransformationRule,
     updateTransformationRule,
     restoreMappings,
+    toggleManualMismatchResolution,
     mappingsWithStatus,
   }
 })

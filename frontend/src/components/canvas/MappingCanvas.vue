@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { Schema } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
@@ -23,7 +24,20 @@ const emit = defineEmits<{
 }>()
 
 const mappingsStore = useMappings()
+const { selectedMappingId, mappings } = storeToRefs(mappingsStore)
 const selectedSourceId = ref<string | null>(null)
+
+const sourcePanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
+const targetPanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
+
+watch(selectedMappingId, async (id) => {
+  if (!id) return
+  const mapping = mappings.value.find((m) => m.id === id)
+  if (!mapping) return
+  await nextTick()
+  sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
+  targetPanelRef.value?.scrollToField(mapping.targetFieldId)
+})
 
 const sourceCounter = computed(() => {
   const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
@@ -141,6 +155,7 @@ function onTargetUrlSubmit() {
         <!-- Field tree -->
         <SourceSchemaPanel
           v-else
+          ref="sourcePanelRef"
           class="flex-1 overflow-y-auto"
           data-scroll-container
           :schema="sourceSchema"
@@ -198,6 +213,7 @@ function onTargetUrlSubmit() {
         <!-- Field tree -->
         <SourceSchemaPanel
           v-else
+          ref="targetPanelRef"
           class="flex-1 overflow-y-auto"
           data-scroll-container
           :schema="targetSchema"

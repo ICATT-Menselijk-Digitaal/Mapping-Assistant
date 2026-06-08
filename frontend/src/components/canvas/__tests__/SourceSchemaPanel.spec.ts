@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { useMappings } from '@/composables/useMappings'
 
 function node(overrides: Partial<SchemaFieldNode> & { name: string }): SchemaFieldNode {
   return {
@@ -27,6 +29,10 @@ const statusNodes: SchemaFieldNode[] = [
 ]
 
 const multiSchemaNodes = [...zaakNodes, ...statusNodes]
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
 
 describe('SourceSchemaPanel', () => {
   // Scenario: Source fields visible after loading
@@ -103,5 +109,306 @@ describe('SourceSchemaPanel', () => {
     ]
     const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithMax) } })
     expect(wrapper.text()).toContain('255')
+  })
+
+  // Scenario: Selecting a coupling scrolls both field panels to the coupled fields
+  describe('scrollToField', () => {
+    const scrollIntoViewMock = vi.fn<() => void>()
+
+    afterEach(() => {
+      scrollIntoViewMock.mockReset()
+    })
+
+    it('calls scrollIntoView on the target field element', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const nodes = [node({ name: 'zaakId', path: 'zaakId', id: 'zaakId' })]
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) }, attachTo: div })
+
+      await wrapper.vm.scrollToField('zaakId')
+
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    it('expands a collapsed group before scrolling to the field', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(zaakNodes) }, attachTo: div })
+      expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(false)
+
+      await wrapper.vm.scrollToField('Zaak.zaakId')
+
+      expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(true)
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    it('expands a collapsed parent field before scrolling to a child field', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const nodesWithChildren: SchemaFieldNode[] = [
+        node({
+          name: 'adres',
+          path: 'adres',
+          id: 'adres',
+          dataType: 'object',
+          children: [
+            node({ name: 'straat', path: 'adres.straat', id: 'adres.straat', dataType: 'string' }),
+          ],
+        }),
+      ]
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodesWithChildren) }, attachTo: div })
+      expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(false)
+
+      await wrapper.vm.scrollToField('adres.straat')
+
+      expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(true)
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    it('does nothing when the fieldId is not found in the schema', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(zaakNodes) }, attachTo: div })
+
+      await wrapper.vm.scrollToField('non-existent-id')
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled()
+
+      wrapper.unmount()
+      div.remove()
+    })
+  })
+})
+
+describe('Search and status filter', () => {
+  function mountPanel(nodes: SchemaFieldNode[]) {
+    return mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+  }
+
+  const flatNodes: SchemaFieldNode[] = [
+    node({ name: 'cityName', path: 'cityName', id: 'cityName' }),
+    node({ name: 'countryCode', path: 'countryCode', id: 'countryCode' }),
+    node({ name: 'postalCode', path: 'postalCode', id: 'postalCode' }),
+  ]
+
+  const nestedNodes: SchemaFieldNode[] = [
+    node({
+      name: 'address',
+      path: 'address',
+      id: 'address',
+      dataType: 'object',
+      children: [
+        node({ name: 'city', path: 'address.city', id: 'address.city' }),
+        node({ name: 'street', path: 'address.street', id: 'address.street' }),
+      ],
+    }),
+    node({ name: 'email', path: 'email', id: 'email' }),
+  ]
+
+  // Scenario: Administrator finds a field by name
+  it('shows only fields matching the search query', async () => {
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('city')
+    expect(wrapper.text()).toContain('cityName')
+    expect(wrapper.text()).not.toContain('countryCode')
+    expect(wrapper.text()).not.toContain('postalCode')
+  })
+
+  // Scenario: Nested child field is shown with its parent group as context
+  it('shows matching child field under its parent, hides non-matching siblings', async () => {
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('city')
+    expect(wrapper.text()).toContain('address')
+    expect(wrapper.text()).toContain('city')
+    expect(wrapper.text()).not.toContain('street')
+    expect(wrapper.text()).not.toContain('email')
+  })
+
+  // Scenario: Search returns no matching fields
+  it('shows no-results empty state when search matches nothing', async () => {
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('zzznomatch')
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+  })
+
+  // Scenario: Administrator filters the source panel by unmapped fields
+  it('shows only unmapped fields when Unmapped filter is active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="filter-unmapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).not.toContain('cityName')
+    expect(wrapper.text()).toContain('countryCode')
+    expect(wrapper.text()).toContain('postalCode')
+  })
+
+  // Scenario: Administrator filters the source panel by mapped fields
+  it('shows only mapped fields when Mapped filter is active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="filter-mapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('cityName')
+    expect(wrapper.text()).not.toContain('countryCode')
+    expect(wrapper.text()).not.toContain('postalCode')
+  })
+
+  // Option D: auto-expand — matching children visible without manual group expand
+  it('shows matching child fields without requiring manual group expansion when filter is active', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedNodes) }, attachTo: div })
+    // Children subtree is hidden by default (collapsed)
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
+    // Activate search filter
+    await wrapper.find('[data-testid="search-input"]').setValue('city')
+    // Children subtree is now visible without clicking the toggle
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
+    wrapper.unmount()
+    div.remove()
+  })
+
+  // Scenario: Administrator combines name search with status filter
+  it('shows only unmapped fields matching the search query when both filters are active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(flatNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('Code')
+    await wrapper.find('[data-testid="filter-unmapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('countryCode')
+    expect(wrapper.text()).toContain('postalCode')
+    expect(wrapper.text()).not.toContain('cityName')
+  })
+})
+
+describe('Search term highlighting', () => {
+  function mountPanel(nodes: SchemaFieldNode[]) {
+    return mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+  }
+
+  const directMatchNodes: SchemaFieldNode[] = [
+    node({ name: 'customerAddress', path: 'customerAddress', id: 'customerAddress' }),
+  ]
+
+  const nestedNodes: SchemaFieldNode[] = [
+    node({
+      name: 'customer',
+      path: 'customer',
+      id: 'customer',
+      dataType: 'object',
+      children: [
+        node({ name: 'street', path: 'customer.street', id: 'customer.street' }),
+        node({ name: 'email', path: 'customer.email', id: 'customer.email' }),
+      ],
+    }),
+  ]
+
+  const parentMatchNodes: SchemaFieldNode[] = [
+    node({
+      name: 'address',
+      path: 'address',
+      id: 'address',
+      dataType: 'object',
+      children: [
+        node({ name: 'zipCode', path: 'address.zipCode', id: 'address.zipCode' }),
+      ],
+    }),
+  ]
+
+  // Scenario: Matching substring is highlighted in a directly matching field name
+  it('wraps the matching substring in a mark element for a leaf field', async () => {
+    const wrapper = mountPanel(directMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    const marks = wrapper.findAll('mark')
+    expect(marks.length).toBeGreaterThan(0)
+    expect(marks.some((m) => m.text().toLowerCase() === 'address')).toBe(true)
+  })
+
+  // Scenario: Child field name is highlighted when it directly matches the search query
+  it('highlights the matching substring in a child field name', async () => {
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('street')
+    const marks = wrapper.findAll('mark')
+    expect(marks.length).toBeGreaterThan(0)
+    expect(marks.some((m) => m.text().toLowerCase() === 'street')).toBe(true)
+  })
+
+  // Scenario: Parent field is shown when its own name matches the search query
+  it('shows a parent field when its own name matches, even if no children match', async () => {
+    const wrapper = mountPanel(parentMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.text()).toContain('address')
+    const marks = wrapper.findAll('mark')
+    expect(marks.some((m) => m.text().toLowerCase() === 'address')).toBe(true)
+  })
+
+  // Scenario: No highlight is shown when the search box is empty
+  it('renders no mark elements when the search box is empty', () => {
+    const wrapper = mountPanel(directMatchNodes)
+    expect(wrapper.findAll('mark').length).toBe(0)
+  })
+
+  // Scenario: Highlight disappears when search is cleared
+  it('removes mark elements when the search input is cleared', async () => {
+    const wrapper = mountPanel(directMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.findAll('mark').length).toBeGreaterThan(0)
+    await wrapper.find('[data-testid="search-clear"]').trigger('click')
+    expect(wrapper.findAll('mark').length).toBe(0)
+  })
+
+  // All children of a directly matching parent are shown and accessible
+  it('shows all children of a directly matching parent field', async () => {
+    const wrapper = mountPanel(parentMatchNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.text()).toContain('zipCode')
+  })
+
+  // Group name matches search query in multi-schema mode (top-level parent via group header)
+  it('shows a named group and highlights its header when the group name matches the search query', async () => {
+    const addressGroupNodes: SchemaFieldNode[] = [
+      node({ name: 'street', path: 'Address.street', id: 'Address.street' }),
+      node({ name: 'city', path: 'Address.city', id: 'Address.city' }),
+    ]
+    const wrapper = mountPanel(addressGroupNodes)
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.text()).toContain('Address')
+    expect(wrapper.text()).toContain('street')
+    expect(wrapper.text()).toContain('city')
+    const marks = wrapper.findAll('mark')
+    expect(marks.some((m) => m.text().toLowerCase() === 'address')).toBe(true)
+  })
+
+  // Parent matched by name starts collapsed; user expands manually
+  it('keeps children collapsed when parent matches by name but no children match, and expands on toggle click', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(parentMatchNodes) }, attachTo: div })
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
+    await wrapper.find('[data-testid="field-toggle-address"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
+    wrapper.unmount()
+    div.remove()
   })
 })

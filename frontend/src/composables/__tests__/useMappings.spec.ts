@@ -297,4 +297,37 @@ describe('useMappings', () => {
       expect(result[0]!.validationStatus).toBe('constrained')
     })
   })
+
+  describe('toggleManualMismatchResolution', () => {
+    // Scenario: Administrator marks an unresolved mismatch as fixed
+    it('adds a MismatchType to manuallyResolvedMismatches when not present', () => {
+      const store = useMappings()
+      const m = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+      store.toggleManualMismatchResolution(m.id, 'truncate')
+      expect(store.mappings[0]!.manuallyResolvedMismatches).toContain('truncate')
+    })
+
+    // Scenario: Administrator unmarks a manually resolved mismatch
+    it('removes a MismatchType from manuallyResolvedMismatches when already present', () => {
+      const store = useMappings()
+      const m = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+      store.toggleManualMismatchResolution(m.id, 'truncate')
+      store.toggleManualMismatchResolution(m.id, 'truncate')
+      expect(store.mappings[0]!.manuallyResolvedMismatches).not.toContain('truncate')
+    })
+
+    it('does nothing when the mapping id is not found', () => {
+      const store = useMappings()
+      expect(() => store.toggleManualMismatchResolution('nonexistent', 'truncate')).not.toThrow()
+    })
+
+    it('does not affect other mismatch types on the same mapping', () => {
+      const store = useMappings()
+      const m = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+      store.toggleManualMismatchResolution(m.id, 'truncate')
+      store.toggleManualMismatchResolution(m.id, 'default')
+      expect(store.mappings[0]!.manuallyResolvedMismatches).toContain('truncate')
+      expect(store.mappings[0]!.manuallyResolvedMismatches).toContain('default')
+    })
+  })
 })
