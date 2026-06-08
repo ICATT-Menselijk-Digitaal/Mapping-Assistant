@@ -355,4 +355,114 @@ describe('MappingOverview', () => {
     expect(icons).toHaveLength(1)
     expect(icons[0]!.classes()).toContain('text-emerald-600')
   })
+
+  // Scenario: Orphaned mappings after import — warning indicator visible
+  it('shows a warning indicator for orphaned mappings', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [
+        { sourceField: 'src-1', targetField: 'tgt-1', transformations: [] },
+        { sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] },
+      ],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(rows).toHaveLength(2)
+
+    const orphanIndicators = wrapper.findAll('[data-testid="orphan-indicator"]')
+    expect(orphanIndicators).toHaveLength(1)
+    expect(orphanIndicators[0]!.attributes('title')).toMatch(/orphan|niet-bestaand|verweesd/i)
+  })
+
+  it('shows a "source missing" line on an orphaned row with a missing source field', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'ghost.src', targetField: 'tgt-1', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const line = wrapper.find('[data-testid="orphan-missing-source"]')
+    expect(line.exists()).toBe(true)
+    expect(line.text()).toContain('ghost.src')
+    expect(wrapper.find('[data-testid="orphan-missing-target"]').exists()).toBe(false)
+  })
+
+  it('shows a "target missing" line on an orphaned row with a missing target field', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'src-1', targetField: 'ghost.tgt', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const line = wrapper.find('[data-testid="orphan-missing-target"]')
+    expect(line.exists()).toBe(true)
+    expect(line.text()).toContain('ghost.tgt')
+    expect(wrapper.find('[data-testid="orphan-missing-source"]').exists()).toBe(false)
+  })
+
+  it('shows both missing-field lines when source and target are both gone', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'ghost.src', targetField: 'ghost.tgt', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="orphan-missing-source"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="orphan-missing-target"]').exists()).toBe(true)
+  })
+
+  it('does not show orphan details on a normal (non-orphan) row', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="orphan-details"]').exists()).toBe(false)
+  })
+
+  it('does not select an orphaned mapping when its row is clicked', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    await row.trigger('click')
+    expect(store.selectedMappingId).toBeNull()
+  })
+
+  it('still lets the administrator remove an orphaned mapping', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    await row.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(store.mappings).toHaveLength(0)
+  })
 })

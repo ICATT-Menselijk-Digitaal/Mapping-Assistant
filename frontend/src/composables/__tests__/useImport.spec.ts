@@ -163,4 +163,106 @@ describe('useImport', () => {
     expect(mappings.mappings).toHaveLength(2)
     expect(mappings.mappings.find((m) => m.sourceFieldId === 'existing-src')).toBeUndefined()
   })
+
+  describe('error handling', () => {
+    function invalidJsonFile(): File {
+      return new File(['{not-json'], 'broken.json', { type: 'application/json' })
+    }
+    function invalidShapeFile(): File {
+      return new File([JSON.stringify({ version: '1.1' })], 'bad.json', { type: 'application/json' })
+    }
+
+    it('sets error and returns null when the file is not valid JSON', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      const result = await importer.importMappingSet(invalidJsonFile(), src, tgt)
+
+      expect(result).toBeNull()
+      expect(importer.error.value).toBeTruthy()
+      expect(importer.error.value).toMatch(/json|format|ongeldig/i)
+    })
+
+    it('sets error and returns null when the payload shape is invalid', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      const result = await importer.importMappingSet(invalidShapeFile(), src, tgt)
+
+      expect(result).toBeNull()
+      expect(importer.error.value).toBeTruthy()
+    })
+
+    it('preserves existing app state when import fails on invalid format', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const mappings = useMappings()
+      const ai = useAISuggestions()
+
+      await useImport().importMappingSet(jsonFile(exportPayload), src, tgt)
+      const sourceFieldsBefore = src.schema.value.all().map((f) => f.id)
+      const targetFieldsBefore = tgt.schema.value.all().map((f) => f.id)
+      const mappingsBefore = mappings.mappings.map((m) => ({ ...m }))
+      const aiTotalBefore = ai.totalGenerated
+
+      const importer = useImport()
+      const result = await importer.importMappingSet(invalidShapeFile(), src, tgt)
+
+      expect(result).toBeNull()
+      expect(src.schema.value.all().map((f) => f.id)).toEqual(sourceFieldsBefore)
+      expect(tgt.schema.value.all().map((f) => f.id)).toEqual(targetFieldsBefore)
+      expect(mappings.mappings).toEqual(mappingsBefore)
+      expect(ai.totalGenerated).toBe(aiTotalBefore)
+    })
+
+    it('clears the previous error on a successful import', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      await importer.importMappingSet(invalidShapeFile(), src, tgt)
+      expect(importer.error.value).toBeTruthy()
+
+      await importer.importMappingSet(jsonFile(exportPayload), src, tgt)
+      expect(importer.error.value).toBeNull()
+    })
+
+    it('clearError() resets the error ref', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      await importer.importMappingSet(invalidShapeFile(), src, tgt)
+      expect(importer.error.value).toBeTruthy()
+
+      importer.clearError()
+      expect(importer.error.value).toBeNull()
+    })
+
+    it('clearWarnings() resets the warnings ref', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      const payload = { ...exportPayload, version: '2.0' }
+      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+      expect(importer.warnings.value.length).toBeGreaterThan(0)
+
+      importer.clearWarnings()
+      expect(importer.warnings.value).toEqual([])
+    })
+
+    it('surfaces deserializer warnings (unknown version)', async () => {
+      const src = useSourceSchema()
+      const tgt = useTargetSchema()
+      const importer = useImport()
+
+      const payload = { ...exportPayload, version: '2.0' }
+      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+
+      expect(importer.warnings.value.some((w) => /version/i.test(w))).toBe(true)
+    })
+  })
 })

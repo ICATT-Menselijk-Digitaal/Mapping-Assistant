@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deserializeMappingSet } from '../importDeserializer'
+import { deserializeMappingSet, ImportFormatError } from '../importDeserializer'
 
 const minimalV11 = {
   version: '1.1',
@@ -11,34 +11,43 @@ const minimalV11 = {
 }
 
 describe('deserializeMappingSet', () => {
-  it('returns the typed payload when shape is valid v1.1', () => {
+  it('returns the typed payload with no warnings when shape is valid v1.1', () => {
     const result = deserializeMappingSet(minimalV11)
-    expect(result.version).toBe('1.1')
-    expect(result.sourceSchema.name).toBe('Source')
-    expect(result.fieldMappings).toEqual([])
+    expect(result.payload.version).toBe('1.1')
+    expect(result.payload.sourceSchema.name).toBe('Source')
+    expect(result.payload.fieldMappings).toEqual([])
+    expect(result.warnings).toEqual([])
   })
 
-  it('throws when version is missing', () => {
+  it('throws ImportFormatError when version is missing', () => {
     const { version: _v, ...rest } = minimalV11
+    expect(() => deserializeMappingSet(rest)).toThrow(ImportFormatError)
     expect(() => deserializeMappingSet(rest)).toThrow(/version/i)
   })
 
-  it('throws on unsupported version', () => {
-    expect(() => deserializeMappingSet({ ...minimalV11, version: '1.0' })).toThrow(/version/i)
+  it('emits a warning but still returns a payload on an unknown version', () => {
+    const result = deserializeMappingSet({ ...minimalV11, version: '2.0' })
+    expect(result.payload.sourceSchema.name).toBe('Source')
+    expect(result.warnings).toHaveLength(1)
+    expect(result.warnings[0]).toMatch(/version/i)
+    expect(result.warnings[0]).toMatch(/2\.0/)
   })
 
-  it('throws when sourceSchema is missing', () => {
+  it('throws ImportFormatError when sourceSchema is missing', () => {
     const { sourceSchema: _s, ...rest } = minimalV11
+    expect(() => deserializeMappingSet(rest)).toThrow(ImportFormatError)
     expect(() => deserializeMappingSet(rest)).toThrow(/sourceSchema/)
   })
 
-  it('throws when fieldMappings is missing', () => {
+  it('throws ImportFormatError when fieldMappings is missing', () => {
     const { fieldMappings: _m, ...rest } = minimalV11
+    expect(() => deserializeMappingSet(rest)).toThrow(ImportFormatError)
     expect(() => deserializeMappingSet(rest)).toThrow(/fieldMappings/)
   })
 
-  it('throws when input is not an object', () => {
+  it('throws ImportFormatError when input is not an object', () => {
+    expect(() => deserializeMappingSet('nope')).toThrow(ImportFormatError)
     expect(() => deserializeMappingSet('nope')).toThrow(/not an object/i)
-    expect(() => deserializeMappingSet(null)).toThrow(/not an object/i)
+    expect(() => deserializeMappingSet(null)).toThrow(ImportFormatError)
   })
 })
