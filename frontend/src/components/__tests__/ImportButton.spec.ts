@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ImportButton from '../ImportButton.vue'
 
@@ -35,5 +35,84 @@ describe('ImportButton', () => {
     await wrapper.find('button').trigger('click')
     expect(clicked).toBe(true)
     wrapper.unmount()
+  })
+
+  it('renders a centered toast for the error prop', async () => {
+    const wrapper = mount(ImportButton, {
+      props: { error: 'Ongeldig importbestand' },
+      attachTo: document.body,
+    })
+    const errorEl = document.body.querySelector('[data-testid="import-error"]')
+    expect(errorEl).not.toBeNull()
+    expect(errorEl!.textContent).toContain('Ongeldig importbestand')
+    const container = document.body.querySelector('[data-testid="import-toast-container"]')
+    expect(container?.className).toMatch(/items-center/)
+    expect(container?.className).toMatch(/justify-center/)
+    wrapper.unmount()
+  })
+
+  it('does not render the toast when error and warnings are empty', () => {
+    const wrapper = mount(ImportButton, {
+      props: { error: null },
+      attachTo: document.body,
+    })
+    expect(document.body.querySelector('[data-testid="import-toast-container"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('renders warnings as a toast when warnings prop is non-empty', () => {
+    const wrapper = mount(ImportButton, {
+      props: { warnings: ['Unknown version 2.0'] },
+      attachTo: document.body,
+    })
+    const warnEl = document.body.querySelector('[data-testid="import-warning"]')
+    expect(warnEl).not.toBeNull()
+    expect(warnEl!.textContent).toContain('Unknown version 2.0')
+    wrapper.unmount()
+  })
+
+  describe('toast dismissal', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('emits dismiss-error when the close button is clicked', async () => {
+      const wrapper = mount(ImportButton, {
+        props: { error: 'Boom' },
+        attachTo: document.body,
+      })
+      const dismissEl = document.body.querySelector(
+        '[data-testid="import-error-dismiss"]',
+      ) as HTMLElement | null
+      expect(dismissEl).not.toBeNull()
+      dismissEl!.click()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.emitted('dismiss-error')).toHaveLength(1)
+      wrapper.unmount()
+    })
+
+    it('auto-dismisses the error toast after 5 seconds', async () => {
+      const wrapper = mount(ImportButton, {
+        props: { error: 'Boom' },
+        attachTo: document.body,
+      })
+      expect(wrapper.emitted('dismiss-error')).toBeUndefined()
+      vi.advanceTimersByTime(5000)
+      expect(wrapper.emitted('dismiss-error')).toHaveLength(1)
+      wrapper.unmount()
+    })
+
+    it('auto-dismisses the warning toast after 5 seconds', async () => {
+      const wrapper = mount(ImportButton, {
+        props: { warnings: ['heads up'] },
+        attachTo: document.body,
+      })
+      vi.advanceTimersByTime(5000)
+      expect(wrapper.emitted('dismiss-warnings')).toHaveLength(1)
+      wrapper.unmount()
+    })
   })
 })
