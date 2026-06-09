@@ -23,7 +23,9 @@ describe('buildTruncationExpression', () => {
 
 describe('buildDefaultExpression', () => {
   it('generates null-coalescing expression with the given value', () => {
-    expect(buildDefaultExpression('onbekend', 'zaak.status')).toBe('zaak.status != null ? zaak.status : "onbekend"')
+    expect(buildDefaultExpression('onbekend', 'zaak.status')).toBe(
+      'zaak.status != null ? zaak.status : "onbekend"',
+    )
   })
 
   it('escapes double quotes in the default value', () => {
@@ -42,7 +44,9 @@ describe('buildCastExpression', () => {
   })
 
   it('throws for unsupported cast pairs', () => {
-    expect(() => buildCastExpression('boolean', 'date', 'zaak.id')).toThrow()
+    expect(() => buildCastExpression('boolean', 'date', 'zaak.id')).toThrow(
+      'Unsupported cast: boolean → date',
+    )
   })
 })
 
@@ -61,16 +65,24 @@ describe('buildSolutionLabel', () => {
   })
 
   it('generates Dutch label for default', () => {
-    expect(buildSolutionLabel({ type: 'default', value: 'onbekend' })).toBe('Standaardwaarde: onbekend')
+    expect(buildSolutionLabel({ type: 'default', value: 'onbekend' })).toBe(
+      'Standaardwaarde: onbekend',
+    )
   })
 
   it('generates Dutch label for cast number → string', () => {
-    expect(buildSolutionLabel({ type: 'cast', from: 'number', to: 'string' })).toBe('Getal naar tekst')
+    expect(buildSolutionLabel({ type: 'cast', from: 'number', to: 'string' })).toBe(
+      'Getal naar tekst',
+    )
   })
 
   it('generates Dutch label for date-format', () => {
-    expect(buildSolutionLabel({ type: 'date-format', sourceFormat: 'YYYY-MM-DD', targetFormat: 'DD/MM/YYYY' })).toBe(
-      'Datumnotatie: YYYY-MM-DD → DD/MM/YYYY',
-    )
+    expect(
+      buildSolutionLabel({
+        type: 'date-format',
+        sourceFormat: 'YYYY-MM-DD',
+        targetFormat: 'DD/MM/YYYY',
+      }),
+    ).toBe('Datumnotatie: YYYY-MM-DD → DD/MM/YYYY')
   })
 })

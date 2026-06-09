@@ -3,7 +3,9 @@ import { serializeMappingSet } from '../exportSerializer'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 import type { FieldMapping, TransformationRule } from '@/types'
 
-function node(overrides: Partial<SchemaFieldNode> & { name: string; id: string; path: string }): SchemaFieldNode {
+function node(
+  overrides: Partial<SchemaFieldNode> & { name: string; id: string; path: string },
+): SchemaFieldNode {
   return { dataType: 'string', required: false, ...overrides }
 }
 
@@ -35,8 +37,20 @@ const aiRule: TransformationRule = {
 }
 
 const mappings: FieldMapping[] = [
-  { id: 'm1', sourceFieldId: 'customerId', targetFieldId: 'id', transformations: [truncationRule, aiRule], status: 'confirmed' },
-  { id: 'm2', sourceFieldId: 'name', targetFieldId: 'fullName', transformations: [], status: 'rejected' },
+  {
+    id: 'm1',
+    sourceFieldId: 'customerId',
+    targetFieldId: 'id',
+    transformations: [truncationRule, aiRule],
+    status: 'confirmed',
+  },
+  {
+    id: 'm2',
+    sourceFieldId: 'name',
+    targetFieldId: 'fullName',
+    transformations: [],
+    status: 'rejected',
+  },
 ]
 
 const emptyAiStats = { totalGenerated: 0, accepted: 0, rejected: 0, rejectedPairs: [] }
@@ -60,8 +74,14 @@ describe('serializeMappingSet', () => {
       mappings: [],
       aiStats: emptyAiStats,
     })
-    expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://example.com/src.json' })
-    expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://example.com/tgt.json' })
+    expect(result.sourceSchema).toEqual({
+      name: 'Source',
+      sourceUrl: 'https://example.com/src.json',
+    })
+    expect(result.targetSchema).toEqual({
+      name: 'Target',
+      sourceUrl: 'https://example.com/tgt.json',
+    })
     expect('fields' in result.sourceSchema).toBe(false)
     expect('fields' in result.targetSchema).toBe(false)
   })

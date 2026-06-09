@@ -3,16 +3,29 @@ import type { SchemaField } from '@/types'
 export type ValidationStatus = 'compatible' | 'constrained' | 'incompatible'
 
 const INCOMPATIBLE_PAIRS = new Set([
-  'object-string', 'object-number', 'object-boolean', 'object-date', 'object-array',
-  'array-string', 'array-number', 'array-boolean', 'array-date', 'array-object',
-  'string-object', 'number-object', 'boolean-object', 'date-object',
-  'string-array', 'number-array', 'boolean-array', 'date-array',
-  'boolean-date', 'date-boolean',
+  'object-string',
+  'object-number',
+  'object-boolean',
+  'object-date',
+  'object-array',
+  'array-string',
+  'array-number',
+  'array-boolean',
+  'array-date',
+  'array-object',
+  'string-object',
+  'number-object',
+  'boolean-object',
+  'date-object',
+  'string-array',
+  'number-array',
+  'boolean-array',
+  'date-array',
+  'boolean-date',
+  'date-boolean',
 ])
 
-const CASTABLE_PAIRS = new Set([
-  'number-string',
-])
+const CASTABLE_PAIRS = new Set(['number-string'])
 
 export function getValidationStatus(source: SchemaField, target: SchemaField): ValidationStatus {
   const key = `${source.dataType}-${target.dataType}`
@@ -41,11 +54,19 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
 export function getConstraintReasons(source: SchemaField, target: SchemaField): string[] {
   const reasons: string[] = []
 
-  if (source.dataType === 'string' && target.dataType === 'string' && target.maxLength !== undefined) {
+  if (
+    source.dataType === 'string' &&
+    target.dataType === 'string' &&
+    target.maxLength !== undefined
+  ) {
     if (source.maxLength === undefined) {
-      reasons.push(`Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${target.maxLength} — mogelijke afkapping`)
+      reasons.push(
+        `Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${target.maxLength} — mogelijke afkapping`,
+      )
     } else {
-      reasons.push(`Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`)
+      reasons.push(
+        `Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`,
+      )
     }
   }
 

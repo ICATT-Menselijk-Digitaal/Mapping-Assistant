@@ -4,13 +4,19 @@ export interface TextSegment {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 export function highlightHtml(text: string, query: string, markClass: string): string {
   return highlightSegments(text, query)
     .map((seg) =>
-      seg.highlight ? `<mark class="${markClass}">${escapeHtml(seg.text)}</mark>` : escapeHtml(seg.text),
+      seg.highlight
+        ? `<mark class="${markClass}">${escapeHtml(seg.text)}</mark>`
+        : escapeHtml(seg.text),
     )
     .join('')
 }

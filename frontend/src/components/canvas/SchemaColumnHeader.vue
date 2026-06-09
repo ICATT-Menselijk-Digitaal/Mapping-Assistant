@@ -16,9 +16,11 @@ const props = defineProps<{
     <!-- Color dot -->
     <div
       class="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-[11px] font-bold"
-      :class="props.data.side === 'source'
-        ? 'bg-blue-100 text-blue-700'
-        : 'bg-emerald-100 text-emerald-700'"
+      :class="
+        props.data.side === 'source'
+          ? 'bg-blue-100 text-blue-700'
+          : 'bg-emerald-100 text-emerald-700'
+      "
     >
       {{ props.data.side === 'source' ? 'B' : 'D' }}
     </div>
@@ -34,9 +36,11 @@ const props = defineProps<{
     <!-- Side badge -->
     <span
       class="text-[10px] px-1.5 py-0.5 rounded-md font-bold tracking-widest uppercase shrink-0"
-      :class="props.data.side === 'source'
-        ? 'bg-blue-100 text-blue-700'
-        : 'bg-emerald-100 text-emerald-700'"
+      :class="
+        props.data.side === 'source'
+          ? 'bg-blue-100 text-blue-700'
+          : 'bg-emerald-100 text-emerald-700'
+      "
     >
       {{ props.data.side === 'source' ? 'Bron' : 'Doel' }}
     </span>

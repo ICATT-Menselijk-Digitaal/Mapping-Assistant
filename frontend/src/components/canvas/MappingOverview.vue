@@ -39,12 +39,12 @@ watch(selectedMappingId, async (id) => {
 
 const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
 const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
-  string:  { bg: 'bg-blue-50',    text: 'text-blue-600',   label: 'str'  },
-  number:  { bg: 'bg-amber-50',   text: 'text-amber-600',  label: 'num'  },
-  boolean: { bg: 'bg-purple-50',  text: 'text-purple-600', label: 'bool' },
-  date:    { bg: 'bg-emerald-50', text: 'text-emerald-600',label: 'date' },
-  object:  { bg: 'bg-slate-100',  text: 'text-slate-500',  label: 'obj'  },
-  array:   { bg: 'bg-cyan-50',    text: 'text-cyan-600',   label: 'arr'  },
+  string: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'str' },
+  number: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'num' },
+  boolean: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'bool' },
+  date: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'date' },
+  object: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'obj' },
+  array: { bg: 'bg-cyan-50', text: 'text-cyan-600', label: 'arr' },
   unknown: FALLBACK_TYPE,
 }
 
@@ -72,9 +72,13 @@ const rows = computed(() =>
   }),
 )
 
-function statusIcon(row: { validationStatus: string; isComplete: boolean }): { text: string; symbol: string } {
+function statusIcon(row: { validationStatus: string; isComplete: boolean }): {
+  text: string
+  symbol: string
+} {
   if (row.validationStatus === 'incompatible') return { text: 'text-red-500', symbol: '✕' }
-  if (row.validationStatus === 'constrained' && !row.isComplete) return { text: 'text-amber-600', symbol: '!' }
+  if (row.validationStatus === 'constrained' && !row.isComplete)
+    return { text: 'text-amber-600', symbol: '!' }
   return { text: 'text-emerald-600', symbol: '✓' }
 }
 
@@ -89,7 +93,7 @@ const filteredRows = computed(() => {
 })
 
 const pendingDeleteRow = computed(() =>
-  pendingDeleteId.value ? rows.value.find((r) => r.id === pendingDeleteId.value) ?? null : null,
+  pendingDeleteId.value ? (rows.value.find((r) => r.id === pendingDeleteId.value) ?? null) : null,
 )
 
 function requestDelete(mappingId: string) {
@@ -114,23 +118,29 @@ function cancelDelete() {
     <!-- Tab header -->
     <div class="border-b border-slate-200 flex" data-testid="tab-header">
       <button
-        :class="['px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+        :class="[
+          'px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5',
           currentTab === 'koppelingen'
             ? 'border-indigo-600 text-indigo-700'
-            : 'border-transparent text-slate-500 hover:text-slate-700']"
+            : 'border-transparent text-slate-500 hover:text-slate-700',
+        ]"
         data-testid="tab-koppelingen"
         @click="emit('update:activeTab', 'koppelingen')"
       >
         Koppelingen
-        <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+        <span
+          class="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold"
+        >
           {{ store.mappings.length }}
         </span>
       </button>
       <button
-        :class="['px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+        :class="[
+          'px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5',
           currentTab === 'ai'
             ? 'border-indigo-600 text-indigo-700'
-            : 'border-transparent text-slate-500 hover:text-slate-700']"
+            : 'border-transparent text-slate-500 hover:text-slate-700',
+        ]"
         data-testid="tab-ai"
         @click="emit('update:activeTab', 'ai')"
       >
@@ -138,7 +148,8 @@ function cancelDelete() {
         <span
           v-if="aiStore.suggestions.length > 0"
           class="text-[11px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold"
-        >{{ aiStore.suggestions.length }}</span>
+          >{{ aiStore.suggestions.length }}</span
+        >
       </button>
     </div>
 
@@ -193,7 +204,10 @@ function cancelDelete() {
           'flex flex-col gap-1 px-3 py-2 text-sm',
           row.orphaned
             ? 'cursor-default bg-amber-50/40'
-            : ['cursor-pointer hover:bg-slate-50', { 'bg-indigo-50': row.id === selectedMappingId }],
+            : [
+                'cursor-pointer hover:bg-slate-50',
+                { 'bg-indigo-50': row.id === selectedMappingId },
+              ],
         ]"
         data-testid="mapping-row"
         @click.stop="row.orphaned ? null : store.selectMapping(row.id)"
@@ -203,7 +217,8 @@ function cancelDelete() {
           <span
             :class="['shrink-0 text-[11px] font-bold w-4 text-center', statusIcon(row).text]"
             data-testid="validation-status"
-          >{{ statusIcon(row).symbol }}</span>
+            >{{ statusIcon(row).symbol }}</span
+          >
 
           <!-- Orphaned mapping indicator -->
           <span
@@ -212,7 +227,8 @@ function cancelDelete() {
             data-testid="orphan-indicator"
             title="Verweesde koppeling: verwijst naar een niet-bestaand veld"
             aria-label="Verweesde koppeling"
-          >⚠</span>
+            >⚠</span
+          >
 
           <!-- Source field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
@@ -221,8 +237,13 @@ function cancelDelete() {
             </span>
             <span
               v-if="row.source"
-              :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.source.dataType).bg, typeOf(row.source.dataType).text]"
-            >{{ typeOf(row.source.dataType).label }}</span>
+              :class="[
+                'shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
+                typeOf(row.source.dataType).bg,
+                typeOf(row.source.dataType).text,
+              ]"
+              >{{ typeOf(row.source.dataType).label }}</span
+            >
           </div>
 
           <!-- Arrow -->
@@ -235,8 +256,13 @@ function cancelDelete() {
             </span>
             <span
               v-if="row.target"
-              :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.target.dataType).bg, typeOf(row.target.dataType).text]"
-            >{{ typeOf(row.target.dataType).label }}</span>
+              :class="[
+                'shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
+                typeOf(row.target.dataType).bg,
+                typeOf(row.target.dataType).text,
+              ]"
+              >{{ typeOf(row.target.dataType).label }}</span
+            >
           </div>
 
           <!-- Remove button -->
@@ -245,7 +271,9 @@ function cancelDelete() {
             data-testid="remove-mapping"
             aria-label="Verwijder koppeling"
             @click.stop="requestDelete(row.id)"
-          >×</button>
+          >
+            ×
+          </button>
         </div>
 
         <!-- Orphan details: list each missing field -->
@@ -273,20 +301,29 @@ function cancelDelete() {
       <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-xs w-full mx-4">
         <p class="text-sm text-slate-700 mb-4">
           Verwijder koppeling van
-          <span class="font-mono font-semibold text-slate-900">{{ pendingDeleteRow.source?.name ?? pendingDeleteRow.sourceFieldId }}</span>
+          <span class="font-mono font-semibold text-slate-900">{{
+            pendingDeleteRow.source?.name ?? pendingDeleteRow.sourceFieldId
+          }}</span>
           naar
-          <span class="font-mono font-semibold text-slate-900">{{ pendingDeleteRow.target?.name ?? pendingDeleteRow.targetFieldId }}</span>?
+          <span class="font-mono font-semibold text-slate-900">{{
+            pendingDeleteRow.target?.name ?? pendingDeleteRow.targetFieldId
+          }}</span
+          >?
         </p>
         <div class="flex justify-end gap-2">
           <button
             class="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
             @click="cancelDelete"
-          >Annuleren</button>
+          >
+            Annuleren
+          </button>
           <button
             class="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
             data-testid="confirm-delete"
             @click="confirmDelete"
-          >Verwijderen</button>
+          >
+            Verwijderen
+          </button>
         </div>
       </div>
     </div>

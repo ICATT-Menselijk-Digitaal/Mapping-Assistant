@@ -9,22 +9,42 @@ import TruncationDialog from '../TruncationDialog.vue'
 
 vi.mock('@/composables/useTransformationSuggestions', () => ({
   useTransformationSuggestions: () => ({
-    generateSuggestion: vi.fn().mockResolvedValue(undefined),
+    generateSuggestion: vi.fn<() => Promise<undefined>>().mockResolvedValue(undefined),
     loadingMappingIds: new Set<string>(),
     generatedSuggestions: {},
   }),
 }))
 
 const srcNodes: SchemaFieldNode[] = [
-  { id: 'src-str-long', name: 'bronveld', path: 'bronveld', dataType: 'string', maxLength: 200, required: false },
+  {
+    id: 'src-str-long',
+    name: 'bronveld',
+    path: 'bronveld',
+    dataType: 'string',
+    maxLength: 200,
+    required: false,
+  },
   { id: 'src-compatible', name: 'naam', path: 'naam', dataType: 'string', required: false },
   { id: 'src-incompatible', name: 'adres', path: 'adres', dataType: 'object', required: false },
   { id: 'src-num', name: 'bedrag', path: 'bedrag', dataType: 'number', required: false },
 ]
 const tgtNodes: SchemaFieldNode[] = [
-  { id: 'tgt-str-short', name: 'doelveld', path: 'doelveld', dataType: 'string', maxLength: 50, required: false },
+  {
+    id: 'tgt-str-short',
+    name: 'doelveld',
+    path: 'doelveld',
+    dataType: 'string',
+    maxLength: 50,
+    required: false,
+  },
   { id: 'tgt-compatible', name: 'label', path: 'label', dataType: 'string', required: false },
-  { id: 'tgt-incompatible', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
+  {
+    id: 'tgt-incompatible',
+    name: 'omschrijving',
+    path: 'omschrijving',
+    dataType: 'string',
+    required: false,
+  },
   { id: 'tgt-num', name: 'nummer', path: 'nummer', dataType: 'number', required: false },
 ]
 const sourceSchema = buildSchema('bron', srcNodes)
@@ -61,7 +81,9 @@ describe('CouplingDetailPanel — basics', () => {
   it('shows incompatibility reason and remap note for an incompatible mapping', async () => {
     const { wrapper } = mountPanel('src-incompatible', 'tgt-incompatible')
     await wrapper.vm.$nextTick()
-    expect(wrapper.find('[data-testid="detail-validation-section"]').text()).toMatch(/object|string/i)
+    expect(wrapper.find('[data-testid="detail-validation-section"]').text()).toMatch(
+      /object|string/i,
+    )
     expect(wrapper.find('[data-testid="remap-note"]').exists()).toBe(true)
   })
 
@@ -132,7 +154,9 @@ describe('CouplingDetailPanel — manual mismatch resolution', () => {
     await wrapper.vm.$nextTick()
     await wrapper.find('[data-testid="mismatch-mark-resolved-truncate"]').trigger('click')
     await wrapper.vm.$nextTick()
-    expect(store.mappings.find((m) => m.id === mapping.id)!.manuallyResolvedMismatches).toContain('truncate')
+    expect(store.mappings.find((m) => m.id === mapping.id)!.manuallyResolvedMismatches).toContain(
+      'truncate',
+    )
     expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toBe('✓ Opgelost')
   })
 
@@ -165,14 +189,19 @@ describe('CouplingDetailPanel — manual mismatch resolution', () => {
     await wrapper.vm.$nextTick()
     await wrapper.find('[data-testid="mismatch-mark-unresolved-truncate"]').trigger('click')
     await wrapper.vm.$nextTick()
-    expect(store.mappings.find((m) => m.id === mapping.id)!.manuallyResolvedMismatches).not.toContain('truncate')
+    expect(
+      store.mappings.find((m) => m.id === mapping.id)!.manuallyResolvedMismatches,
+    ).not.toContain('truncate')
     expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toBe('● Vereist')
   })
 
   // Scenario: Manually resolving the last mismatch turns the mapping indicator green
   it('isMappingComplete returns true when last mismatch is manually resolved', () => {
     const store = useMappings()
-    const m = store.createMapping({ sourceFieldId: 'src-str-long', targetFieldId: 'tgt-str-short' })!
+    const m = store.createMapping({
+      sourceFieldId: 'src-str-long',
+      targetFieldId: 'tgt-str-short',
+    })!
     store.toggleManualMismatchResolution(m.id, 'truncate')
     const src = sourceSchema.byId('src-str-long')!
     const tgt = targetSchema.byId('tgt-str-short')!

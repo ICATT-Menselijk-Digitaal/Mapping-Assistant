@@ -32,7 +32,11 @@ const linesWithMeta = computed(() =>
   })),
 )
 
-function midPoint(el: HTMLElement, side: 'source' | 'target', svgRect: DOMRect): { x: number; y: number } {
+function midPoint(
+  el: HTMLElement,
+  side: 'source' | 'target',
+  svgRect: DOMRect,
+): { x: number; y: number } {
   const r = el.getBoundingClientRect()
   return {
     x: r.left - svgRect.left + (side === 'source' ? r.width : 0),
@@ -52,8 +56,7 @@ function getFieldMidY(fieldId: string, side: 'source' | 'target'): { x: number; 
   const rect = el.getBoundingClientRect()
 
   // Field is visible, or not inside a collapsible panel — use it directly
-  if (rect.height > 0 || !el.hasAttribute('data-field-in-group'))
-    return midPoint(el, side, svgRect)
+  if (rect.height > 0 || !el.hasAttribute('data-field-in-group')) return midPoint(el, side, svgRect)
 
   // Field is hidden inside a panel — try the parent field toggle anchor (subtree collapsed)
   const parentKey = el.getAttribute('data-child-of-field')
@@ -132,15 +135,27 @@ onUnmounted(() => {
       <path
         :d="line.path"
         fill="none"
-        :stroke="line.selected ? '#4f46e5' : (line.hovered ? '#4f46e5' : '#6366f1')"
+        :stroke="line.selected ? '#4f46e5' : line.hovered ? '#4f46e5' : '#6366f1'"
         :stroke-width="line.selected || line.hovered ? 3 : 2"
         :stroke-opacity="line.selected || line.hovered ? 1 : 0.7"
         data-testid="connection-path"
       />
 
       <!-- Endpoint dots -->
-      <circle :cx="line.x1" :cy="line.y1" r="4" :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.selected || line.hovered ? 1 : 0.7" />
-      <circle :cx="line.x2" :cy="line.y2" r="4" :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.selected || line.hovered ? 1 : 0.7" />
+      <circle
+        :cx="line.x1"
+        :cy="line.y1"
+        r="4"
+        :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'"
+        :fill-opacity="line.selected || line.hovered ? 1 : 0.7"
+      />
+      <circle
+        :cx="line.x2"
+        :cy="line.y2"
+        r="4"
+        :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'"
+        :fill-opacity="line.selected || line.hovered ? 1 : 0.7"
+      />
     </g>
   </svg>
 </template>

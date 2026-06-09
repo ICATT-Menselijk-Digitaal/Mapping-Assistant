@@ -5,7 +5,9 @@ import { useMappings } from '../useMappings'
 import { useAISuggestions } from '../useAISuggestions'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
-function node(overrides: Partial<SchemaFieldNode> & { name: string; id: string; path: string }): SchemaFieldNode {
+function node(
+  overrides: Partial<SchemaFieldNode> & { name: string; id: string; path: string },
+): SchemaFieldNode {
   return { dataType: 'string', required: false, ...overrides }
 }
 
@@ -13,9 +15,7 @@ const sourceSchema = buildSchema('Source', [
   node({ name: 'customerId', id: 'customerId', path: 'customerId' }),
 ])
 
-const targetSchema = buildSchema('Target', [
-  node({ name: 'id', id: 'id', path: 'id' }),
-])
+const targetSchema = buildSchema('Target', [node({ name: 'id', id: 'id', path: 'id' })])
 
 beforeEach(() => {
   setActivePinia(createPinia())

@@ -89,10 +89,13 @@ describe('useSourceSchema', () => {
 
   // Scenario: Load spec via URL
   it('fetches and parses a spec from a URL', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(validJson),
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(validJson),
+      }),
+    )
 
     const { schema, error, loadFromUrl } = useSourceSchema()
     await loadFromUrl('https://example.com/api-docs.json')
@@ -103,10 +106,13 @@ describe('useSourceSchema', () => {
 
   // Scenario: URL unreachable
   it('sets error when URL fetch fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      }),
+    )
 
     const { schema, error, loadFromUrl } = useSourceSchema()
     await loadFromUrl('https://example.com/not-found.json')
@@ -133,10 +139,13 @@ describe('useSourceSchema', () => {
   })
 
   it('records the source URL when loaded from URL', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(validJson),
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(validJson),
+      }),
+    )
 
     const { sourceUrl, loadFromUrl } = useSourceSchema()
     await loadFromUrl('https://example.com/api-docs.json')
@@ -145,10 +154,13 @@ describe('useSourceSchema', () => {
   })
 
   it('clears the source URL when loaded from file', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(validJson),
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(validJson),
+      }),
+    )
 
     const { sourceUrl, loadFromUrl, loadFromFile } = useSourceSchema()
     await loadFromUrl('https://example.com/api-docs.json')

@@ -1,10 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { getMismatchTypes, isMismatchResolved, isMappingComplete } from '../transformationCompletion'
+import {
+  getMismatchTypes,
+  isMismatchResolved,
+  isMappingComplete,
+} from '../transformationCompletion'
 import type { SchemaField } from '@/types'
 import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 
 function field(overrides: Partial<SchemaField> = {}): SchemaField {
-  return { id: 'f', name: 'field', path: 'field', dataType: 'string', required: false, ...overrides }
+  return {
+    id: 'f',
+    name: 'field',
+    path: 'field',
+    dataType: 'string',
+    required: false,
+    ...overrides,
+  }
 }
 
 function rule(overrides: Partial<TransformationRule>): TransformationRule {
@@ -12,7 +23,13 @@ function rule(overrides: Partial<TransformationRule>): TransformationRule {
 }
 
 function mapping(transformations: TransformationRule[] = []): FieldMapping {
-  return { id: '1', sourceFieldId: 'src', targetFieldId: 'tgt', transformations, status: 'confirmed' }
+  return {
+    id: '1',
+    sourceFieldId: 'src',
+    targetFieldId: 'tgt',
+    transformations,
+    status: 'confirmed',
+  }
 }
 
 describe('getMismatchTypes', () => {
@@ -77,7 +94,12 @@ describe('getMismatchTypes', () => {
 
 describe('isMismatchResolved', () => {
   it('returns true when a rule resolves the mismatch with a non-empty expression', () => {
-    const rules = [rule({ resolvesMismatch: 'truncate', expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $' })]
+    const rules = [
+      rule({
+        resolvesMismatch: 'truncate',
+        expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
+      }),
+    ]
     expect(isMismatchResolved('truncate', rules)).toBe(true)
   })
 
@@ -99,7 +121,10 @@ describe('isMismatchResolved', () => {
   it('returns true when at least one of multiple rules resolves the mismatch', () => {
     const rules = [
       rule({ resolvesMismatch: 'default', expression: '$ != null ? $ : "x"' }),
-      rule({ resolvesMismatch: 'truncate', expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $' }),
+      rule({
+        resolvesMismatch: 'truncate',
+        expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
+      }),
     ]
     expect(isMismatchResolved('truncate', rules)).toBe(true)
   })
@@ -133,14 +158,24 @@ describe('isMappingComplete', () => {
   it('returns true when all detected mismatches are resolved', () => {
     const src = field({ dataType: 'string', maxLength: 100 })
     const tgt = field({ dataType: 'string', maxLength: 50 })
-    const rules = [rule({ resolvesMismatch: 'truncate', expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $' })]
+    const rules = [
+      rule({
+        resolvesMismatch: 'truncate',
+        expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
+      }),
+    ]
     expect(isMappingComplete(mapping(rules), src, tgt)).toBe(true)
   })
 
   it('returns false when at least one mismatch is unresolved', () => {
     const src = field({ dataType: 'string', maxLength: 100, required: false })
     const tgt = field({ dataType: 'string', maxLength: 50, required: true })
-    const rules = [rule({ resolvesMismatch: 'truncate', expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $' })]
+    const rules = [
+      rule({
+        resolvesMismatch: 'truncate',
+        expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
+      }),
+    ]
     // truncate is resolved but default is not
     expect(isMappingComplete(mapping(rules), src, tgt)).toBe(false)
   })

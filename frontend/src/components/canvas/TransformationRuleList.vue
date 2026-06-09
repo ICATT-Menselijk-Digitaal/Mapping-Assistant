@@ -69,7 +69,7 @@ function saveExpression() {
   } catch (e) {
     const msg =
       e != null && typeof (e as Record<string, unknown>).message === 'string'
-        ? (e as Record<string, unknown>).message as string
+        ? ((e as Record<string, unknown>).message as string)
         : String(e)
     exprError.value = `Ongeldige expressie: ${msg}`
     return
@@ -100,20 +100,30 @@ function saveExpression() {
             class="text-amber-500 shrink-0"
             title="Twee regels lossen hetzelfde probleem op"
             data-testid="conflict-warning"
-          >⚠</span>
+            >⚠</span
+          >
           <span class="text-xs text-slate-700 font-medium truncate">{{ rule.label }}</span>
-          <span :class="['text-[10px] px-1 rounded shrink-0', SOURCE_BADGE[rule.source] ?? 'bg-slate-100 text-slate-600']">
+          <span
+            :class="[
+              'text-[10px] px-1 rounded shrink-0',
+              SOURCE_BADGE[rule.source] ?? 'bg-slate-100 text-slate-600',
+            ]"
+          >
             {{ sourceLabel(rule.source) }}
           </span>
         </div>
         <p class="text-[11px] text-slate-400 font-mono break-all mt-0.5">{{ rule.expression }}</p>
-        <p v-if="rule.aiExplanation" class="text-[11px] text-violet-600 italic mt-0.5 break-words">{{ rule.aiExplanation }}</p>
+        <p v-if="rule.aiExplanation" class="text-[11px] text-violet-600 italic mt-0.5 break-words">
+          {{ rule.aiExplanation }}
+        </p>
       </div>
       <button
         class="text-slate-400 hover:text-red-500 shrink-0 text-xs mt-0.5"
         :data-testid="`rule-delete-${rule.id}`"
         @click="deleteRule(rule.id)"
-      >✕</button>
+      >
+        ✕
+      </button>
     </div>
 
     <p v-if="rules.length === 0" class="text-[11px] text-slate-400 italic px-1 mb-1">
@@ -125,14 +135,22 @@ function saveExpression() {
         class="text-xs text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded px-2 py-1 w-full"
         data-testid="add-expression-btn"
         @click="openEditor"
-      >+ Expressie toevoegen</button>
+      >
+        + Expressie toevoegen
+      </button>
     </div>
 
-    <div v-else class="mt-1 border border-slate-200 rounded p-2 space-y-1.5" data-testid="expression-editor">
+    <div
+      v-else
+      class="mt-1 border border-slate-200 rounded p-2 space-y-1.5"
+      data-testid="expression-editor"
+    >
       <textarea
         v-model="exprInput"
         rows="3"
-        :class="exprError ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 focus:ring-violet-400'"
+        :class="
+          exprError ? 'border-red-300 focus:ring-red-400' : 'border-slate-200 focus:ring-violet-400'
+        "
         class="w-full font-mono text-xs border rounded px-2 py-1 resize-none focus:outline-none focus:ring-1"
         placeholder="JSONata expressie…"
         data-testid="expression-input"
@@ -142,19 +160,25 @@ function saveExpression() {
         v-if="exprError"
         class="text-[11px] text-red-600 font-mono break-all"
         data-testid="expression-error"
-      >{{ exprError }}</p>
+      >
+        {{ exprError }}
+      </p>
       <div class="flex gap-2">
         <button
           class="text-xs bg-violet-600 text-white rounded px-2 py-0.5 hover:bg-violet-700 disabled:opacity-50"
           :disabled="!exprInput.trim()"
           data-testid="expression-save-btn"
           @click="saveExpression"
-        >Opslaan</button>
+        >
+          Opslaan
+        </button>
         <button
           class="text-xs border border-slate-300 rounded px-2 py-0.5 hover:bg-slate-50"
           data-testid="expression-cancel-btn"
           @click="cancelEditor"
-        >Annuleren</button>
+        >
+          Annuleren
+        </button>
       </div>
     </div>
   </div>

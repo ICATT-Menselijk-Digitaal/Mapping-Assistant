@@ -6,15 +6,37 @@ import type { SchemaField } from '@/types'
 import type { TransformationRule } from '@/types/mapping'
 
 function field(overrides: Partial<SchemaField> = {}): SchemaField {
-  return { id: crypto.randomUUID(), name: 'field', path: 'field', dataType: 'string', required: false, ...overrides }
+  return {
+    id: crypto.randomUUID(),
+    name: 'field',
+    path: 'field',
+    dataType: 'string',
+    required: false,
+    ...overrides,
+  }
 }
 
 function makeApiResponse(content: string): Response {
-  return { ok: true, json: () => Promise.resolve({ choices: [{ message: { content } }] }) } as unknown as Response
+  return {
+    ok: true,
+    json: () => Promise.resolve({ choices: [{ message: { content } }] }),
+  } as unknown as Response
 }
 
-const srcLong  = field({ id: 'src', name: 'omschrijving', dataType: 'string', maxLength: 200, required: false })
-const tgtShort = field({ id: 'tgt', name: 'label',        dataType: 'string', maxLength: 50,  required: false })
+const srcLong = field({
+  id: 'src',
+  name: 'omschrijving',
+  dataType: 'string',
+  maxLength: 200,
+  required: false,
+})
+const tgtShort = field({
+  id: 'tgt',
+  name: 'label',
+  dataType: 'string',
+  maxLength: 50,
+  required: false,
+})
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -51,7 +73,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
 
   // Scenario: Existing rules are sent as context so the AI does not duplicate them
   it('includes existing rule expressions under "Bestaande regels (niet opnieuw voorstellen)" in the prompt', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: false } as unknown as Response)
+    const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue({ ok: false } as unknown as Response)
     vi.stubGlobal('fetch', fetchSpy)
 
     const mappingsStore = useMappings()
@@ -68,7 +90,9 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     await store.generateSuggestion(mapping.id, srcLong, tgtShort, [existingRule])
 
     expect(fetchSpy).toHaveBeenCalledOnce()
-    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string) as { messages: Array<{ content: string }> }
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string) as {
+      messages: Array<{ content: string }>
+    }
     const prompt = body.messages[0]!.content
     expect(prompt).toContain('$string($)')
     expect(prompt).toContain('Bestaande regels (niet opnieuw voorstellen)')
@@ -76,7 +100,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
 
   // Scenario: Existing rules empty → prompt says "geen"
   it('writes "geen" when there are no existing rules', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: false } as unknown as Response)
+    const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue({ ok: false } as unknown as Response)
     vi.stubGlobal('fetch', fetchSpy)
 
     const mappingsStore = useMappings()
@@ -85,7 +109,9 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     const store = useTransformationSuggestions()
     await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
 
-    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string) as { messages: Array<{ content: string }> }
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string) as {
+      messages: Array<{ content: string }>
+    }
     expect(body.messages[0]!.content).toContain('- geen')
   })
 
@@ -107,8 +133,12 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
 
     const loggedStrings = consoleSpy.mock.calls.map((args) => String(args[0]))
-    expect(loggedStrings.some((s) => s.includes('[AI Suggestie]') && s.includes('Bronveld'))).toBe(true)
-    expect(loggedStrings.some((s) => s.includes('[AI Suggestie]') && s.includes(rawResponse))).toBe(true)
+    expect(loggedStrings.some((s) => s.includes('[AI Suggestie]') && s.includes('Bronveld'))).toBe(
+      true,
+    )
+    expect(loggedStrings.some((s) => s.includes('[AI Suggestie]') && s.includes(rawResponse))).toBe(
+      true,
+    )
   })
 
   // Scenario: An invalid AI expression is silently discarded
@@ -137,12 +167,14 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
 
     const store = useTransformationSuggestions()
-    await expect(store.generateSuggestion(mapping.id, srcLong, tgtShort, [])).resolves.toBeUndefined()
+    await expect(
+      store.generateSuggestion(mapping.id, srcLong, tgtShort, []),
+    ).resolves.toBeUndefined()
     expect(mappingsStore.mappings.find((m) => m.id === mapping.id)!.transformations).toHaveLength(0)
   })
 
   it('uses max_tokens 300 in the API request', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: false } as unknown as Response)
+    const fetchSpy = vi.fn<typeof fetch>().mockResolvedValue({ ok: false } as unknown as Response)
     vi.stubGlobal('fetch', fetchSpy)
 
     const mappingsStore = useMappings()
@@ -151,7 +183,7 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
     const store = useTransformationSuggestions()
     await store.generateSuggestion(mapping.id, srcLong, tgtShort, [])
 
-    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string) as { max_tokens: number }
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string) as { max_tokens: number }
     expect(body.max_tokens).toBe(300)
   })
 
@@ -169,7 +201,10 @@ describe('useTransformationSuggestions — generateSuggestion', () => {
   })
 
   it('does not add a rule when the AI response is not valid JSON', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeApiResponse('Sure! Here is a great expression for you.')))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(makeApiResponse('Sure! Here is a great expression for you.')),
+    )
 
     const mappingsStore = useMappings()
     const mapping = mappingsStore.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!

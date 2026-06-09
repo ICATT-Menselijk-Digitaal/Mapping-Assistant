@@ -1,11 +1,14 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  suggestionId: string
-  sourceName: string
-  targetName: string
-  confidenceScore: number
-  interactive?: boolean
-}>(), { interactive: true })
+withDefaults(
+  defineProps<{
+    suggestionId: string
+    sourceName: string
+    targetName: string
+    confidenceScore: number
+    interactive?: boolean
+  }>(),
+  { interactive: true },
+)
 
 const emit = defineEmits<{
   accept: [id: string]
@@ -31,7 +34,10 @@ function badge(score: number) {
         <span class="text-[--color-destination] break-all">{{ targetName }}</span>
       </div>
       <span
-        :class="['shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded', badge(confidenceScore).cls]"
+        :class="[
+          'shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded',
+          badge(confidenceScore).cls,
+        ]"
         data-testid="confidence-badge"
       >
         {{ badge(confidenceScore).label }} · {{ Math.round(confidenceScore * 100) }}%

@@ -80,7 +80,9 @@ function onSourceFileChange(event: Event) {
   if (file) emit('SourceFileSelected', file)
 }
 
-const sourceUrlInput = ref('https://cors.redoc.ly/https://esuite-data-extractie-gcp2.esuite-development.net/q/openapi')
+const sourceUrlInput = ref(
+  'https://cors.redoc.ly/https://esuite-data-extractie-gcp2.esuite-development.net/q/openapi',
+)
 
 function onSourceUrlSubmit() {
   const url = sourceUrlInput.value.trim()
@@ -109,7 +111,11 @@ function onTargetUrlSubmit() {
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="source-column"
       >
-        <SchemaColumnHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" :counter="sourceCounter" />
+        <SchemaColumnHeader
+          v-if="sourceLabel"
+          :data="{ label: sourceLabel, side: 'source' }"
+          :counter="sourceCounter"
+        />
 
         <!-- Upload UI when no source schema loaded -->
         <div
@@ -120,7 +126,9 @@ function onTargetUrlSubmit() {
           <p class="text-sm text-slate-400">Laad een bronschema (OpenAPI YAML of JSON)</p>
 
           <!-- File picker -->
-          <label class="cursor-pointer px-3 py-1.5 text-sm rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
+          <label
+            class="cursor-pointer px-3 py-1.5 text-sm rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+          >
             Bestand kiezen
             <input
               type="file"
@@ -169,7 +177,11 @@ function onTargetUrlSubmit() {
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="target-column"
       >
-        <SchemaColumnHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" :counter="targetCounter" />
+        <SchemaColumnHeader
+          v-if="targetLabel"
+          :data="{ label: targetLabel, side: 'target' }"
+          :counter="targetCounter"
+        />
 
         <!-- Upload UI when no target schema loaded -->
         <div
@@ -179,7 +191,9 @@ function onTargetUrlSubmit() {
         >
           <p class="text-sm text-slate-400">Laad een doelschema (OpenAPI YAML of JSON)</p>
 
-          <label class="cursor-pointer px-3 py-1.5 text-sm rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
+          <label
+            class="cursor-pointer px-3 py-1.5 text-sm rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+          >
             Bestand kiezen
             <input
               type="file"
@@ -227,4 +241,3 @@ function onTargetUrlSubmit() {
     </div>
   </div>
 </template>
-

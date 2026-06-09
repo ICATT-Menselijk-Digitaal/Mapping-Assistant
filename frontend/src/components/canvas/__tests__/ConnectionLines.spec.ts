@@ -56,7 +56,6 @@ describe('ConnectionLines', () => {
     expect(store.selectedMappingId).toBe(mappingId)
   })
 
-
   // Scenario: Selected line rendered with highlight style
   it('does not emit delete-requested when a line is clicked', async () => {
     const srcEl = document.createElement('div')
@@ -113,12 +112,16 @@ describe('ConnectionLines', () => {
 
     const { wrapper } = mountWithContainers()
 
-    const scrollAdded = addSpy.mock.calls.filter(([ev, , opts]) => ev === 'scroll' && (opts as AddEventListenerOptions)?.capture)
+    const scrollAdded = addSpy.mock.calls.filter(
+      ([ev, , opts]) => ev === 'scroll' && (opts as AddEventListenerOptions)?.capture,
+    )
     expect(scrollAdded.length).toBeGreaterThan(0)
 
     wrapper.unmount()
 
-    const scrollRemoved = removeSpy.mock.calls.filter(([ev, , opts]) => ev === 'scroll' && (opts as EventListenerOptions)?.capture)
+    const scrollRemoved = removeSpy.mock.calls.filter(
+      ([ev, , opts]) => ev === 'scroll' && (opts as EventListenerOptions)?.capture,
+    )
     expect(scrollRemoved.length).toBeGreaterThan(0)
 
     addSpy.mockRestore()

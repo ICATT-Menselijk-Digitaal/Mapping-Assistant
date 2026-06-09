@@ -149,7 +149,6 @@ describe('MappingCanvas', () => {
 
     expect(store.mappings).toHaveLength(1)
   })
-
 })
 
 describe('Coverage rate counters', () => {
@@ -249,9 +248,7 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     store.selectMapping(mapping.id)
     await flushPromises()
 
-    expect(scrollIntoViewMock).toHaveBeenCalledWith(
-      expect.objectContaining({ block: 'center' }),
-    )
+    expect(scrollIntoViewMock).toHaveBeenCalledWith(expect.objectContaining({ block: 'center' }))
 
     wrapper.unmount()
   })

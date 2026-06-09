@@ -109,7 +109,11 @@ describe('useMappings', () => {
       const store = useMappings()
       const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
 
-      store.addTransformationRule(mapping.id, { expression: '$string($)', label: 'Naar tekst', source: 'manual' })
+      store.addTransformationRule(mapping.id, {
+        expression: '$string($)',
+        label: 'Naar tekst',
+        source: 'manual',
+      })
 
       expect(store.mappings[0]!.transformations).toHaveLength(1)
       expect(store.mappings[0]!.transformations[0]!.id).toBeTruthy()
@@ -119,8 +123,16 @@ describe('useMappings', () => {
       const store = useMappings()
       const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
 
-      store.addTransformationRule(mapping.id, { expression: '$string($)', label: 'A', source: 'manual' })
-      store.addTransformationRule(mapping.id, { expression: '$trim($)', label: 'B', source: 'manual' })
+      store.addTransformationRule(mapping.id, {
+        expression: '$string($)',
+        label: 'A',
+        source: 'manual',
+      })
+      store.addTransformationRule(mapping.id, {
+        expression: '$trim($)',
+        label: 'B',
+        source: 'manual',
+      })
 
       const ids = store.mappings[0]!.transformations.map((r) => r.id)
       expect(ids[0]).not.toBe(ids[1])
@@ -140,7 +152,11 @@ describe('useMappings', () => {
       const store = useMappings()
       const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
 
-      store.addTransformationRule(mapping.id, { expression: '$string($)', label: 'A', source: 'manual' })
+      store.addTransformationRule(mapping.id, {
+        expression: '$string($)',
+        label: 'A',
+        source: 'manual',
+      })
       const ruleId = store.mappings[0]!.transformations[0]!.id
 
       store.removeTransformationRule(mapping.id, ruleId)
@@ -152,7 +168,11 @@ describe('useMappings', () => {
       const store = useMappings()
       const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
 
-      store.addTransformationRule(mapping.id, { expression: '$string($)', label: 'A', source: 'manual' })
+      store.addTransformationRule(mapping.id, {
+        expression: '$string($)',
+        label: 'A',
+        source: 'manual',
+      })
 
       expect(() => store.removeTransformationRule(mapping.id, 'nonexistent')).not.toThrow()
       expect(store.mappings[0]!.transformations).toHaveLength(1)
@@ -165,7 +185,11 @@ describe('useMappings', () => {
       const store = useMappings()
       const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
 
-      store.addTransformationRule(mapping.id, { expression: '$string($)', label: 'Oud label', source: 'manual' })
+      store.addTransformationRule(mapping.id, {
+        expression: '$string($)',
+        label: 'Oud label',
+        source: 'manual',
+      })
       const ruleId = store.mappings[0]!.transformations[0]!.id
 
       store.updateTransformationRule(mapping.id, ruleId, { label: 'Nieuw label' })
@@ -183,7 +207,7 @@ describe('useMappings', () => {
       store.addTransformationRule(mapping.id, { expression: '$', label: 'A', source: 'manual' })
       const originalId = store.mappings[0]!.transformations[0]!.id
 
-      store.updateTransformationRule(mapping.id, originalId, { id: 'tampered-id' } as any)
+      store.updateTransformationRule(mapping.id, originalId, { id: 'tampered-id' })
 
       expect(store.mappings[0]!.transformations[0]!.id).toBe(originalId)
     })
@@ -192,9 +216,12 @@ describe('useMappings', () => {
   describe('restoreMappings', () => {
     function makeSchema(fields: { id: string; dataType: string }[]) {
       const nodes: SchemaFieldNode[] = fields.map((f) => ({
-        id: f.id, name: f.id, path: f.id,
+        id: f.id,
+        name: f.id,
+        path: f.id,
         dataType: f.dataType as SchemaFieldNode['dataType'],
-        required: false, children: [],
+        required: false,
+        children: [],
       }))
       return buildSchema('test', nodes)
     }
@@ -268,9 +295,12 @@ describe('useMappings', () => {
   describe('mappingsWithStatus', () => {
     function makeSchema(fields: { id: string; dataType: string }[]) {
       const nodes: SchemaFieldNode[] = fields.map((f) => ({
-        id: f.id, name: f.id, path: f.id,
+        id: f.id,
+        name: f.id,
+        path: f.id,
         dataType: f.dataType as SchemaFieldNode['dataType'],
-        required: false, children: [],
+        required: false,
+        children: [],
       }))
       return buildSchema('test', nodes)
     }
