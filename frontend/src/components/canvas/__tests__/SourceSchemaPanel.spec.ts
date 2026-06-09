@@ -272,6 +272,25 @@ describe('Search and status filter', () => {
     expect(wrapper.text()).not.toContain('postalCode')
   })
 
+  // Bug #138: Mapped filter must not show parent fields whose children are all unmapped
+  it('hides parent field when none of its children are mapped and Mapped filter is active', async () => {
+    // nestedNodes: address (parent with city/street), email (leaf) — nothing mapped
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="filter-mapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+  })
+
+  it('shows parent field when at least one child is mapped and Mapped filter is active', async () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'address.city', targetFieldId: 'tgt-x' })
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="filter-mapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="field-toggle-address"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('email')
+  })
+
   // Option D: auto-expand — matching children visible without manual group expand
   it('shows matching child fields without requiring manual group expansion when filter is active', async () => {
     const div = document.createElement('div')
