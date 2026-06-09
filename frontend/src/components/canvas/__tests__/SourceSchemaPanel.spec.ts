@@ -306,6 +306,21 @@ describe('Search and status filter', () => {
     div.remove()
   })
 
+  // Bug: parent field with matching children must remain manually collapsable while filter is active
+  it('allows manual collapse of a parent field while Unmapped filter is active', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedNodes) }, attachTo: div })
+    await wrapper.find('[data-testid="filter-unmapped"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
+    await wrapper.find('[data-testid="field-toggle-address"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(false)
+    wrapper.unmount()
+    div.remove()
+  })
+
   // Scenario: Administrator combines name search with status filter
   it('shows only unmapped fields matching the search query when both filters are active', async () => {
     const store = useMappings()
