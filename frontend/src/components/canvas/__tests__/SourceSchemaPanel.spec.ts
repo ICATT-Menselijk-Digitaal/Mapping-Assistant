@@ -321,6 +321,16 @@ describe('Search and status filter', () => {
     div.remove()
   })
 
+  // Bug: unmapped parent whose name matches search must not appear under Mapped filter
+  it('hides unmapped parent field when name matches search but no children are mapped and Mapped filter is active', async () => {
+    // nestedNodes: address (parent) with city/street children — nothing mapped
+    const wrapper = mountPanel(nestedNodes)
+    await wrapper.find('[data-testid="filter-mapped"]').trigger('click')
+    await wrapper.find('[data-testid="search-input"]').setValue('address')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+  })
+
   // Scenario: Administrator combines name search with status filter
   it('shows only unmapped fields matching the search query when both filters are active', async () => {
     const store = useMappings()

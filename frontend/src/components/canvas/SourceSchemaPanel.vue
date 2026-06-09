@@ -86,7 +86,7 @@ const displayedGroups = computed<GroupEntry[]>(() => {
           if (groupNameMatches) return fieldMatchesStatus(f.id)
           const hasChildren = props.schema.childrenOf(f.id).length > 0
           return hasChildren
-            ? (searchQuery.value ? fieldMatchesName(f) : fieldMatchesStatus(f.id)) || displayedChildrenOf(f.id).length > 0
+            ? (fieldMatchesName(f) && fieldMatchesStatus(f.id)) || displayedChildrenOf(f.id).length > 0
             : fieldMatchesName(f) && fieldMatchesStatus(f.id)
         }),
       }
