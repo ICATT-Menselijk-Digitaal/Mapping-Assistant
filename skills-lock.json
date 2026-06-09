@@ -1,100 +1,155 @@
 {
   "version": 1,
   "skills": {
+    "wtf.changelog": {
+      "source": "xiduzo/wtf",
+      "sourceType": "github",
+      "skillPath": "skills/wtf.changelog/SKILL.md",
+      "computedHash": "538390ad9ef2e2e6e5edbcb0bb9b4bfcb2b25abe337953358579c43707b36296"
+    },
     "wtf.create-pr": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "996cad21653088bbfdcc710fb37cf0ec914588e1cd7fde667ae500f39865fc74"
+      "skillPath": "skills/wtf.create-pr/SKILL.md",
+      "computedHash": "f9509c6de0cc66f3fba268351d4feb8322fa77e35c796d03cbeeb8ea937a69b0"
     },
     "wtf.design-feature": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "458d2d67958eb7f70a6c91d64bcde2104e2bd0712ce3ed646d3e05c4433f39e4"
+      "skillPath": "skills/wtf.design-feature/SKILL.md",
+      "computedHash": "dde49cd80dca1e2476687486fe978a00c669a8116640488c9381f18262c87ff2"
     },
     "wtf.design-task": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "79c2343857667f4f150c55bf1be2763e7297136db9687cc43f84a46da764cb68"
+      "skillPath": "skills/wtf.design-task/SKILL.md",
+      "computedHash": "ffb8af9e217b69d767d752b26d6cc801b931f5abe3183f8fdc20d249a9ded67e"
     },
     "wtf.epic-to-features": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "1d7622e0cd39e8cd48867aa5ef8ab15d4d8201bf7f5fb77f5e475b93011d7ff9"
+      "skillPath": "skills/wtf.epic-to-features/SKILL.md",
+      "computedHash": "3100408fc93f98f8d3d42143bd6357347c2942ea88e0bcfc7edb0e08f3a1e93a"
     },
     "wtf.feature-to-tasks": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "c06c5697130a73d2d51b8a3e4464aeef463c33d18655a56e781cb390abd6e7f3"
+      "skillPath": "skills/wtf.feature-to-tasks/SKILL.md",
+      "computedHash": "2df2785adf132f9d454a33f6c763c7c31f3574acae12a8739387ee0395fe76a9"
+    },
+    "wtf.health": {
+      "source": "xiduzo/wtf",
+      "sourceType": "github",
+      "skillPath": "skills/wtf.health/SKILL.md",
+      "computedHash": "689322c6141111880e84f5d03070a03fc3cc7031dc1ca0b068188e9bec0b7601"
+    },
+    "wtf.hotfix": {
+      "source": "xiduzo/wtf",
+      "sourceType": "github",
+      "skillPath": "skills/wtf.hotfix/SKILL.md",
+      "computedHash": "bdd41d2e22ee626b968da469df7ecdba0a475708b0fca9ed32c5e4da73a0ff17"
     },
     "wtf.implement-task": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "e638d44bf1fd3751ce56d8f63a4649e65a899215f2a4c3a6b2dfa715b1ba3508"
+      "skillPath": "skills/wtf.implement-task/SKILL.md",
+      "computedHash": "14d176656386b2bc62c069e3d5e9f678ec5f77e2a85c49b91d15442ee186aef1"
     },
     "wtf.loop": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "c988f426349b356eafdd9a733463825235372e50f1473a243f642e74ac4cdd68"
+      "skillPath": "skills/wtf.loop/SKILL.md",
+      "computedHash": "8a408bb7c863060b69de5a05878f9557d7f24f3ea3e34774841dd61c4c926173"
+    },
+    "wtf.pr-review": {
+      "source": "xiduzo/wtf",
+      "sourceType": "github",
+      "skillPath": "skills/wtf.pr-review/SKILL.md",
+      "computedHash": "74e2b116ab9235b832af9a207a4ff65004cbbdb752024ab26c148767a093ecf1"
     },
     "wtf.refine": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "21a14c80d0c15088d7358157dfc4d24b15b129a8c016d248042d20118edff485"
+      "skillPath": "skills/wtf.refine/SKILL.md",
+      "computedHash": "ca7d21ed87ac0057cb62f94c6547b3fb66dd9e2d822ff029dd8bb9250a07bae8"
     },
     "wtf.reflect": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "58aa29b9784701611bda58df47f7e060ebaada7e4118d8309a39586d8ddb5337"
+      "skillPath": "skills/wtf.reflect/SKILL.md",
+      "computedHash": "666985186dcbac5094eee8b8dff282f7826ed31864fc2a59c84c8fee3a8d1d17"
     },
     "wtf.report-bug": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "300e78bdbd0ddc13137d5d71ce8d27fc15ceeaa161ca14ad30f36cc78427cdc5"
+      "skillPath": "skills/wtf.report-bug/SKILL.md",
+      "computedHash": "bb65c0cf40551ff7131f7bd53788a81ac5acd483facc23d7ebd7d1740957e458"
+    },
+    "wtf.retro": {
+      "source": "xiduzo/wtf",
+      "sourceType": "github",
+      "skillPath": "skills/wtf.retro/SKILL.md",
+      "computedHash": "41fc093a5520b77afaff16c4377d857303a5ef8c1568a9430e2c128d72ae12c2"
     },
     "wtf.setup": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "dbe4baff665099cdabba00cfb10541e5ce097012d6e7475889e4bf285d3e16e9"
+      "skillPath": "skills/wtf.setup/SKILL.md",
+      "computedHash": "87aa2efffe5d4ffeeb00ed76e20c850168ed894e1da657c2289e3877466651fc"
+    },
+    "wtf.spike": {
+      "source": "xiduzo/wtf",
+      "sourceType": "github",
+      "skillPath": "skills/wtf.spike/SKILL.md",
+      "computedHash": "8f86721a8146835dfcceef4b848e3476f4a841b73f78ded56d5340477bdc8635"
     },
     "wtf.steer-design": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "26dd2fdd79a5409818b36190fee6f7111dc8332bc2e986563b0eebf5a6b3b174"
+      "skillPath": "skills/wtf.steer-design/SKILL.md",
+      "computedHash": "82582afe970ea0432d216ff6330a2538d490d91f5b82b3dbb4d764744dcce865"
     },
     "wtf.steer-qa": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "0b8aa7f3b860325cdca2a1ef18d41d2f0ab928a82f79f6c59d9ef9bc2004f6d1"
+      "skillPath": "skills/wtf.steer-qa/SKILL.md",
+      "computedHash": "303aae71de676a84db6624b12778d6885d50e3256b29519983497892711f66b9"
     },
     "wtf.steer-tech": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "0c35bd9cf8be7fd68e17ecce1b91b4c4cea4af685a85293bb21b2fd2e801ea70"
+      "skillPath": "skills/wtf.steer-tech/SKILL.md",
+      "computedHash": "a0beabc1b34361a520a7fb84f7e1c5252fbdc6a7d1f57c0fa05f718aff5be47b"
     },
     "wtf.steer-vision": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "96fa8e95fd1fee9ddb57f820fd2874220ac39384063c5b9afb5f727fedb16e56"
+      "skillPath": "skills/wtf.steer-vision/SKILL.md",
+      "computedHash": "772a61452f86382e488de4a22ed32ea6c4df7dab2b205a9fb42f4f3df2d742ab"
     },
     "wtf.verify-task": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "83a6e745e9248516d264f938604d727d58be2a33657d1f016452a466eeeca5e0"
+      "skillPath": "skills/wtf.verify-task/SKILL.md",
+      "computedHash": "eefae38e11b02f4c73adedb03dcedcc5ee887f2c62f0653f6969306bd2b1421f"
     },
     "wtf.write-epic": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "d03de5808d851e6b4399ece29abf97c54e55b3a63aafe1345ef6bd782f40a6f6"
+      "skillPath": "skills/wtf.write-epic/SKILL.md",
+      "computedHash": "c543ae8db204d3836c5197cd71d9b580beb2af2e85caaaf5d1347411fda9b0fc"
     },
     "wtf.write-feature": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "26d58ede63980bf566b37183762b4d61e88947a107d47e17e8462e84c7fd354e"
+      "skillPath": "skills/wtf.write-feature/SKILL.md",
+      "computedHash": "71f5f8e9fd724db880ddd2158a381eddf28add448e2d6c2935e109c2a1209c25"
     },
     "wtf.write-task": {
       "source": "xiduzo/wtf",
       "sourceType": "github",
-      "computedHash": "c4f593912b891e75ef27adb7ca5308974dc650b45d2481eada3472ba589d2c86"
+      "skillPath": "skills/wtf.write-task/SKILL.md",
+      "computedHash": "3aa8d1287bad003e6d4e0bac9f5d6f1a365a2cf5a26acff632a858afa596addf"
     }
   }
 }

@@ -13,7 +13,7 @@ Open a pull request for a completed task branch. Core value: reads the full spec
 
 Run steps 1–2 of `../references/gh-setup.md` (install check and auth check). Stop if `gh` is not installed or not authenticated. Extensions are not required for this skill.
 
-Skip this step if invoked from `verify-task` or another skill that already ran gh-setup this session.
+Skip this step if invoked from `wtf.verify-task` or another skill that already ran gh-setup this session.
 
 ### 1. Confirm the branch
 
@@ -23,7 +23,10 @@ Check the current branch and verify it is not `main`:
 git branch --show-current
 ```
 
-If on `main`, ask: "Which branch should I open a PR from?"
+If on `main`, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which branch should I open a PR from?"
+- header: "Branch"
+- options: from `git branch --list` (local branches)
 
 Check whether a PR already exists for this branch:
 
@@ -31,52 +34,40 @@ Check whether a PR already exists for this branch:
 gh pr list --head <branch_name> --state open
 ```
 
-If an open PR already exists, print its URL and call `AskUserQuestion` with:
-
-- `question`: "A PR already exists for this branch. Would you like me to update its description instead?"
-- `header`: "Existing PR"
-- `options`: `[{label: "Update description", description: "Edit the existing PR's description"}, {label: "Open a new one", description: "Create a new PR anyway"}]`
-
-- **Update description** → skip to step 5, targeting the existing PR for update via `gh pr edit <pr_number>`.
-- **Open a new one** → continue.
+If an open PR already exists, print its URL and call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "A PR already exists for this branch. Would you like me to update its description instead?"
+- header: "Existing PR"
+- options:
+  - **Update description** → skip to step 5, targeting the existing PR for update via `gh pr edit <pr_number>`
+  - **Open a new one** → create a new PR anyway
 
 ### 2. Identify the Task (if any)
 
 Try to extract a task number from the branch name (e.g. `task/42-date-range-filter` → `#42`).
 
-If found, call `AskUserQuestion` with `question: "I found Task #<n> linked to this branch. Is that the right task?"`, `header: "Linked task"`, and `options: [{label: "Yes, that's correct", description: "Use Task #<n>"}, {label: "No, use a different task", description: "I'll provide the correct issue number"}]`.
+If found, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "I found Task #<n> linked to this branch. Is that the right task?"
+- header: "Linked task"
+- options:
+  - **Yes, that's correct** → use Task #<n>
+  - **No, use a different task** → I'll provide the correct issue number
 
-If not found or the user says no, call `AskUserQuestion` with `question: "Is there a Task issue linked to this work?"`, `header: "Linked task"`, and `options: [{label: "No linked task", description: "Proceed without a task link"}, {label: "Yes — I'll provide the number", description: "Enter the task issue number"}]`.
+If not found or the user says no, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Is there a Task issue linked to this work?"
+- header: "Linked task"
+- options:
+  - **No linked task** → proceed without a task link
+  - **Yes — I'll provide the number** → enter the task issue number
 
 ### 3. Lifecycle check (if Task linked)
 
-If a Task issue is known, check its labels:
-
-```bash
-gh issue view <task_number> --json labels --jq '.labels[].name'
-```
-
-If the `verified` label is **absent**, warn the user that the task hasn't been verified yet and that the recommended flow is: **write-task → design-task → implement-task → verify-task → create-pr**. Then call `AskUserQuestion` with:
-
-- `question`: "This task hasn't been verified yet. How would you like to proceed?"
-- `header`: "Verify first?"
-- `options`: `[{label: "Verify first", description: "Run `verify-task` before opening the PR (default)"}, {label: "Open PR anyway", description: "Skip verification and open the PR now"}]`
-
-- **Verify first** → follow the `verify-task` process, passing the Task number in as context.
-- **Open PR anyway** → proceed.
-
 If no Task is linked, skip this step.
+
+Apply the **absent-label gate** from `../references/lifecycle-labels.md` for the `verified` label on the Task — recommended skill `wtf.verify-task`, header `Verify first?`. On **Verify first** → follow `wtf.verify-task` passing the Task number as context. On **Open PR anyway** → proceed.
 
 ### 4. Fetch the spec hierarchy
 
-**If a Task issue is known**, fetch the full hierarchy:
-
-```bash
-gh issue view <task_number>    # Gherkin, Contracts, DoD, Test Mapping — also yields feature and epic numbers
-# Extract feature and epic numbers, then in parallel:
-gh issue view <feature_number> # ACs, user stories
-gh issue view <epic_number>    # Goal, context, constraints
-```
+**If a Task issue is known**, walk Task → Feature → Epic per `../references/spec-hierarchy.md` to extract Gherkin, Contracts, DoD, Test Mapping (Task) and ACs / Goal / constraints (Feature, Epic).
 
 **If no Task issue**, skip hierarchy fetch. The PR will be written from diff context alone (step 5).
 
@@ -93,30 +84,23 @@ This avoids including unrelated merged commits when the branch has a long histor
 
 ### 6. Draft the PR
 
-**Title generation:** Spawn a subagent using the `claude-haiku-4-5` model to generate a PR title following **Conventional Commits 1.0.0**. Pass in the task title (if available), the commit log, and whether this is a breaking change. If the subagent returns nothing usable, generate the title directly using the same rules below. Rules:
+**Title generation:** Spawn a subagent using the `claude-haiku-4-5-20251001` model — apply `../references/subagent-protocol.md` for the spawn — to generate a PR title per `../references/commit-conventions.md`. Pass in the task title (if available), the commit log, and whether this is a breaking change. If the subagent returns nothing usable, generate the title directly following the same rules. Examples: `feat(search): add date range filter`, `fix(payments): prevent double settlement`, `refactor(orders): extract fulfilment service`.
 
-- Format: `<type>[optional scope]: <description>`
-- Types: `feat` (new feature), `fix` (bug fix), `docs`, `style`, `refactor`, `perf`, `test`, `build`, `chore`, `ci`
-- Scope: optional noun in parentheses describing the codebase section, e.g. `feat(auth): …`
-- Breaking change: append `!` after type/scope, e.g. `feat!: …`
-- Description: lowercase, imperative mood, no period at end
-- Under 72 characters total
-- Examples: `feat(search): add date range filter`, `fix(payments): prevent double settlement`, `refactor(orders): extract fulfilment service`
-
-**Body:** Use the structure from @.github/pull_request_template.md. Fill in all sections:
+**Body:** Load the PR template per `../references/issue-template-loading.md` (verify `.github/pull_request_template.md` exists, halt-or-setup if missing). Fill in all sections:
 
 - **Summary**: derived from the Task's Intent + Functional Description (or commit messages if no Task). Explain the _why_.
 - **Changes**: grouped logical summary of `git diff --stat` output — not a file list.
 - **Test plan**: if a Task exists, derive checklist items from the Gherkin scenario names. If no Task, derive from changed files and commit messages. At minimum one item per observable behavior changed.
-- **Related**: one `Closes #<n>` line per closed issue — never comma-separated. If a Task exists, include `Closes #<task_number>`. If the PR also closes the parent Feature (all sibling tasks already merged), add `Closes #<feature_number>` on its own line. Example:
-  ```
-  Closes #42
-  Closes #15
-  ```
+- **Related**: closure keywords per `../references/commit-conventions.md`. If a Task exists, include `Closes #<task_number>`. If the PR also closes the parent Feature (all sibling tasks already merged), add `Closes #<feature_number>` on its own line.
 
 ### 7. Review with user
 
-Show the draft title and body. Then call `AskUserQuestion` with `question: "Does this look right?"`, `header: "Review"`, and `options: [{label: "Looks good — create the PR", description: "Proceed with PR creation"}, {label: "I have changes", description: "I want to adjust something first"}]`.
+Show the draft title and body. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Does this look right?"
+- header: "Review"
+- options:
+  - **Looks good — create the PR** → proceed with PR creation
+  - **I have changes** → adjust first
 
 Apply edits, then proceed.
 
@@ -126,21 +110,26 @@ Determine the base branch from the current branch name:
 
 - `task/*` branch → target the parent feature branch (`feature/<feature-number>-<feature-slug>`)
 - `feature/*` branch → target `main`
-- Other → call `AskUserQuestion` with `question: "What branch should this PR target?"`, `header: "Base branch"`, options derived from `git branch -r`.
+- Other → call `AskUserQuestion` (per `../references/questioning-style.md`):
+  - question: "What branch should this PR target?"
+  - header: "Base branch"
+  - options: from `git branch -r`
 
-Write the body to a temp file, then create the PR:
+Write the body to a temp file (`$BODY`) with the Write tool, then create the PR via the gh body helper (`../references/gh-body-helper.md`) so the description survives UTF-8 on Windows:
 
 ```bash
+# $BODY is the temp file you wrote the PR body to with the Write tool.
+
 # task branch:
-gh pr create \
+python3 .wtf/gh-body.py create --pr \
   --title "<title>" \
-  --body-file /tmp/wtf-create-pr-body.md \
+  --body-file "$BODY" \
   --base feature/<feature-number>-<feature-slug>
 
 # feature branch:
-gh pr create \
+python3 .wtf/gh-body.py create --pr \
   --title "<title>" \
-  --body-file /tmp/wtf-create-pr-body.md \
+  --body-file "$BODY" \
   --base main
 ```
 
@@ -151,18 +140,25 @@ Print the PR URL.
 If a Task issue is linked, post a comment linking the PR:
 
 ```bash
-gh issue comment <task_number> --body "PR opened: <pr_url>"
+# Write "PR opened: <pr_url>" to a temp file with the Write tool ($COMMENT), then:
+python3 .wtf/gh-body.py comment <task_number> --body-file "$COMMENT"
 ```
 
 ### 10. Offer next steps
 
-Call `AskUserQuestion` with:
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What's next?"
+- header: "Next step"
+- options:
+  - **Request a review** → add reviewers to this PR now (default)
+  - **Done** → exit, no further action
 
-- `question`: "What's next?"
-- `header`: "Next step"
-- `options`: `[{label: "Request a review", description: "Add reviewers to this PR now (default)"}, {label: "Done", description: "Exit — no further action"}]`
+On **Request a review** → call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Who should review this?"
+- header: "Reviewer"
+- options: from team member usernames inferred from recent `git log` authors or the repository's CODEOWNERS file
 
-- **Request a review** → call `AskUserQuestion` with `question: "Who should review this?"`, `header: "Reviewer"`, and `options` pre-filled with team member usernames inferred from recent git log authors or the repository's CODEOWNERS file. Then:
+Then:
   ```bash
   gh pr edit <pr_number> --add-reviewer <username>
   ```

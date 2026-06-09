@@ -17,10 +17,18 @@ Skip this step if gh-setup was already confirmed this session.
 
 ### 1. Identify the issue and its hierarchy
 
-If an issue number was passed in as context or a CLI argument, use it directly. Otherwise call `AskUserQuestion` with `question: "Which issue are you refining?"`, `header: "Issue"`, and `options` pre-filled with recently-updated open issues across all WTF labels (epic, feature, task) inferred from:
+If an issue number was passed in as context or a CLI argument, use it directly. Otherwise call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which issue are you refining?"
+- header: "Issue"
+- options: from recently-updated open issues across all WTF labels (epic, feature, task), inferred from:
 
 ```bash
-gh issue list --label "epic,feature,task" --state open --json number,title,labels --limit 10
+# Resolve $WTF_CLASS once — see ../references/issue-classification.md.
+if [ "$WTF_CLASS" = types ]; then
+  gh issue list --search 'state:open (type:"Epic" OR type:"Feature" OR type:"Task")' --json number,title --limit 10
+else
+  gh issue list --label "epic,feature,task" --state open --json number,title,labels --limit 10
+fi
 ```
 
 Fetch the issue:
@@ -29,11 +37,14 @@ Fetch the issue:
 gh issue view <issue_number> --json number,title,body,labels,comments,updatedAt
 ```
 
-**Detect the issue type** from its labels:
-- Has label `epic` → type = **Epic**
-- Has label `feature` → type = **Feature**
-- Has label `task` → type = **Task**
-- None of the above → call `AskUserQuestion` with `question: "I couldn't detect the type from the labels. What kind of issue is this?"`, `header: "Issue type"`, and `options: [{label: "Epic"}, {label: "Feature"}, {label: "Task"}]`.
+**Detect the issue kind** — follow the **Detect the kind of an existing issue** block in `../references/issue-classification.md` (it reads the native issue type in `types` mode and the kind label in `labels` mode; compare case-insensitively):
+- `Epic` → type = **Epic**
+- `Feature` → type = **Feature**
+- `Task` → type = **Task**
+- Indeterminate (no type set and no kind label) → call `AskUserQuestion` (per `../references/questioning-style.md`):
+  - question: "I couldn't detect the kind of this issue. What kind is it?"
+  - header: "Issue type"
+  - options: **Epic** / **Feature** / **Task**
 
 **Fetch the hierarchy** for context and cascade planning:
 
@@ -53,7 +64,10 @@ Merge insights from every available source into a single consolidated list. Proc
 
 **a. CLI argument / conversation context**
 
-If the user passed insight text in the invocation (e.g. `refine #42 "scope changed — exclude mobile"`), treat that as the primary insight. If nothing was passed, call `AskUserQuestion` with `question: "What changed or what new insight should I incorporate?"`, `header: "Insight"`, and `options` pre-filled with 1–2 plausible changes inferred from recent issue comments (e.g. the last comment's key point).
+If the user passed insight text in the invocation (e.g. `refine #42 "scope changed — exclude mobile"`), treat that as the primary insight. If nothing was passed, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What changed or what new insight should I incorporate?"
+- header: "Insight"
+- options: from plausible changes inferred from recent issue comments (e.g. the last comment's key point)
 
 **b. GitHub comments since last body edit**
 
@@ -84,7 +98,13 @@ Merge all signals into a numbered list of insights. Present them briefly to the 
 > 2. [insight summary]
 > ..."
 
-Call `AskUserQuestion` with `question: "Does this capture everything you want to incorporate?"`, `header: "Insights"`, and `options: [{label: "Yes — proceed", description: "Continue with these insights"}, {label: "Add more", description: "I have additional context to provide"}, {label: "Remove one", description: "Some of these aren't relevant"}]`.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Does this capture everything you want to incorporate?"
+- header: "Insights"
+- options:
+  - **Yes — proceed** → continue with these insights
+  - **Add more** → I have additional context to provide
+  - **Remove one** → some of these aren't relevant
 
 Apply any adjustments before continuing.
 
@@ -122,13 +142,13 @@ Using the change map from step 3, run only the validations that apply. Skip the 
 
 **Scope changed → Vertical slice + Scope gate**
 
-Re-assess whether the refined issue still satisfies the vertical slice requirement and passes the scope gate for its type. Use the same criteria as in the original write-* skill:
+Re-run both stages defined in `../references/scope-gates.md` on the refined intent, then on the rewritten sections. The per-level split signals live in the matching write-* skill:
 
-- Epic scope gate: split signals (multiple business objectives, >8 features, spans contexts without seam)
-- Feature scope gate: split signals (>6 ACs, multiple actors, "and" in capability name)
-- Task scope gate: split signals (>4 Gherkin scenarios, >4 unrelated modules, migration + behavior bundled)
+- Epic → `wtf.write-epic` step 7
+- Feature → `wtf.write-feature` step 9
+- Task → `wtf.write-task` step 9
 
-If a split signal fires on the **refined** issue, present it as a refinement concern (not a blocker). Call `AskUserQuestion` with the same options as in the original skill: keep / split / stop.
+If a split signal fires on the **refined** issue, present it as a refinement concern (not a blocker). Use the same keep / split / stop ask the write-* skill uses (see `../references/scope-gates.md`).
 
 **Domain language changed → DDD Language Guard**
 
@@ -156,7 +176,13 @@ AFTER:
   [updated text]
 ```
 
-Then call `AskUserQuestion` with `question: "Does this diff look right?"`, `header: "Diff review"`, and `options: [{label: "Looks good — apply it", description: "Write the changes to the issue"}, {label: "I have corrections", description: "I want to adjust one or more sections"}, {label: "Start over", description: "The insights were wrong — let me re-describe what changed"}]`.
+Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Does this diff look right?"
+- header: "Diff review"
+- options:
+  - **Looks good — apply it** → write the changes to the issue
+  - **I have corrections** → adjust one or more sections
+  - **Start over** → the insights were wrong; re-describe what changed
 
 Apply any corrections, then proceed.
 
@@ -177,26 +203,27 @@ gh issue view <issue_number> --json labels --jq '.labels[].name'
 | Contracts changed | `implemented`, `verified` | — |
 | Functional Description changed | — | — |
 
-If any stale labels are present, call `AskUserQuestion` with:
-
-- `question`: "The following labels may no longer be accurate after this refinement: [list]. How should I handle them?"
-- `header`: "Stale labels"
-- `options`: `[{label: "Strip stale labels", description: "Remove the labels that no longer reflect reality (recommended)"}, {label: "Keep labels as-is", description: "Leave labels unchanged — I'll manage them manually"}]`
+If any stale labels are present, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "The following labels may no longer be accurate after this refinement: [list]. How should I handle them?"
+- header: "Stale labels"
+- options:
+  - **Strip stale labels** → remove the labels that no longer reflect reality (recommended)
+  - **Keep labels as-is** → leave labels unchanged; I'll manage them manually
 
 Record the decision for the audit comment in step 8.
 
 ### 7. Apply the changes
 
-Read the current issue body, merge only the changed sections (preserving all unchanged content), and write the updated body:
+Read the current issue body, merge only the changed sections (preserving all unchanged content), and write the updated body — through the gh body helper (`../references/gh-body-helper.md`):
 
 ```bash
-gh issue view <issue_number> --json body -q .body > /tmp/wtf-refine-body.md
+python3 .wtf/gh-body.py read <issue_number>       # prints a temp path
 ```
 
-Use the Edit tool to replace each changed section in `/tmp/wtf-refine-body.md` with its updated content. Preserve all other sections verbatim.
+Use the Edit tool to replace each changed section in the printed temp file with its updated content. Preserve all other sections verbatim.
 
 ```bash
-gh issue edit <issue_number> --body-file /tmp/wtf-refine-body.md
+python3 .wtf/gh-body.py edit <issue_number> --body-file "<path-from-read>"
 ```
 
 If stale labels should be stripped (from step 6):
@@ -213,7 +240,8 @@ Print the updated issue URL.
 Post a structured comment summarising the refinement:
 
 ```bash
-gh issue comment <issue_number> --body "<audit_comment>"
+# Write the audit comment to a temp file with the Write tool; $COMMENT is that path.
+python3 .wtf/gh-body.py comment <issue_number> --body-file "$COMMENT"
 ```
 
 The audit comment must include:
@@ -246,13 +274,15 @@ Using the hierarchy fetched in step 1, determine which children are affected by 
 - Tasks whose Gherkin scenarios directly test the changed ACs
 - Tasks whose Proposed Tasks checklist entry was modified or removed
 
-Present the affected children as a numbered list. Then call `AskUserQuestion` with:
+Present the affected children as a numbered list. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "These child issues may be out of sync with the updated spec: [list]. How would you like to handle them?"
+- header: "Cascade"
+- options:
+  - **Refine each one now** → walk through `wtf.refine` for each affected child in order (default)
+  - **I'll handle them manually** → exit; I'll open each child and update it myself
+  - **Skip** → leave children as-is
 
-- `question`: "These child issues may be out of sync with the updated spec: [list]. How would you like to handle them?"
-- `header`: "Cascade"
-- `options`: `[{label: "Refine each one now", description: "Walk through `refine` for each affected child in order (default)"}, {label: "I'll handle them manually", description: "Exit — I'll open each child and update it myself"}, {label: "Skip", description: "Leave children as-is"}]`
-
-- **Refine each one now** → restart this skill from step 2 for the first affected child, passing the insight as context so the user is not asked for it again. Continue through each child in order.
+- **Refine each one now** → partition the affected children into conflict-free sub-groups using `../references/conflict-graph.md` (sub-groups here play the role of sub-phases). For each sub-group, spawn one sub-agent per child in parallel using the Agent tool, following `../references/subagent-protocol.md` — read `skills/wtf.refine/SKILL.md` at spawn time and paste steps 2 onward into each sub-agent prompt. Pass in the child issue number and the parent insight as pre-loaded context so the user is not re-asked. Wait for all sub-agents in a sub-group to complete (resolving any `NEEDS_INPUT` responses) before starting the next sub-group. After all sub-groups complete, summarise results.
 - **I'll handle them manually** / **Skip** → exit.
 
 If no children are affected, skip this step entirely.

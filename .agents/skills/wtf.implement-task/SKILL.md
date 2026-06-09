@@ -15,92 +15,28 @@ The expected Task issue body structure is defined in @.github/ISSUE_TEMPLATE/TAS
 
 Run steps 1–2 of `../references/gh-setup.md` (install check and auth check). Stop if `gh` is not installed or not authenticated. Extensions are not required for this skill.
 
-Skip this step if invoked from `verify-task` or another skill that already ran gh-setup this session.
+Skip this step if invoked from `wtf.verify-task` or another skill that already ran gh-setup this session.
 
 ### 1. Identify the Task
 
-Ask: "Which Task are you implementing? (issue number)"
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which Task are you implementing?"
+- header: "Task"
+- options: from recent open issues labeled `task`
 
-Fetch the Task first, extract Feature and Epic numbers from its Context section, then fetch Feature and Epic in parallel:
-
-```bash
-gh issue view <task_number>    # Gherkin, Contracts, Impacted Areas — also yields feature and epic numbers
-# Extract feature and epic numbers, then in parallel:
-gh issue view <feature_number> # ACs, user stories
-gh issue view <epic_number>    # Goal, context, constraints
-```
+Walk Task → Feature → Epic per `../references/spec-hierarchy.md` to extract Gherkin, Contracts, Impacted Areas (Task) and ACs / Goal / constraints (Feature, Epic).
 
 ### 2. Lifecycle check
 
-Check whether the task has been designed:
-
-```bash
-gh issue view <task_number> --json labels --jq '.labels[].name'
-```
-
-If the `designed` label is **absent**, warn the user that the task hasn't been designed yet and that the recommended flow is: **write-task → design-task → implement-task → verify-task**. Then call `AskUserQuestion` with:
-
-- `question`: "This task doesn't have a `designed` label yet. How would you like to proceed?"
-- `header`: "Design check"
-- `options`: `[{label: "Design it first", description: "Go back and run `design-task` (default)"}, {label: "Skip design", description: "Proceed to implementation anyway"}]`
-
-- **Design it first** → follow the `design-task` process, passing the Task number in as context.
-- **Skip design** → proceed.
-
-If the `designed` label is present, continue silently.
+Apply the **absent-label gate** from `../references/lifecycle-labels.md` for the `designed` label on the Task — recommended skill `wtf.design-task`, header `Design check`. On **Design it first** → follow `wtf.design-task` passing the Task number as context. On **Skip design** → proceed. If present, continue silently.
 
 ### 3. Load the technical steering document
 
-Use the Read tool to attempt reading `docs/steering/TECH.md`.
-
-If the file **exists**: keep its content in context. Use its stack, architecture patterns, key constraints, commands, and ADRs to inform the technical approach and implementation in this session. Do not surface it to the user — just apply it silently.
-
-If the file **does not exist**, call `AskUserQuestion` with:
-
-- `question`: "docs/steering/TECH.md doesn't exist yet. This document captures your stack, architecture patterns, and technical constraints. Would you like to create it now?"
-- `header`: "Tech steering doc missing"
-- `options`: `[{label: "Create it now", description: "Run `steer-tech` before continuing (recommended)"}, {label: "Skip for this session", description: "Continue without it — technical decisions won't reference project standards"}]`
-
-- **Create it now** → follow the `steer-tech` process, then return to this skill and continue from step 4.
-- **Skip for this session** → continue without it.
+Load `docs/steering/TECH.md` per the **strict consumer-side load** in `../references/steering-doc-process.md` (recommended skill: `wtf.steer-tech`). Apply its stack, architecture patterns, key constraints, commands, and ADRs silently throughout this session.
 
 ### 4. Set up the branch
 
-Before writing any code, set up branches following the trunk-based feature branching strategy:
-
-```
-main
-└── feature/<feature-number>-<feature-slug>   (merges → main)
-    └── task/<task-number>-<task-slug>         (merges → feature branch)
-```
-
-**Slug generation:** For both the feature slug and task slug, spawn a subagent using the `claude-haiku-4-5` model. Pass in the title and ask for a 2–4 word kebab-case summary restricted to `[a-z0-9-]` characters (e.g. `date-range-filter`).
-
-**Feature branch — create if missing:**
-
-```bash
-git fetch origin
-git checkout feature/<feature-number>-<feature-slug> 2>/dev/null || {
-  git checkout main
-  git pull --rebase origin main
-  git checkout -b feature/<feature-number>-<feature-slug>
-  git push -u origin feature/<feature-number>-<feature-slug>
-}
-git pull --rebase origin feature/<feature-number>-<feature-slug>
-```
-
-**Task branch — create or resume:**
-
-```bash
-# Fresh work:
-git checkout -b task/<task-number>-<task-slug>
-
-# Resumed work (branch already exists):
-git checkout task/<task-number>-<task-slug>
-git rebase origin/feature/<feature-number>-<feature-slug>
-```
-
-Resolve any conflicts before proceeding. Print the branch name.
+Set up the feature branch and task branch per `../references/branch-setup.md` (slug generation, feature-branch create-or-checkout, task-branch create-or-resume). Resolve any conflicts before proceeding.
 
 ### 5. Explore the codebase
 
@@ -135,14 +71,21 @@ Produce a concrete Technical Approach with actual file paths (not generic layer 
 
 ### 7. Review approach with user
 
-Show the Technical Approach. Then call `AskUserQuestion` with `question: "Does this align with how you'd approach it?"`, `header: "Approach review"`, and `options: [{label: "Yes — looks good, proceed", description: "Continue with implementation"}, {label: "I have constraints to share", description: "I want to adjust the approach first"}, {label: "Suggest an alternative", description: "Let me describe a different approach"}]`.
+Show the Technical Approach. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Does this align with how you'd approach it?"
+- header: "Approach review"
+- options:
+  - **Yes — looks good, proceed** → continue with implementation
+  - **I have constraints to share** → adjust the approach first
+  - **Suggest an alternative** → describe a different approach
 
 Apply changes. Then update the Task issue with the Technical Approach and Impacted Areas.
 
-> See `references/issue-body-update-pattern.md` for the read-merge-write pattern. Use `/tmp/wtf-implement-task-approach.md` as the temp file.
+> See `references/issue-body-update-pattern.md` for the read-merge-write pattern (it goes through the gh body helper).
 
 ```bash
-gh issue edit <task_number> --body-file /tmp/wtf-implement-task-approach.md
+python3 .wtf/gh-body.py read <task_number>        # prints a temp path; Read it, merge in Technical Approach + Impacted Areas
+python3 .wtf/gh-body.py edit <task_number> --body-file "<path-from-read>"
 ```
 
 ### 8. Drive the TDD cycle
@@ -152,7 +95,7 @@ For each Gherkin scenario in the Task, work through them in order. Match the pro
 1. **Write the failing test** for the scenario.
 2. **Implement the minimum code** to make it pass.
 3. **Refactor** if needed — keep functions under 40 lines, no deep nesting.
-4. **Commit** — create an atomic semantic commit:
+4. **Commit** — atomic semantic commit per `../references/commit-conventions.md`. Use the `Scenario:` and `Task:` trailers:
 
    ```bash
    git add <changed files>
@@ -162,9 +105,7 @@ For each Gherkin scenario in the Task, work through them in order. Match the pro
    Task: #<task_number>"
    ```
 
-   Commit type: `feat` for new behavior, `fix` for bug fixes, `test` for test-only changes, `refactor` for refactors, `chore` for config/build changes.
-
-6. Do not skip ahead — each scenario is a checkpoint.
+5. Do not skip ahead — each scenario is a checkpoint.
 
 Once all scenarios are green, run the full lint and type-check gate once across all changes. Check `package.json` for `lint`, `typecheck`, `type-check`, or `check` script keys and run whichever exist:
 
@@ -192,28 +133,29 @@ Fill the Test Mapping table in the Task issue with concrete file paths:
 | ----------------- | ----------------------- | ------- |
 | `<scenario name>` | `<test file path:line>` | passing |
 
-> See `references/issue-body-update-pattern.md` for the read-merge-write pattern. Re-fetch the body (do not reuse the temp file from step 6). Use `/tmp/wtf-implement-task-test-mapping.md` as the temp file.
+> See `references/issue-body-update-pattern.md` for the read-merge-write pattern. Re-`read` the body (do not reuse the temp file from step 6).
 
 ```bash
-gh issue edit <task_number> --body-file /tmp/wtf-implement-task-test-mapping.md
+python3 .wtf/gh-body.py read <task_number>        # re-fetch; prints a fresh temp path; Read it, update the Test Mapping table
+python3 .wtf/gh-body.py edit <task_number> --body-file "<path-from-read>"
 ```
 
 Print the updated Task issue URL.
 
 ### 11. Mark implemented and offer to continue
 
-Add the `implemented` lifecycle label:
+Add the `implemented` lifecycle label — this is mandatory regardless of invocation mode:
 
 ```bash
 gh issue edit <task_number> --add-label "implemented"
 ```
 
-Call `AskUserQuestion` with:
+If invoked from the loop (non-interactive mode), skip the ask below and return control to the loop.
 
-- `question`: "What's next?"
-- `header`: "Next step"
-- `options`: `[{label: "Verify this Task", description: "Run QA against the Gherkin scenarios (recommended next step, default)"}, {label: "Open a pull request", description: "Create a PR for this branch"}, {label: "Implement another Task", description: "Implement another Task for the same Feature"}]`
-
-- **Verify this Task** → follow the `verify-task` process, passing the Task number in as context so the user is not asked for it again.
-- **Open a pull request** → follow the `create-pr` process, passing the Task number and branch in as context.
-- **Implement another Task** → restart this skill from step 1.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What's next?"
+- header: "Next step"
+- options:
+  - **Verify this Task** → follow `wtf.verify-task`, passing the Task number in as context (recommended)
+  - **Open a pull request** → follow `wtf.create-pr`, passing the Task number and branch in as context
+  - **Implement another Task** → restart this skill from step 1

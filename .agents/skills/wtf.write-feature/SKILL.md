@@ -1,6 +1,6 @@
 ---
 name: wtf.write-feature
-description: This skill should be used when a user wants to create a GitHub Feature issue, break down an Epic into user-facing capabilities, write user stories in domain language, or capture what a domain actor can do — for example "create a feature", "write a feature for this epic", "add a feature to an epic", "break this epic into features", "write user stories for this feature", or "describe what this actor can do". Use this skill to write a single Feature; use `epic-to-features` to generate the full set of Features for an Epic at once. Not applicable to Tasks, Epics, or bug reports.
+description: This skill should be used when a user wants to create a GitHub Feature issue, break down an Epic into user-facing capabilities, write user stories in domain language, or capture what a domain actor can do — for example "create a feature", "write a feature for this epic", "add a feature to an epic", "break this epic into features", "write user stories for this feature", or "describe what this actor can do". Use this skill to write a single Feature; use `wtf.epic-to-features` to generate the full set of Features for an Epic at once. Not applicable to Tasks, Epics, or bug reports.
 ---
 
 # Write Feature
@@ -13,20 +13,28 @@ Create a GitHub Feature issue defining a user-facing capability. Fetches the par
 
 Run the setup check from `../references/gh-setup.md`. Stop if `gh` is not installed or not authenticated. Note whether the extensions are available — this determines whether native sub-issue and dependency links are created in step 10.
 
-Skip this step if invoked from `epic-to-features` or `write-epic` (the orchestrator already ran it), or on re-invocations within the same session (e.g. "Write next Feature" loop in step 11).
+Skip this step if invoked from `wtf.epic-to-features` or `wtf.write-epic` (the orchestrator already ran it), or on re-invocations within the same session (e.g. "Write next Feature" loop in step 11).
 
 ### 1. Identify the parent Epic
 
-Search for recent open issues with label `epic` to populate options. Call `AskUserQuestion` with `question: "Which Epic does this Feature belong to?"`, `header: "Epic"`, and `options` pre-filled with 1–2 likely open Epic issue references inferred from GitHub search (e.g. recent open issues labeled `epic`). Include `{label: "None", description: "No parent Epic exists yet"}` as an option.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which Epic does this Feature belong to?"
+- header: "Epic"
+- options:
+  - Candidates from recent open issues labeled `epic`
+  - **None** — no parent Epic exists yet
 
-- If an Epic number is given: fetch it immediately — `gh issue view <number>` — extract Goal, Context, and Success Metrics.
+- If an Epic number is given: fetch it per `../references/spec-hierarchy.md` and extract Goal, Context, and Success Metrics.
 - If "none": note there is no parent Epic. Proceed, but flag the gap at the end — a Feature without an Epic is a planning debt.
 
 **Wiki / glossary fetch:** After fetching the Epic (or immediately if no Epic), search for any wiki pages or in-repo glossary docs relevant to this Feature's domain area. Use these to identify existing Ubiquitous Language terms before naming anything new.
 
 ### 2. Name the capability
 
-Ask: "What user-facing capability is this?" (one sentence)
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What user-facing capability is this?" (one sentence)
+- header: "Capability"
+- options: infer 1–2 candidates from the Epic's Goal or Success Metrics if available
 
 The capability name must follow the pattern: **[Domain Actor] can [domain verb] [domain object]** — where:
 
@@ -58,14 +66,7 @@ Clarification questions are split into two tiers. Work through all Required ques
 7. What business invariants must hold?
 8. Are there known edge cases or failure modes?
 
-**Questioning style:**
-
-- Ask questions **one at a time** in order of priority. Wait for the answer before asking the next.
-- **Always use the `AskUserQuestion` tool for every question** — including open-ended ones like "What does success look like?" or "What are the constraints?". For each question, infer 1–2 likely answers from research (e.g. domain actors found in the codebase, triggers implied by the Epic context) and pass them as `options`. The UI automatically appends an "Other (type your answer)" escape hatch — do NOT add one manually.
-  - Example: for "What triggers this capability?", call `AskUserQuestion` with `question: "What triggers this capability?"`, `header: "Trigger"`, and `options: [{label: "User initiates", description: "Explicit button or form action"}, {label: "System triggers", description: "Automatic event or schedule"}, {label: "Both", description: "User-initiated and automatic"}]`.
-  - Example for open-ended: for "Who is the exact domain actor?", call `AskUserQuestion` with research-inferred role names as options (e.g. roles found in the Epic or codebase).
-
-- Stop when you have enough to write a complete draft. Do not ask context-dependent questions you can answer confidently from research or the Epic.
+For each unanswered item above, call `AskUserQuestion` (per `../references/questioning-style.md`). Stop when you have enough for a complete draft.
 
 ### 4. Derive user stories
 
@@ -85,33 +86,19 @@ If issues are found, correct them silently and note the changes when showing the
 
 ### 6. Vertical slice assessment
 
-A feature must be a **vertical slice**: it delivers one coherent, independently releasable user-facing capability from end to end. It should not require another unshipped feature to be meaningful to users.
+Run Stage 1 of `../references/scope-gates.md` on the gathered context and user stories. The Feature-specific bar: an end-to-end slice delivering one coherent, independently releasable user-facing capability. Concrete test — if this feature shipped tomorrow with no other unshipped features, could a domain actor use it and gain business value? If no, it fails.
 
-Concrete test: if this feature shipped tomorrow with no other unshipped features, could a domain actor use it and gain business value? If no, it fails.
+Evaluate:
 
-This assessment runs on the **gathered context and user stories** — before the draft is written. It catches structural incoherence early. A second, draft-level scope check runs at step 9 after the written artefact is complete.
-
-Evaluate whether this feature meets that bar:
-
-- **Passes** → proceed.
-- **Too broad** → propose splitting into smaller capability slices; present the breakdown and ask the user to confirm before continuing.
-- **Has dependencies** → identify them explicitly. List Features already created under this Epic using the sub-issue hierarchy:
-
-```bash
-gh sub-issue list <epic_number>
-```
-
-Use these to determine which sibling Features already exist, then decide:
-  - Features this feature **depends on** (must ship first)
-  - Features that **depend on this feature** (will be blocked until this ships)
-
-Record each dependency issue number for use in step 10. Do not write them to the body yet — step 10 handles all body writes and native links together.
+- **Passes** → proceed to draft.
+- **Too broad** → propose smaller capability slices and confirm with the user.
+- **Has dependencies** → identify them against sibling Features already under this Epic. Use `gh sub-issue list <epic_number>` per the cookbook in `../references/gh-setup.md`. Decide which Features this one depends on (must ship first) and which depend on it (will be blocked until this ships). Record each dependency issue number for step 10; do not write them into the body yet.
 
 ### 7. Draft the Feature
 
 Acceptance Criteria must map 1:1 to user stories. Edge Cases must name at least 2 explicit failure or boundary scenarios.
 
-Use the issue body structure from @.github/ISSUE_TEMPLATE/FEATURE.md (ignore the YAML frontmatter — use only the markdown body below the second `---` delimiter). Fill in all sections with the gathered context.
+Load the FEATURE template per `../references/issue-template-loading.md` (verify existence, halt-or-setup if missing, read body below the second `---` delimiter). Fill in all sections with the gathered context.
 
 **DDD writing rules for this draft** (see `../references/ddd-writing-rules.md` for full rules):
 
@@ -137,7 +124,7 @@ Present the list as named-but-unnumbered checklist items and add them to the **P
 
 Do not ask a separate question for this — it is shown as part of the draft in step 9. The user can adjust the task list during that review.
 
-This list is written into the Feature body and becomes the starting point for `feature-to-tasks` — it reads the Proposed Tasks checklist directly rather than re-deriving from ACs. Write it carefully; it will drive task creation.
+This list is written into the Feature body and becomes the starting point for `wtf.feature-to-tasks` — it reads the Proposed Tasks checklist directly rather than re-deriving from ACs. Write it carefully; it will drive task creation.
 
 ### 8. Run Definition of Ready checklist
 
@@ -148,63 +135,65 @@ The DoR items (from the Feature template) are:
 - [ ] Acceptance criteria written and reviewed
 - [ ] Edge cases identified
 
-Evaluate each against the draft. For each unchecked item, call `AskUserQuestion` with:
+Evaluate each against the draft. For each unchecked item, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "The DoR item '[item name]' is not met. How should we handle it?"
+- header: "DoR item"
+- options:
+  - **Flag as blocker** → add a ⛔ Blocker note to the issue body before creating
+  - **Waive** → note the reason and proceed anyway
 
-- `question`: "The DoR item '[item name]' is not met. How should we handle it?"
-- `header`: "DoR item"
-- `options`: `[{label: "Flag as blocker", description: "Add a ⛔ Blocker note to the issue body before creating"}, {label: "Waive", description: "Note the reason and proceed anyway"}]`
+If "Design handoff complete" is flagged as a blocker, also call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Do you have a Figma link to include?"
+- header: "Figma link"
+- options:
+  - **No link yet** → leave Design Reference empty for now
 
-If "Design handoff complete" is flagged as a blocker, also call `AskUserQuestion` with `question: "Do you have a Figma link to include?"`, `header: "Figma link"`, and `options: [{label: "No link yet", description: "Leave Design Reference empty for now"}]` — if provided via the free-text escape hatch, add it to the Design Reference section of the issue body.
+If the user provides a link via the free-text escape hatch, add it to the Design Reference section of the issue body.
 
 ### 9. Scope gate
 
-This is a final holistic scope check on the **written draft** — distinct from step 6's structural vertical-slice check on gathered context. Both can fire independently: step 6 catches logical incoherence before a draft exists; this step catches scope that only becomes visible once all ACs, user stories, and edge cases are written out. Frame this to the user as a structural check, not a challenge to their earlier answers.
+Run Stage 2 of `../references/scope-gates.md` on the written draft. Even if step 6 passed, drafting sometimes exposes scope that was invisible in the abstract.
 
-Look for these **Feature-level split signals** (heuristics — use judgement, not rigid thresholds):
+**Feature-level split signals** (heuristics — use judgement, not rigid thresholds):
 
-- There are more than 6 Acceptance Criteria covering meaningfully different behaviors — not variations on one behavior (six ways a payment can fail is not six separate features)
-- The user stories reference more than one domain actor where each actor's need is independently satisfiable (e.g. a Manager story and a Customer story that could ship as separate features)
-- The capability name contains "and" connecting two separable actions (e.g. "Merchant can view and export settlements")
-- The Feature would require more than 6–8 Tasks to implement a single coherent behavior — a sign it is actually two features bundled together
-- There is a natural early-release point: a subset of the ACs could ship and deliver value on its own without the rest
+- More than 6 Acceptance Criteria covering meaningfully different behaviors — not variations on one behavior (six ways a payment can fail is not six separate features).
+- The user stories reference more than one domain actor where each actor's need is independently satisfiable (e.g. a Manager story and a Customer story that could ship as separate features).
+- The capability name contains "and" connecting two separable actions (e.g. "Merchant can view and export settlements").
+- The Feature would require more than 6–8 Tasks to implement a single coherent behavior — likely two features bundled together.
+- There is a natural early-release point: a subset of the ACs could ship and deliver value on its own.
 
-If **no signals are present**, proceed to the user review.
+If no signals fire, proceed to user review. If one or more fire, follow the Stage 2 procedure: state the signals, explain the risk, propose a concrete split (two focused capability names following the **[Actor] can [verb] [object]** pattern), and use the keep/split/stop ask from `../references/scope-gates.md`.
 
-If **one or more signals fire**, present your case: state which signals you found, explain why they suggest the feature should be split, and propose a concrete split (two focused capability names following the **[Actor] can [verb] [object]** pattern). Then call `AskUserQuestion` with:
-
-- `question`: "I think this Feature may be too broad — see my reasoning above. How do you want to proceed?"
-- `header`: "Scope check"
-- `options`:
-  1. `{label: "Keep the original draft", description: "Proceed with the current draft without splitting"}`
-  2. `{label: "Split it", description: "Start over with one of the proposed smaller Features"}`
-  3. `{label: "Stop here", description: "Exit without creating — I'll revisit the scope separately"}`
-
-- **Keep the original draft** → proceed to the user review without further comment.
-- **Split it** → return to step 3 with the chosen focused capability as the seed, carrying forward the already-fetched Epic context. Only re-ask clarification questions that the narrowed scope makes ambiguous.
-- **Stop here** → exit.
+On **Split it** → return to step 3 with the chosen focused capability as the seed, carrying forward the already-fetched Epic context. Only re-ask clarification questions that the narrowed scope makes ambiguous.
 
 ### 10. Review with user
 
-Show the draft. Then call `AskUserQuestion` with `question: "Any changes before I create the issue?"`, `header: "Review"`, and `options: [{label: "Looks good — create the issue", description: "Proceed with issue creation"}, {label: "I have changes", description: "I want to adjust something first"}]`.
+Show the draft. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Any changes before I create the issue?"
+- header: "Review"
+- options:
+  - **Looks good — create the issue** → proceed with issue creation
+  - **I have changes** → adjust first
 
 Apply edits, then proceed.
 
 ### 11. Create the issue and link to Epic
 
-> Note: Write each body to a temp file with the Write tool, then use `--body-file` to avoid shell quoting issues with multi-line content.
+> Note: Write the body to a temp file (`$BODY`) with the Write tool, then create it through the gh body helper so multi-line UTF-8 content survives on Windows. See `../references/gh-body-helper.md`.
 
-**Title generation:** Spawn a subagent using the `claude-haiku-4-5` model to generate a concise, domain-language title from the capability name. Pass in the capability name and ask for a short title (no prefix emoji/label needed — that is added below).
+**Title generation:** Spawn a subagent using the `claude-haiku-4-5-20251001` model to generate a concise, domain-language title from the capability name. Pass in the capability name and ask for a short title (no prefix emoji/label needed — that is added below).
 
 Create the Feature issue:
 
 ```bash
-# Ensure the label exists before creating the issue
-gh label create feature --color 0075ca --description "User-facing capability delivered as a vertical slice" 2>/dev/null || true
-
-gh issue create --title "🚀 Feature: <title>" --body-file /tmp/feature-body.md --label "feature"
+# $BODY is the temp file you wrote the filled body to with the Write tool.
+# Create the issue WITHOUT a kind label — the classify step below sets the kind.
+python3 .wtf/gh-body.py create --title "🚀 Feature: <title>" --body-file "$BODY"
 ```
 
 Print the Feature issue URL and number.
+
+**Classify the issue as `Feature`.** Set `TYPE="Feature"` and `ISSUE_NUMBER=<number from the URL>`, then run the **Classify a new issue** block from `../references/issue-classification.md` (resolve `$WTF_CLASS` once first). In `types` mode it sets the native GitHub issue type and leaves labels free for your own segmentation; in `labels` mode it applies the `feature` label. Either way the Feature is classified — nothing downstream depends on which mechanism was used.
 
 **Native relationships:** If `gh-sub-issue-available` (from step 0), link this Feature as a child of its Epic:
 
@@ -223,22 +212,23 @@ If either extension is unavailable, warn the user — do not write relationship 
 
 Print the Feature issue URL and number.
 
-**Wiki / glossary update:** If this Feature introduced or refined any Ubiquitous Language terms (new domain actors, domain verbs, domain events, or Bounded Context seams), update the project glossary — same rules as in `write-epic` step 10. Report only if a change was made.
+**Wiki / glossary update:** If this Feature introduced or refined any Ubiquitous Language terms (new domain actors, domain verbs, domain events, or Bounded Context seams), update the project glossary — same rules as in `wtf.write-epic` step 10. Report only if a change was made.
 
 ### 12. Offer to continue
 
 First, if there is a parent Epic, check its Feature Breakdown checklist: list any Feature placeholders that have not yet been created as issues (i.e. no `#issue` reference beside them). Mention how many remain.
 
-Then call `AskUserQuestion` with:
+Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What's next?"
+- header: "Next step"
+- options:
+  - **Plan all Tasks** → propose the full Task list for this Feature and create them one by one (default)
+  - **Write one Task** → write a single Task for this Feature now
+  - **Write next Feature** → write the next Feature for the same Epic (N remaining — replace N with the actual count, or omit if none)
+  - **Stop here** → exit, no further action
 
-- `question`: "What's next?"
-- `header`: "Next step"
-- `options`: `[{label: "Plan all Tasks", description: "Propose the full Task list for this Feature and create them one by one (default)"}, {label: "Write one Task", description: "Write a single Task for this Feature now"}, {label: "Write next Feature", description: "Write the next Feature for the same Epic (N remaining)"}, {label: "Stop here", description: "Exit — no further action"}]`
-
-_(Replace N with actual count of remaining Features, or omit the description note if there are none.)_
-
-- **Plan all Tasks** → invoke the `feature-to-tasks` skill, passing the Feature number in as context.
-- **Write one Task** → proceed with the `write-task` skill, passing the Feature number in as context.
+- **Plan all Tasks** → invoke the `wtf.feature-to-tasks` skill, passing the Feature number in as context.
+- **Write one Task** → proceed with the `wtf.write-task` skill, passing the Feature number in as context.
 - **Write next Feature** → restart this skill from step 2, reusing the same Epic (skip re-fetching it). If the Epic has a Feature Breakdown list, propose the next uncreated Feature as the default capability name.
 - **Stop here** → exit.
 

@@ -7,17 +7,30 @@ description: This skill should be used when a developer or QA engineer wants to 
 
 File a structured Bug issue from a QA finding. Core value: the Gherkin scenario that failed becomes the reproducible test evidence, and the originating Task and Feature are linked automatically so nothing loses its context.
 
+## Fast path (for wtf.hotfix)
+
+When invoked from `wtf.hotfix`, skip the Gherkin-derivation and Ubiquitous-Language mapping work — the goal is to file the issue fast so the fix can start. Run only:
+
+- Step 0 — GitHub CLI setup (skip if already confirmed this session).
+- Step 1 — Identify the source (one-sentence bug, impact, optional task link).
+- Step 3 — Gather bug details, but only `a. Observed behavior`, `b. Expected behavior`, and `c. Reproduction steps`. Skip contract violation / regression risk / suggested fix questions — the hotfix will uncover those.
+- Step 6 — Draft the Bug report with only the sections the fast path produced (leave Contracts Violated, Regression Risk, Suggested Fix blank or marked "Fast path — to be captured during hotfix").
+- Step 7 — Review briefly (or skip if the caller signalled non-interactive).
+- Step 8 — Create the issue.
+
+Return the bug issue number to the caller. Do not run the offer-next-steps prompt in step 9.
+
 ## Process
 
 ### 0. GitHub CLI setup
 
 Run steps 1–2 of `../references/gh-setup.md` (install check and auth check). Stop if `gh` is not installed or not authenticated. Extensions are not required for this skill.
 
-Skip this step if invoked from `verify-task` or another skill that already ran gh-setup this session.
+Skip this step if invoked from `wtf.verify-task` or another skill that already ran gh-setup this session.
 
 ### 1. Identify the source
 
-**If called from `verify-task`:** the task number and failing scenario(s) are already in context — skip to step 2. Do not ask the questions below.
+**If called from `wtf.verify-task`:** the task number and failing scenario(s) are already in context — skip to step 2. Do not ask the questions below.
 
 **If invoked directly:**
 
@@ -26,17 +39,16 @@ Ask in a single message:
 - "What is the bug? (one sentence)"
 - "Which Task does this trace back to? (issue number, or 'unknown')"
 
-If a task number is known, fetch the Task first, extract the Feature number from its Context section, then fetch the Feature:
-
-```bash
-gh issue view <task_number>    # Gherkin, Contracts, ACs, DoD — also yields feature number
-# Extract feature number, then:
-gh issue view <feature_number> # ACs, user stories for expected behavior context
-```
+If a task number is known, walk Task → Feature per `../references/spec-hierarchy.md` to extract Gherkin, Contracts, ACs, DoD (Task) and ACs / user stories (Feature) for expected-behavior context.
 
 ### 2. Identify the failing scenario(s)
 
-If the Task has Gherkin, present the full scenario list and call `AskUserQuestion` with `question: "Which scenarios failed?"`, `header: "Failing scenarios"`, and `options` pre-filled with the scenario names from the Task (one option per scenario), plus `{label: "New — not covered by existing scenarios", description: "This bug isn't covered by the current Gherkin"}`.
+If the Task has Gherkin, present the full scenario list and call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which scenarios failed?"
+- header: "Failing scenarios"
+- options:
+  - One option per scenario name from the Task
+  - **New — not covered by existing scenarios** — this bug isn't covered by the current Gherkin
 
 For each failing scenario, note:
 
@@ -48,16 +60,16 @@ If no Gherkin exists for this bug, skip this step and rely on step 3.
 
 ### 3. Gather bug details
 
-**If called from `verify-task` and all six details below are already in context, skip this step entirely.**
+**If called from `wtf.verify-task` and all six details below are already in context, skip this step entirely.**
 
-Otherwise, gather each unknown item **one at a time** using `AskUserQuestion`, omitting any item already known:
+Otherwise, for each unknown item below (omitting any already known), call `AskUserQuestion` (per `../references/questioning-style.md`):
 
-- **a. Observed behavior** — call `AskUserQuestion` with `question: "What was the exact behavior you observed?"`, `header: "Actual behavior"`, and `options` pre-filled with 1–2 plausible failure descriptions inferred from the scenario context.
-- **b. Expected behavior** — call `AskUserQuestion` with `question: "What did you expect to happen instead?"`, `header: "Expected behavior"`, and `options` pre-filled with the relevant Gherkin `Then` step or AC text if available.
-- **c. Reproduction steps** — call `AskUserQuestion` with `question: "What are the reproduction steps?"`, `header: "Repro steps"`, and `options: [{label: "I'll type them out", description: "Enter numbered steps"}]`.
-- **d. Contract violation** — call `AskUserQuestion` with `question: "Is any contract violated?"`, `header: "Contract"`, and `options` pre-filled with contract names from the Task (e.g. API schema name, event name), plus `{label: "None identified"}`.
-- **e. Regression risk** — call `AskUserQuestion` with `question: "What else might break if we fix this?"`, `header: "Regression risk"`, and `options` pre-filled with adjacent areas found in the codebase or related Aggregates.
-- **f. Suggested fix** — call `AskUserQuestion` with `question: "Do you have a suggested fix in mind?"`, `header: "Suggested fix"`, and `options: [{label: "No suggestion", description: "Leave blank"}]`.
+- **a. Observed behavior** — question: "What was the exact behavior you observed?" / header: "Actual behavior" / options: from plausible failure descriptions inferred from the scenario context.
+- **b. Expected behavior** — question: "What did you expect to happen instead?" / header: "Expected behavior" / options: from the relevant Gherkin `Then` step or AC text if available.
+- **c. Reproduction steps** — question: "What are the reproduction steps?" / header: "Repro steps" / options: **I'll type them out** — enter numbered steps.
+- **d. Contract violation** — question: "Is any contract violated?" / header: "Contract" / options: candidates from contract names in the Task; **None identified**.
+- **e. Regression risk** — question: "What else might break if we fix this?" / header: "Regression risk" / options: from adjacent areas found in the codebase or related Aggregates.
+- **f. Suggested fix** — question: "Do you have a suggested fix in mind?" / header: "Suggested fix" / options: **No suggestion** — leave blank.
 
 ### 4. Map to Ubiquitous Language
 
@@ -65,7 +77,7 @@ Review the bug description and reproduction steps. If implementation vocabulary 
 
 Confirm the restatement with the user before proceeding.
 
-> **When called from `verify-task` with multiple failures to file:** apply the restatement silently — do NOT ask for confirmation. Note the language changes made in the draft instead of asking the user to approve them. This prevents an interrogation when processing multiple bugs in sequence.
+> **When called from `wtf.verify-task` with multiple failures to file:** apply the restatement silently — do NOT ask for confirmation. Note the language changes made in the draft instead of asking the user to approve them. This prevents an interrogation when processing multiple bugs in sequence.
 
 ### 5. Find linked test files
 
@@ -78,15 +90,7 @@ List each file found with a one-line description of what it covers. These become
 
 ### 6. Draft the Bug report
 
-Read the BUG template first:
-
-```bash
-# Read .github/ISSUE_TEMPLATE/BUG.md
-```
-
-Use only the markdown body below the second `---` delimiter (ignore YAML frontmatter).
-
-Fill in all sections:
+Load the BUG template per `../references/issue-template-loading.md` (verify existence, halt-or-setup if missing, read body below the second `---` delimiter). Fill in all sections:
 
 **Related**
 
@@ -114,46 +118,59 @@ List other behaviors, Aggregates, or integration points that touch the same code
 
 ### 7. Review with user
 
-Show the draft. Then call `AskUserQuestion` with `question: "Does this accurately capture the bug and its impact?"`, `header: "Review"`, and `options: [{label: "Yes — create the issue", description: "Proceed with bug creation"}, {label: "I have changes", description: "I want to adjust something first"}]`.
+Show the draft. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Does this accurately capture the bug and its impact?"
+- header: "Review"
+- options:
+  - **Yes — create the issue** → proceed with bug creation
+  - **I have changes** → adjust first
 
 Apply edits, then proceed.
 
 ### 8. Create the issue
 
-> Note: the commands below are pseudo-code. Write each body to a temp file with the Write tool, then use `--body-file` to avoid shell quoting issues with multi-line content.
+> Note: the commands below are pseudo-code. Write each body to a temp file with the Write tool, then create it through the gh body helper (`.wtf/gh-body.py`) so multi-line UTF-8 content survives on Windows. See `../references/gh-body-helper.md`.
 
-**Title generation:** Spawn a subagent using the `claude-haiku-4-5` model to generate a concise title from the bug's one-sentence description. Pass in the description and ask for a short title (no prefix emoji/label needed — that is added below). If the subagent returns nothing usable, derive the title directly from the one-sentence description.
+**Title generation:** Spawn a subagent using the `claude-haiku-4-5-20251001` model to generate a concise title from the bug's one-sentence description. Pass in the description and ask for a short title (no prefix emoji/label needed — that is added below). If the subagent returns nothing usable, derive the title directly from the one-sentence description.
 
 ```bash
-gh issue create --title "🐞 Bug: <title>" --body-file /tmp/bug-body.md --label "bug"
+# Write the filled bug body to a temp file with the Write tool; $BUG_TMP is that path.
+# Create the issue WITHOUT a kind label — the classify step below sets the kind.
+python3 .wtf/gh-body.py create --title "🐞 Bug: <title>" --body-file "$BUG_TMP"
 ```
 
-If the originating Task is known, add a comment to it linking the bug:
+**Classify the issue as `Bug`.** Set `TYPE="Bug"` and `ISSUE_NUMBER=<number from the URL>`, then run the **Classify a new issue** block from `../references/issue-classification.md` (resolve `$WTF_CLASS` once first). In `types` mode it sets the native GitHub issue type and leaves labels free for your own segmentation; in `labels` mode it applies the `bug` label.
+
+If the originating Task is known, write this comment to a temp file with the Write tool, then post it linking the bug:
+
+> 🐞 Bug reported: #<bug_number> — <one-line summary>
 
 ```bash
-gh issue comment <task_number> --body "🐞 Bug reported: #<bug_number> — <one-line summary>"
+# $COMMENT is the temp file you wrote the comment above to.
+python3 .wtf/gh-body.py comment <task_number> --body-file "$COMMENT"
 ```
 
 Print the Bug issue URL and number.
 
 ```bash
-rm /tmp/bug-body.md
+rm "$BUG_TMP"
 ```
-
-> Note: if the `bug` label does not exist on the repo, create it first with `gh label create bug --color d73a4a` before running `gh issue create`.
 
 ### 9. Offer next steps
 
-Call `AskUserQuestion` with:
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What's next?"
+- header: "Next step"
+- options:
+  - **Report another bug** → file another bug from this QA session (default if more failures remain)
+  - **Mark Task blocked** → reopen the Task and mark it blocked by this bug
+  - **Done** → exit, no further action (default if no more failures remain)
 
-- `question`: "What's next?"
-- `header`: "Next step"
-- `options`: `[{label: "Report another bug", description: "File another bug from this QA session (default if more failures remain)"}, {label: "Mark Task blocked", description: "Reopen the Task and mark it blocked by this bug"}, {label: "Done", description: "Exit — no further action (default if no more failures remain)"}]`
-
-- **Report another bug** → restart from step 2 with the same Task context. Use as default only when the caller (e.g. `verify-task` step 8) has indicated more failures are pending.
+- **Report another bug** → restart from step 2 with the same Task context. Use as default only when the caller (e.g. `wtf.verify-task` step 8) has indicated more failures are pending.
 - **Mark Task blocked** → reopen the Task and add a blocking comment:
   ```bash
   gh issue reopen <task_number>
-  gh issue comment <task_number> --body "Blocked by #<bug_number>."
+  # Write "Blocked by #<bug_number>." to a temp file with the Write tool ($COMMENT), then:
+  python3 .wtf/gh-body.py comment <task_number> --body-file "$COMMENT"
   ```
 - **Done (default when no more failures remain)** → exit.

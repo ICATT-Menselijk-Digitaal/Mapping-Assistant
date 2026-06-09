@@ -13,38 +13,34 @@ Create a GitHub Task issue — the implementable unit of work. Core value: deriv
 
 Run the setup check from `../references/gh-setup.md`. Stop if `gh` is not installed or not authenticated. Note whether the extensions are available — this determines whether native sub-issue and dependency links are created in step 10.
 
-Skip this step if invoked from `feature-to-tasks` or `write-feature` (the orchestrator already ran it), or on re-invocations within the same session (e.g. "Write next Task" loop in step 11).
+Skip this step if invoked from `wtf.feature-to-tasks` or `wtf.write-feature` (the orchestrator already ran it), or on re-invocations within the same session (e.g. "Write next Task" loop in step 11).
 
 ### 1. Identify the parent Feature
 
-Search for recent open issues with label `feature` to populate options. Call `AskUserQuestion` with `question: "Which Feature does this Task belong to?"`, `header: "Feature"`, and `options` pre-filled with 1–2 likely open Feature issue references inferred from GitHub search (e.g. recent open issues labeled `feature`).
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which Feature does this Task belong to?"
+- header: "Feature"
+- options: from recent open issues labeled `feature`
 
-Fetch the Feature, then find its parent Epic via the sub-issue hierarchy:
-
-```bash
-gh issue view <feature_number>                                         # ACs, edge cases, user stories
-gh sub-issue list <feature_number> --relation parent                   # find parent Epic number
-gh issue view <epic_number>                                            # Goal, Context
-```
-
-If the Epic number was passed in as context (e.g. from an orchestrator), skip the `gh sub-issue list` call and use it directly.
+Walk Task → Feature → Epic per `../references/spec-hierarchy.md` to extract ACs, edge cases, user stories, Goal, and Context. If the Epic number was passed in as context (e.g. from an orchestrator), skip the parent walk and use it directly.
 
 ### 2. Name the task
 
-**If a task description was passed in from the orchestrator** (e.g. from `feature-to-tasks` step 3 or `write-feature` step 11), present it directly as the proposal without offering source options:
+**If a task description was passed in from the orchestrator** (e.g. from `wtf.feature-to-tasks` step 3 or `wtf.write-feature` step 11), present it directly as the proposal without offering source options:
 
 > "Here's the task I'll write: _[task description]_. Does this look right, or would you like to adjust it?"
 
-**If invoked from `write-feature` or `feature-to-tasks` context but no description was pre-filled**, call `AskUserQuestion` with:
+**If invoked from `wtf.write-feature` or `wtf.feature-to-tasks` context but no description was pre-filled**, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "How would you like to define this task?"
+- header: "Task source"
+- options:
+  - **Propose from ACs** → based on Feature ACs, existing tasks, and Proposed Tasks checklist; propose the next unimplemented task and confirm (default)
+  - **Describe myself** → I'll provide a one-sentence description
 
-- `question`: "How would you like to define this task?"
-- `header`: "Task source"
-- `options`: `[{label: "Propose from ACs", description: "Let me propose a task based on the Feature ACs (default)"}, {label: "Describe myself", description: "I'll describe the task myself"}]`
-
-- **Propose from ACs** → based on the Feature's Acceptance Criteria, existing tasks, and the Proposed Tasks checklist from the Feature body, propose the next concrete unimplemented task. State it clearly and ask: "Does this task look right, or would you like to adjust it?"
-- **Describe myself** → ask: "What is this task implementing?" (one sentence)
-
-**If invoked standalone** (no Feature context), ask directly: "What is this task implementing?" (one sentence — e.g. "Add date range filter to search API")
+**If invoked standalone** (no Feature context), call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What is this task implementing?" (one sentence — e.g. "Add date range filter to search API")
+- header: "Task"
+- options: infer 1–2 candidates from Feature ACs if available
 
 ### 3. Clarify ambiguity before proceeding
 
@@ -61,11 +57,7 @@ Topics that may require clarification (in priority order):
 - What **domain Events** does this Task emit?
 - If this Task touches an integration boundary, which Bounded Contexts are involved?
 
-**Questioning style:**
-
-- Ask questions **one at a time**. Wait for the answer before asking the next.
-- **Always use the `AskUserQuestion` tool for every question** — including open-ended ones like "What are the entry/exit points?" or "What invariants must hold?". For each question, infer 1–2 likely answers from codebase research (e.g. Aggregate names found in the code, event names from existing domain events) and pass them as `options`. The UI automatically appends an "Other (type your answer)" escape hatch — do NOT add one manually.
-- Stop when you have enough to write a complete draft. Do not invent answers or assume away ambiguity.
+For each unanswered item above, call `AskUserQuestion` (per `../references/questioning-style.md`). Stop when you have enough to write a complete draft — do not invent answers or assume away ambiguity.
 
 ### 4. Explore the codebase and wiki
 
@@ -81,31 +73,27 @@ Use the Agent tool to search the codebase for:
 
 Also fetch any relevant wiki pages or in-repo glossary docs for this task's Bounded Context — check `docs/glossary.md`, GitHub wiki pages matching the context name, or any ADR files. Use these to verify Ubiquitous Language terms before writing Gherkin scenarios. If no wiki or glossary exists, proceed without comment.
 
-**Cross-feature dependency scan:** Fetch the sibling Features from the Epic's Feature Breakdown checklist (already fetched above), then fetch the Proposed Tasks checklist from each sibling Feature's issue body:
+**Cross-feature dependency scan:** Fetch sibling Features from the Epic's Feature Breakdown (extracted above) and the Proposed Tasks checklist from each. For sibling Feature bodies, use the per-level fetch in `../references/spec-hierarchy.md`. Then list already-created sibling tasks:
 
 ```bash
-# For each sibling Feature number extracted from the Epic's Feature Breakdown:
-gh issue view <sibling_feature_number> --json number,title,body
+# Resolve $WTF_CLASS once — see ../references/issue-classification.md.
+if [ "$WTF_CLASS" = types ]; then
+  gh issue list --search 'type:"Task" state:open' --json number,title,body
+else
+  gh issue list --label task --state open --json number,title,body
+fi
 ```
 
-Extract the task names and issue numbers (where linked) from each Feature's Proposed Tasks section. Then fetch the full body of any already-created sibling tasks to understand their scope:
-
-```bash
-gh issue list --label task --state open --json number,title,body
-```
-
-Filter this list client-side to tasks whose body references a sibling Feature number. Note any whose scope overlaps with or must precede this task. Keep these candidate dependencies in mind for step 5.
+Filter client-side to tasks whose body references a sibling Feature number. Note any whose scope overlaps with or must precede this task. Keep these candidate dependencies in mind for step 5.
 
 ### 5. Vertical slice assessment
 
-A task must be a **vertical slice**: it touches all layers needed to deliver one observable, user-facing behavior end-to-end (e.g. DB schema → service logic → API → UI). It must be independently shippable without requiring another unmerged task to be complete first.
+Run Stage 1 of `../references/scope-gates.md` on the codebase findings from step 4. The Task-specific bar: touches every layer needed for one observable, user-facing behavior end-to-end (e.g. DB schema → service logic → API → UI) and is independently shippable without another unmerged task.
 
-This assessment runs on the **codebase findings from step 4** — before a draft is written. It catches structural problems early. A second, draft-level scope check runs at step 9 after the written artefact is complete.
-
-Evaluate whether this task meets that bar:
+Evaluate:
 
 - **Passes** → proceed.
-- **Too broad** → propose splitting into smaller slices; present the breakdown and ask the user to confirm before continuing.
+- **Too broad** → propose smaller slices and confirm with the user.
 - **Has dependencies** → identify them explicitly, including tasks from **sibling Features** in the same Epic (surfaced in step 4):
   - Tasks this task **depends on** (must be merged first — check if the code path exists yet; these may belong to the same Feature or a different Feature in the Epic)
   - Tasks that **depend on this task** (will be blocked until this merges)
@@ -123,7 +111,12 @@ Document all dependencies in the draft with GitHub issue references. For cross-f
 
 ### 6. Ask about contracts
 
-Call `AskUserQuestion` with `question: "Are there specific API contracts, events, or data schemas I should know about?"`, `header: "Contracts"`, and `options` pre-filled with 1–2 contract names or event names inferred from the codebase (e.g. existing API routes or domain events found in step 4). Include `{label: "None — proceed without", description: "Skip this section"}` as an option if nothing was found.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Are there specific API contracts, events, or data schemas I should know about?"
+- header: "Contracts"
+- options:
+  - Candidates from contract names or event names inferred from the codebase (e.g. existing API routes or domain events found in step 4)
+  - **None — proceed without** — skip this section (include only if nothing was found)
 
 Use the answer to fill Contracts & Interfaces. Apply domain event naming rules from `../references/ddd-writing-rules.md` — past-tense domain names, named from the domain's perspective. If "none", stub events with the domain Event names derived in step 3 rather than leaving them blank.
 
@@ -148,7 +141,7 @@ Gherkin rules (vocabulary rules from `../references/ddd-writing-rules.md`):
 
 ### 8. Draft the Task
 
-Use the issue body structure from @.github/ISSUE_TEMPLATE/TASK.md (ignore the YAML frontmatter — use only the markdown body below the second `---` delimiter). Fill in all sections with the gathered context. Replace the placeholder Gherkin scenarios with the ones generated in step 7.
+Load the TASK template per `../references/issue-template-loading.md` (verify existence, halt-or-setup if missing, read body below the second `---` delimiter). Fill in all sections with the gathered context. Replace the placeholder Gherkin scenarios with the ones generated in step 7.
 
 Section-specific guidance:
 
@@ -158,57 +151,54 @@ Section-specific guidance:
 
 ### 9. Scope gate
 
-This is a final structural guardrail on the **written draft** — distinct from step 5's vertical-slice check on codebase findings. Both can fire independently: step 5 catches tasks that cannot ship alone; this step catches tasks that are simply too large. Frame this to the user as a structural check, not a challenge to their earlier answers.
+Run Stage 2 of `../references/scope-gates.md` on the written draft. Step 5 catches tasks that cannot ship alone; this step catches tasks that are simply too large.
 
-Look for these **Task-level split signals** (heuristics — use judgement, not rigid thresholds):
+**Task-level split signals** (heuristics — use judgement, not rigid thresholds):
 
-- There are more than 4 Gherkin scenarios covering distinct, independently shippable user journeys — not multiple failure modes for the same behavior (four ways a payment validation can fail is one behavior, not four tasks)
-- The Impacted Areas list spans more than 3–4 unrelated modules (e.g. API layer, database schema, frontend component, and a background job all bundled together)
-- The Technical Approach describes more than 5 distinct implementation steps that could each be merged separately without breaking anything
-- The task contains both a schema/data migration and user-facing behavior — migrations are typically safer as a separate prior task
+- More than 4 Gherkin scenarios covering distinct, independently shippable user journeys — not multiple failure modes for the same behavior (four ways a payment validation can fail is one behavior, not four tasks).
+- The Impacted Areas list spans more than 3–4 unrelated modules (e.g. API layer, database schema, frontend component, and a background job all bundled together).
+- The Technical Approach describes more than 5 distinct implementation steps that could each be merged separately without breaking anything.
+- The task contains both a schema/data migration and user-facing behavior — migrations are typically safer as a separate prior task.
 
 **Split strategy by signal:**
-- Migration + behavior signal → always propose the migration as task A and the behavior as task B; task B depends on task A.
-- Broad modules signal → propose splits along deployment boundaries (e.g. backend task + frontend task, or data-layer task + service-layer task).
+
+- Migration + behavior → propose the migration as task A and the behavior as task B; task B depends on task A.
+- Broad modules → split along deployment boundaries (backend task + frontend task, or data-layer + service-layer).
 - Too many Gherkin scenarios → split by user journey, keeping each task's scenarios tightly grouped around one observable outcome.
 
-If **no signals are present**, proceed to the user review.
+If no signals fire, proceed to user review. If one or more fire, follow the Stage 2 procedure: state the signals, explain the risk (large tasks increase review friction, merge conflict surface, and rollback complexity), propose a concrete split using the matching strategy, and use the keep/split/stop ask from `../references/scope-gates.md`.
 
-If **one or more signals fire**, present your case: state which signals you found, explain the risk (large tasks increase review friction, merge conflict surface, and rollback complexity), and propose a concrete split using the matching strategy above (two focused task descriptions in one sentence each). Then call `AskUserQuestion` with:
-
-- `question`: "I think this Task may be too broad — see my reasoning above. How do you want to proceed?"
-- `header`: "Scope check"
-- `options`:
-  1. `{label: "Keep the original draft", description: "Proceed with the current draft without splitting"}`
-  2. `{label: "Split it", description: "Start over with one of the proposed smaller Tasks"}`
-  3. `{label: "Stop here", description: "Exit without creating — I'll handle the split manually"}`
-
-- **Keep the original draft** → proceed to the user review without further comment.
-- **Split it** → return to step 2 with the chosen focused task description as the seed, reusing the same parent Feature. Carry forward codebase findings from step 4.
-- **Stop here** → exit.
+On **Split it** → return to step 2 with the chosen focused task description as the seed, reusing the same parent Feature. Carry forward codebase findings from step 4.
 
 ### 10. Review with user
 
-Show the draft. Pay specific attention to Gherkin. Then call `AskUserQuestion` with `question: "Do the scenarios cover everything from the Feature ACs?"`, `header: "Review"`, and `options: [{label: "Yes — looks complete", description: "Proceed with issue creation"}, {label: "Missing edge cases", description: "I want to add more scenarios"}, {label: "Other changes", description: "I want to adjust something else"}]`.
+Show the draft. Pay specific attention to Gherkin. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Do the scenarios cover everything from the Feature ACs?"
+- header: "Review"
+- options:
+  - **Yes — looks complete** → proceed with issue creation
+  - **Missing edge cases** → add more scenarios
+  - **Other changes** → adjust something else
 
 Apply edits, then proceed.
 
 ### 11. Create the issue and link to Feature
 
-> Note: Write each body to a temp file with the Write tool, then use `--body-file` to avoid shell quoting issues with multi-line content.
+> Note: Write the body to a temp file (`$BODY`) with the Write tool, then create it through the gh body helper so multi-line UTF-8 content survives on Windows. See `../references/gh-body-helper.md`.
 
-**Title generation:** Spawn a subagent using the `claude-haiku-4-5` model to generate a concise title from the task description. Pass in the task description and ask for a short title (no prefix emoji/label needed — that is added below). If the subagent returns nothing usable, derive the title directly from the one-sentence task description provided in step 2.
+**Title generation:** Spawn a subagent using the `claude-haiku-4-5-20251001` model to generate a concise title from the task description. Pass in the task description and ask for a short title (no prefix emoji/label needed — that is added below). If the subagent returns nothing usable, derive the title directly from the one-sentence task description provided in step 2.
 
 Create the Task issue:
 
 ```bash
-# Ensure the label exists before creating the issue
-gh label create task --color e4e669 --description "Implementable vertical slice of a Feature" 2>/dev/null || true
-
-gh issue create --title "🛠 Task: <title>" --body-file /tmp/task-body.md --label "task"
+# $BODY is the temp file you wrote the filled body to with the Write tool.
+# Create the issue WITHOUT a kind label — the classify step below sets the kind.
+python3 .wtf/gh-body.py create --title "🛠 Task: <title>" --body-file "$BODY"
 ```
 
 Print the Task issue URL and number.
+
+**Classify the issue as `Task`.** Set `TYPE="Task"` and `ISSUE_NUMBER=<number from the URL>`, then run the **Classify a new issue** block from `../references/issue-classification.md` (resolve `$WTF_CLASS` once first). In `types` mode it sets the native GitHub issue type and leaves labels free for your own segmentation; in `labels` mode it applies the `task` label. Either way the Task is classified — nothing downstream depends on which mechanism was used.
 
 **Native relationships:** If `gh-sub-issue-available` (from step 0), link this Task as a child of its Feature:
 
@@ -227,25 +217,20 @@ If either extension is unavailable, warn the user — do not write relationship 
 
 ### 12. Offer to continue
 
-Count remaining tasks by fetching the Feature's Proposed Tasks checklist (named items without issue numbers) and comparing against already-created child tasks via the sub-issue hierarchy:
+Count remaining tasks by fetching the Feature's Proposed Tasks checklist (named items without issue numbers) and comparing against already-created child tasks. Use `gh sub-issue list <feature_number>` per the cookbook in `../references/gh-setup.md`. Subtract created task count from total named items in the Proposed Tasks list to get remaining. Mention how many remain.
 
-```bash
-gh sub-issue list <feature_number>
-```
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What's next?"
+- header: "Next step"
+- options:
+  - **Design this Task** → add design coverage for this Task now (default)
+  - **Write next Task** → write the next Task for this Feature (N remaining — replace N with actual count)
+  - **Write a Feature** → write a new Feature for the same Epic
+  - **Stop here** → exit, no further action
 
-Subtract created task count from total named items in the Proposed Tasks list to get remaining. Mention how many remain.
-
-Call `AskUserQuestion` with:
-
-- `question`: "What's next?"
-- `header`: "Next step"
-- `options`: `[{label: "Design this Task", description: "Add design coverage for this Task now (default)"}, {label: "Write next Task", description: "Write the next Task for this Feature (N remaining)"}, {label: "Write a Feature", description: "Write a new Feature for the same Epic"}, {label: "Stop here", description: "Exit — no further action"}]`
-
-_(Replace N with actual count.)_
-
-- **Design this Task** → follow the `design-task` process, opening with: "Continue with task #<task_number>".
+- **Design this Task** → follow the `wtf.design-task` process, opening with: "Continue with task #<task_number>".
 - **Write next Task** → restart from step 2, reusing the same Feature. If the Feature's Proposed Tasks list has named-but-uncreated items, propose the next one as the default.
-- **Write a Feature** → proceed with `write-feature`, passing the Epic number in as context.
+- **Write a Feature** → proceed with `wtf.write-feature`, passing the Epic number in as context.
 - **Stop here** → exit.
 
 > Suggest clearing context before continuing if the conversation has grown long.

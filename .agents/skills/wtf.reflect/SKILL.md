@@ -7,7 +7,9 @@ description: This skill should be used when a developer wants to capture learnin
 
 Capture learnings from this session and route them into the right steering document. Every hard-won insight — especially about where the AI went wrong or where implementation was harder than expected — belongs in a steering doc so it guides future work automatically.
 
-**Intervention tracker:** The `hooks/track-interventions.sh` hook runs automatically on every `UserPromptSubmit` event and increments `/tmp/wtf-interventions-$(whoami)-$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")` when it detects correction or frustration language (e.g. "no,", "wrong", "actually", "stop that"). When the counter reaches 3, the hook prints a reminder at the end of the session to run `reflect`. Step 6 of this skill resets the counter to zero. No manual tracking is needed — the hook handles it.
+This skill is the **producer** for the `## Hard-Won Lessons` section of the four steering docs — see `../references/steering-doc-process.md` for the producer/consumer model and how other skills load these docs.
+
+**Intervention tracker:** The `hooks/track-interventions.py` hook runs automatically on every `UserPromptSubmit` event and increments a per-user counter file in `$WTF_STATE_DIR` (default: `$XDG_STATE_HOME/wtf/interventions-<user>`, falling back to `~/.local/state/wtf/` or `$TMPDIR/wtf/`) when it detects correction or frustration language (e.g. "no,", "wrong", "actually", "stop that"). When the counter reaches 3, the hook prints a reminder at the end of the session to run `wtf.reflect`. Step 6 of this skill resets the counter to zero. No manual tracking is needed — the hook handles it.
 
 ## Process
 
@@ -19,13 +21,14 @@ ls docs/steering/ 2>/dev/null
 
 Build a map of which of the four docs are present: `TECH.md`, `QA.md`, `DESIGN.md`, `VISION.md`.
 
-**If none exist**, call `AskUserQuestion` with:
+**If none exist**, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "No steering docs found. Would you like to create them first?"
+- header: "No steering docs"
+- options:
+  - **Create them now** → run the `steer-*` skills to set up the docs
+  - **Skip — just capture notes** → save all learnings to `docs/steering/LEARNINGS.md` instead
 
-- `question`: "No steering docs found. Would you like to create them first?"
-- `header`: "No steering docs"
-- `options`: `[{label: "Create them now", description: "Run the steer-* skills to set up the docs"}, {label: "Skip — just capture notes", description: "Save all learnings to docs/steering/LEARNINGS.md instead"}]`
-
-If **Create them now** → invoke `steer-tech`. Note that `steer-tech` will offer to chain to the other steer-\* skills at the end — let the user complete that flow, then return here. When control returns, re-run the `ls` check to see which docs now exist.
+If **Create them now** → invoke `wtf.steer-tech`. Note that `wtf.steer-tech` will offer to chain to the other steer-\* skills at the end — let the user complete that flow, then return here. When control returns, re-run the `ls` check to see which docs now exist.
 If **Skip** → set all four doc paths to the fallback: `docs/steering/LEARNINGS.md`.
 
 **If some exist but not all** → continue. In step 4, route learnings for a missing doc to `docs/steering/LEARNINGS.md` as a per-doc fallback (create the file if needed).
@@ -38,35 +41,42 @@ Briefly scan context to understand what was worked on:
 - Any failing/passing tests, PRs, or issues mentioned in conversation
 - Do NOT dump this at the user — use it only to pre-fill questions.
 
-### 3. Gather learnings — one question at a time
-
-Use `AskUserQuestion` for each question. Only ask questions that aren't already answered by context.
+### 3. Gather learnings
 
 **Q1 — What was harder than expected?**
 
-- `question`: "What was harder or more painful than it should have been in this session?"
-- `header`: "Session friction"
-- `options`: pre-fill with 2–3 inferred options based on what was worked on (e.g. "Debugging X took too long", "Claude kept misunderstanding Y"), plus `{label: "Something else", description: "I'll type it"}` and `{label: "Nothing — skip", description: "Session went smoothly"}`
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "What was harder or more painful than it should have been in this session?"
+- header: "Session friction"
+- options:
+  - 2–3 inferred options based on what was worked on (e.g. "Debugging X took too long", "Claude kept misunderstanding Y")
+  - **Nothing — skip** — session went smoothly
 
 If **Nothing — skip** → skip to step 6 (reset counter) and exit with: "Great session — nothing to capture."
 
 **Q2 — Did Claude make a recurring mistake?**
 
-- `question`: "Did Claude keep making the same mistake you had to correct?"
-- `header`: "AI mistakes"
-- `options`: `[{label: "Yes — describe it", description: "I'll tell you what it kept doing"}, {label: "No recurring mistakes", description: "One-off issues only"}]`
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Did Claude keep making the same mistake you had to correct?"
+- header: "AI mistakes"
+- options:
+  - **Yes — describe it** → tell me what it kept doing
+  - **No recurring mistakes** → one-off issues only
 
-If **Yes** → call `AskUserQuestion` with:
-
-- `question`: "Describe the mistake briefly. What rule would prevent it next time?"
-- `header`: "AI mistake — the rule"
-- `options`: `[{label: "I'll type the rule", description: "Free text"}, {label: "Skip", description: "Hard to articulate right now"}]`
+If **Yes** → call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Describe the mistake briefly. What rule would prevent it next time?"
+- header: "AI mistake — the rule"
+- options:
+  - **Skip** — hard to articulate right now
 
 **Q3 — What is the one rule this session taught you?**
 
-- `question`: "If you had to write one rule that would have prevented the most wasted time today, what would it be?"
-- `header`: "The lesson"
-- `options`: pre-fill with 1–2 rules inferred from the session, plus `{label: "I'll write it", description: "Free text"}` and `{label: "Skip this one", description: "Nothing to add"}`
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "If you had to write one rule that would have prevented the most wasted time today, what would it be?"
+- header: "The lesson"
+- options:
+  - 1–2 rules inferred from the session
+  - **Skip this one** — nothing to add
 
 ### 4. Route each learning to the right steering doc
 
@@ -80,7 +90,7 @@ For each learning gathered, determine where it belongs:
 | Scope confusion, priority conflict, domain language drift      | `VISION.md`         |
 | Doesn't clearly fit one doc                                    | `TECH.md` (default) |
 
-For each target doc:
+For each target doc, follow the writer-side procedure in `../references/steering-doc-process.md` (see "Hard-Won Lessons (writer-side, for `wtf.reflect`)"):
 
 1. If the target doc does not exist (from the map built in step 1) → use `docs/steering/LEARNINGS.md` instead. Create it with a `# Overflow Learnings` heading if it doesn't exist yet.
 2. Read the current file.
@@ -111,8 +121,14 @@ git commit -m "docs(steering): add hard-won lessons from $(date +%Y-%m-%d) sessi
 
 ### 6. Reset the intervention counter
 
+Resolve the counter file using the same precedence the hook uses, then truncate it:
+
 ```bash
-echo "0" > /tmp/wtf-interventions-$(whoami)-$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")
+USER_ID="${USER:-${USERNAME:-user}}"
+STATE_DIR="${WTF_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/wtf}"
+[ -d "$STATE_DIR" ] || STATE_DIR="${TMPDIR:-/tmp}/wtf"
+mkdir -p "$STATE_DIR" 2>/dev/null
+echo "0" > "$STATE_DIR/interventions-$USER_ID"
 ```
 
 ### 7. Close the loop

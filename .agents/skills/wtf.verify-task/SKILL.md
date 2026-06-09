@@ -15,63 +15,53 @@ Read `references/qa-verdict-guide.md` before starting — it defines the status 
 
 Run steps 1–2 of `../references/gh-setup.md` (install check and auth check). Stop if `gh` is not installed or not authenticated. Extensions are not required for this skill.
 
-Skip this step if invoked from `implement-task` or another skill that already ran gh-setup this session.
+Skip this step if invoked from `wtf.implement-task` or another skill that already ran gh-setup this session.
 
 ### 1. Identify the verification scope
 
-Call `AskUserQuestion` with:
-
-- `question`: "Are you verifying a single Task or a full Feature?"
-- `header`: "Scope"
-- `options`: `[{label: "Single Task", description: "Verify one Task's Gherkin scenarios"}, {label: "Full Feature", description: "Verify all Tasks under a Feature using its sub-issues"}]`
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Are you verifying a single Task or a full Feature?"
+- header: "Scope"
+- options:
+  - **Single Task** → verify one Task's Gherkin scenarios
+  - **Full Feature** → verify all Tasks under a Feature using its sub-issues
 
 **If Single Task:**
 
-Search for recent open issues with labels `task` or `implemented` to populate options. Call `AskUserQuestion` with `question: "Which Task are you testing?"`, `header: "Task"`, and `options` pre-filled with 1–2 likely open Task issue references.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which Task are you testing?"
+- header: "Task"
+- options: from recent open issues labeled `task` or `implemented`
 
-Fetch the Task first, extract the Feature number from its Context section, then fetch the Feature:
+Walk Task → Feature per `../references/spec-hierarchy.md` to extract Gherkin, Contracts, Edge Cases, Test Mapping, DoD (Task) and ACs / edge cases for additional probe scenarios (Feature).
 
-```bash
-gh issue view <task_number>    # Gherkin, Contracts, Edge Cases, Test Mapping, DoD — also yields feature number
-# Extract feature number, then:
-gh issue view <feature_number> # ACs, edge cases for additional probe scenarios
-```
-
-Check task labels. If `implemented` is **absent**, warn and call `AskUserQuestion` with:
-
-- `question`: "This task hasn't been implemented yet. How would you like to proceed?"
-- `header`: "Implement first?"
-- `options`: `[{label: "Implement first", description: "Go back and run wtf:implement-task (default)"}, {label: "Verify anyway", description: "Skip and proceed with verification"}]`
-
-- **Implement first** → follow the `wtf:implement-task` process, passing the Task number in as context.
-- **Verify anyway** → proceed.
+Apply the **absent-label gate** from `../references/lifecycle-labels.md` for the `implemented` label on the Task — recommended skill `wtf.implement-task`, header `Implement first?`. On **Implement first** → follow `wtf.implement-task` passing the Task number as context. On **Verify anyway** → proceed.
 
 **If Full Feature:**
 
-Call `AskUserQuestion` with `question: "Which Feature are you verifying?"`, `header: "Feature"`, and `options` pre-filled from open feature issues.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Which Feature are you verifying?"
+- header: "Feature"
+- options: from open feature issues
 
-Fetch all sub-issues of the Feature using the extension:
+Fetch all sub-issues of the Feature using `gh sub-issue list <feature_number>` per the cookbook in `../references/gh-setup.md`. This returns the authoritative list of Tasks — do not search by label or title matching.
 
-```bash
-gh sub-issue list <feature_number>
-```
+**Sub-phase the task list.** Apply the file-conflict coloring algorithm in `../references/conflict-graph.md` to partition the tasks into conflict-free sub-phases — tasks within a sub-phase can run in parallel worktrees; sub-phases run sequentially.
 
-This returns the authoritative list of Tasks — do not search by label or title matching. Walk through each Task's verification in order, running steps 3–9 for each one. Track a feature-level summary (total tasks, pass/fail/blocked counts) and present it at the end.
+**Spawn one sub-agent per task, per sub-phase.** Apply the rules in `../references/subagent-protocol.md` for every Agent call. Specifically for Full Feature mode:
+
+- Read `skills/wtf.verify-task/SKILL.md` at spawn time and paste steps 3–9 into each sub-agent prompt (inline instructions — sub-agents cannot load this skill by name).
+- Override interactive prompts as follows:
+  - "Test surface" confirmation (step 3) → skip, proceed with all found scenarios
+  - Per-scenario pass/fail (step 4) → return as `NEEDS_INPUT` to the orchestrator
+  - Bug-filing prompts → defer to the aggregated step 9
+- Mandatory label (non-skippable): `gh issue edit <task_number> --add-label "verified"` after verification completes.
+
+Wait for all sub-agents in a sub-phase to complete (and any `NEEDS_INPUT` responses to be resolved) before starting the next sub-phase. After all sub-phases finish, aggregate into a feature-level summary (total tasks, pass/fail/blocked counts) and present it.
 
 ### 2. Load the QA steering document
 
-Use the Read tool to attempt reading `docs/steering/QA.md`.
-
-If the file **exists**: keep its content in context. Use its test strategy, coverage thresholds, definition of done, and known flaky areas to inform every verification decision in this session. Do not surface it to the user — just apply it silently.
-
-If the file **does not exist**, call `AskUserQuestion` with:
-
-- `question`: "docs/steering/QA.md doesn't exist yet. This document captures your test strategy, coverage thresholds, and definition of done. Would you like to create it now?"
-- `header`: "QA steering doc missing"
-- `options`: `[{label: "Create it now", description: "Run `steer-qa` before continuing (recommended)"}, {label: "Skip for this session", description: "Continue without it — QA decisions won't reference project standards"}]`
-
-- **Create it now** → follow the `steer-qa` process, then return to this skill and continue from step 3.
-- **Skip for this session** → continue without it.
+Load `docs/steering/QA.md` per the **strict consumer-side load** in `../references/steering-doc-process.md` (recommended skill: `wtf.steer-qa`). Apply its test strategy, coverage thresholds, definition of done, and known flaky areas silently throughout this session.
 
 ### 3. Establish the test surface
 
@@ -82,21 +72,49 @@ From the Task, extract and present:
 - Edge Cases & Risks (additional scenarios to probe)
 - Observability requirements (logs, metrics, alerts to verify)
 
-Call `AskUserQuestion` with `question: "I found [n] Gherkin scenarios and [m] edge cases to cover. Does this match what you expect?"` (replace [n] and [m] with actual counts), `header: "Test surface"`, and `options: [{label: "Yes — that's everything", description: "Proceed to testing"}, {label: "There are more scenarios", description: "I want to add some"}]`.
+Call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "I found [n] Gherkin scenarios and [m] edge cases to cover. Does this match what you expect?" (replace [n] and [m] with actual counts)
+- header: "Test surface"
+- options:
+  - **Yes — that's everything** → proceed to testing
+  - **There are more scenarios** → add them first
 
 ### 4. Walk through each Gherkin scenario
 
-For each scenario, one at a time:
+For each scenario, one at a time, call `AskUserQuestion` (per `../references/questioning-style.md`):
 
 1. Present it as a concrete test case — restate the Given/When/Then in plain language.
-2. Call `AskUserQuestion` with:
-   - `question`: "Did this scenario pass?"
-   - `header`: "Result"
-   - `options`: `[{label: "Yes ✅", description: "Scenario passed"}, {label: "No ❌", description: "Scenario failed"}, {label: "Blocked 🚫", description: "Could not test due to dependency or environment issue"}, {label: "N/A or Conditional ⚠️", description: "Not applicable, or passes only under a specific condition"}]`
-   - **Yes ✅** → mark ✅ in the running Test Mapping table. Set `bug filed` to `—`.
-   - **No ❌** → call `AskUserQuestion` with `question: "What actually happened?"`, `header: "Failure details"`, and `options` pre-filled with 1–2 plausible failure modes inferred from the scenario (e.g. "No error shown", "Wrong data returned"). Record findings with repro steps. Then call `AskUserQuestion` with `question: "Would you like to file a bug report now?"`, `header: "File bug?"`, `options: [{label: "File now", description: "Run `report-bug` immediately (default)"}, {label: "Continue and file later", description: "Defer and move to the next scenario"}]` — if "File now", follow the `report-bug` process immediately with the task number and scenario details before moving on. Mark `bug filed` as `yes` (filed now) or `no` (deferred). Set `bug filed` accordingly.
-   - **Blocked 🚫** → call `AskUserQuestion` with `question: "What dependency or environment issue prevented testing?"`, `header: "Blocker"`, and `options` pre-filled with common blockers inferred from the task context (e.g. "Missing test environment", "Depends on unmerged task"). Set `bug filed` to `—`.
-   - **N/A or Conditional ⚠️** → call `AskUserQuestion` with `question: "Is this N/A, or does it pass only under a condition?"`, `header: "Condition"`, and `options: [{label: "N/A — not applicable", description: "This scenario does not apply"}, {label: "Conditional — specify the condition", description: "Passes only under a specific circumstance"}]`. Record appropriately. Set `bug filed` to `—` (track the condition separately).
+2. Ask "Did this scenario pass?" — header `Result`:
+   - **Yes ✅** → mark ✅ in the running Test Mapping table; set `bug filed` to `—`
+   - **No ❌** → record failure (see below)
+   - **Blocked 🚫** → record blocker (see below)
+   - **N/A or Conditional ⚠️** → record condition (see below)
+
+   On **No ❌**: call `AskUserQuestion` (per `../references/questioning-style.md`):
+   - question: "What actually happened?"
+   - header: "Failure details"
+   - options: from plausible failure modes inferred from the scenario (e.g. "No error shown", "Wrong data returned")
+   Record findings with repro steps. Then call `AskUserQuestion` (per `../references/questioning-style.md`):
+   - question: "Would you like to file a bug report now?"
+   - header: "File bug?"
+   - options:
+     - **File now** → run `wtf.report-bug` immediately with the task number and scenario details (default); mark `bug filed` as `yes`
+     - **Continue and file later** → defer; mark `bug filed` as `no`
+
+   On **Blocked 🚫**: call `AskUserQuestion` (per `../references/questioning-style.md`):
+   - question: "What dependency or environment issue prevented testing?"
+   - header: "Blocker"
+   - options: from common blockers inferred from the task context (e.g. "Missing test environment", "Depends on unmerged task")
+   Set `bug filed` to `—`.
+
+   On **N/A or Conditional ⚠️**: call `AskUserQuestion` (per `../references/questioning-style.md`):
+   - question: "Is this N/A, or does it pass only under a condition?"
+   - header: "Condition"
+   - options:
+     - **N/A — not applicable** → this scenario does not apply
+     - **Conditional — specify the condition** → passes only under a specific circumstance
+
+   Record appropriately. Set `bug filed` to `—` (track the condition separately).
 3. After recording the result, **immediately update the Task issue** with the current state of the Test Mapping table (do not wait until all scenarios are done). The table must include a `Bug Filed` column:
 
    The running Test Mapping table format (update after every scenario):
@@ -106,13 +124,13 @@ For each scenario, one at a time:
    | `<scenario name>` | ✅/❌/🚫/N/A/⚠️ | yes / no / — |
 
    ```bash
-   gh issue view <task_number> --json body -q .body > /tmp/updated-task-body.md
+   python3 .wtf/gh-body.py read <task_number>       # prints a temp path
    ```
 
-   Programmatically replace the Test Mapping table section in `/tmp/updated-task-body.md` using the Write or Edit tool, preserving all other sections unchanged. Then push:
+   Programmatically replace the Test Mapping table section in the printed temp file using the Write or Edit tool, preserving all other sections unchanged. Then push (see `../references/gh-body-helper.md`):
 
    ```bash
-   gh issue edit <task_number> --body-file /tmp/updated-task-body.md
+   python3 .wtf/gh-body.py edit <task_number> --body-file "<path-from-read>"
    ```
 
 4. Keep a running tally. After updating, confirm: "Updated. Moving to next scenario..."
@@ -122,21 +140,26 @@ For each scenario, one at a time:
 For each Edge Case listed in the Task (and the parent Feature), one at a time:
 
 1. Derive a concrete test action from the edge case description.
-2. Call `AskUserQuestion` with:
-   - `question`: "Did this edge case pass?"
-   - `header`: "Result"
-   - `options`: `[{label: "Yes ✅", description: "Edge case passed"}, {label: "No ❌", description: "Edge case failed"}, {label: "Blocked 🚫", description: "Could not test"}, {label: "N/A", description: "Not applicable"}]`
-   - **No ❌** → call `AskUserQuestion` with `question: "What actually happened?"`, `header: "Failure details"`, and `options` pre-filled with 1–2 plausible failure modes inferred from the edge case. Record findings with repro steps, then ask to file a bug report as in step 4.
+2. Call `AskUserQuestion` (per `../references/questioning-style.md`):
+   - question: "Did this edge case pass?"
+   - header: "Result"
+   - options: **Yes ✅** / **No ❌** / **Blocked 🚫** / **N/A**
+
+   On **No ❌**: call `AskUserQuestion` (per `../references/questioning-style.md`):
+   - question: "What actually happened?"
+   - header: "Failure details"
+   - options: from plausible failure modes inferred from the edge case
+   Record findings with repro steps, then ask to file a bug report as in step 4.
 3. After each result, update the Task issue — append an Edge Cases section (or update it if present) with the same table format used in step 4.
 
 ### 6. Verify observability
 
-For each item in the Observability section (logs, metrics, alerts), one at a time:
+For each item in the Observability section (logs, metrics, alerts), one at a time, call `AskUserQuestion` (per `../references/questioning-style.md`):
 
-1. Call `AskUserQuestion` with:
-   - `question`: "Was this observability item present and correct?"
-   - `header`: "Result"
-   - `options`: `[{label: "Yes ✅", description: "Present and correct"}, {label: "No ❌", description: "Missing or incorrect"}, {label: "N/A", description: "Not applicable to this task"}]`
+1. Ask "Was this observability item present and correct?" — header `Result`:
+   - **Yes ✅** → present and correct
+   - **No ❌** → missing or incorrect
+   - **N/A** → not applicable to this task
 2. Record the result. On ❌, ask for details and offer to file a bug report as in step 4.
 3. After each result, update the Task issue with an Observability Results section.
 
@@ -145,19 +168,20 @@ For each item in the Observability section (logs, metrics, alerts), one at a tim
 The Test Mapping table has been updated after each scenario (step 4). Now do a final update: check off DoD items that passed; leave failing ones unchecked.
 
 ```bash
-gh issue view <task_number> --json body -q .body > /tmp/verify-final-body.md
+python3 .wtf/gh-body.py read <task_number>       # re-fetch; prints a fresh temp path
 ```
 
-Programmatically update the DoD checklist in `/tmp/verify-final-body.md` using the Write or Edit tool. Then push:
+Programmatically update the DoD checklist in the printed temp file using the Write or Edit tool. Then push:
 
 ```bash
-gh issue edit <task_number> --body-file /tmp/verify-final-body.md
+python3 .wtf/gh-body.py edit <task_number> --body-file "<path-from-read>"
 ```
 
 Post a QA summary comment:
 
 ```bash
-gh issue comment <task_number> --body "<qa_summary>"
+# Write the QA summary to a temp file with the Write tool; $COMMENT is that path.
+python3 .wtf/gh-body.py comment <task_number> --body-file "$COMMENT"
 ```
 
 The QA summary must include:
@@ -177,14 +201,12 @@ Print the updated Task issue URL.
 
 ### 8. Offer to open a PR and close the issue
 
-If the verdict is ✅ or ⚠️, call `AskUserQuestion` with:
-
-- `question`: "Task verified. What would you like to do next?"
-- `header`: "Next step"
-- `options`: `[{label: "Open PR now", description: "Create a pull request — the task closes automatically when the PR is merged (recommended)"}, {label: "Skip for now", description: "Exit — I'll open the PR later"}]`
-
-- **Open PR now** → follow the `wtf:create-pr` process, passing the Task number in as context. The Task (and Feature / Epic) will be closed automatically when the PR with `Closes #<task_number>` is merged — do not close issues directly.
-- **Skip for now** → continue.
+If the verdict is ✅ or ⚠️, call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "Task verified. What would you like to do next?"
+- header: "Next step"
+- options:
+  - **Open PR now** → follow the `wtf.create-pr` process, passing the Task number in as context (recommended)
+  - **Skip for now** → exit; I'll open the PR later
 
 > **Closing policy:** Issues are only "closed as completed" via a merged PR that contains `Closes #<n>`. Never call `gh issue close <n>` for completed work. Direct closes are reserved for:
 > - `gh issue close <n> --reason "not planned"` — won't implement
@@ -196,12 +218,10 @@ Check all result tables (Gherkin scenarios from step 4, edge cases from step 5, 
 
 If none exist, skip this step entirely.
 
-If unfiled failures exist, present them as a numbered list, then call `AskUserQuestion` with:
-
-- `question`: "[n] failing scenario(s) without a bug report. How would you like to handle them?" _(replace [n] with the actual count)_
-- `header`: "File bugs?"
-- `options`: `[{label: "File separately", description: "File one bug report per failing scenario (default)"}, {label: "File combined", description: "File one combined bug report for all failures"}, {label: "Skip", description: "Exit — I'll handle it manually"}]`
-
-- **File separately** → follow the `report-bug` process once per failing scenario, passing in the task number and the specific failing scenario each time.
-- **File combined** → follow the `report-bug` process once, passing in the task number and all failing scenarios together.
-- **Skip** → exit without filing reports.
+If unfiled failures exist, present them as a numbered list, then call `AskUserQuestion` (per `../references/questioning-style.md`):
+- question: "[n] failing scenario(s) without a bug report. How would you like to handle them?" (replace [n] with the actual count)
+- header: "File bugs?"
+- options:
+  - **File separately** → spawn one sub-agent per failing scenario in parallel using the Agent tool, each running the report-bug fast path. Apply `../references/subagent-protocol.md`. Wait for all sub-agents to complete before exiting (default).
+  - **File combined** → follow the `wtf.report-bug` process once, passing in the task number and all failing scenarios together.
+  - **Skip** → exit without filing reports.
