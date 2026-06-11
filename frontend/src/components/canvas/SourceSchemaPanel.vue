@@ -91,7 +91,7 @@ const displayedGroups = computed<GroupEntry[]>(() => {
           if (groupNameMatches) return fieldMatchesStatus(f.id)
           const hasChildren = props.schema.childrenOf(f.id).length > 0
           return hasChildren
-            ? fieldMatchesName(f) || displayedChildrenOf(f.id).length > 0
+            ? (fieldMatchesName(f) && fieldMatchesStatus(f.id)) || displayedChildrenOf(f.id).length > 0
             : fieldMatchesName(f) && fieldMatchesStatus(f.id)
         }),
       }
@@ -101,6 +101,29 @@ const displayedGroups = computed<GroupEntry[]>(() => {
 
 const hasNamedGroups = computed(() => groups.value.some((g) => g.name !== ''))
 const isFilterActive = computed(() => !!searchQuery.value || filterStatus.value !== 'all')
+
+watch([searchQuery, filterStatus], () => {
+  if (isFilterActive.value) {
+    for (const g of displayedGroups.value) {
+      groupCollapsed.value = { ...groupCollapsed.value, [g.name]: false }
+    }
+    for (const f of props.schema.roots) {
+      if (props.schema.childrenOf(f.id).length > 0 && hasMatchingChildren(f.id)) {
+        fieldCollapsed.value = { ...fieldCollapsed.value, [f.id]: false }
+      }
+    }
+  } else {
+    groupCollapsed.value = Object.fromEntries(groups.value.map((g) => [g.name, true]))
+    fieldCollapsed.value = Object.fromEntries(
+      props.schema.roots
+        .filter((f) => props.schema.childrenOf(f.id).length > 0)
+        .map((f) => {
+          const hasMappedChild = props.schema.childrenOf(f.id).some((c) => mappedFieldIds.value.has(c.id))
+          return [f.id, !hasMappedChild]
+        }),
+    )
+  }
+}, { flush: 'sync' })
 
 watch([searchQuery, filterStatus], () => {
   nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
@@ -287,7 +310,7 @@ defineExpose({ scrollToField })
 
         <!-- Group fields -->
         <div
-          v-show="!hasNamedGroups || isGroupExpanded(group.name) || isFilterActive"
+          v-show="!hasNamedGroups || isGroupExpanded(group.name)"
           :data-testid="hasNamedGroups ? `schema-group-fields-${group.name}` : undefined"
         >
           <template v-for="field in group.fields" :key="field.id">
@@ -328,7 +351,7 @@ defineExpose({ scrollToField })
 
               <!-- Children subtree -->
               <div
-                v-show="isFieldExpanded(field.id) || hasMatchingChildren(field.id)"
+                v-show="isFieldExpanded(field.id)"
                 :data-testid="`field-children-${field.id}`"
                 class="pl-4 border-l border-slate-100 ml-3"
               >
