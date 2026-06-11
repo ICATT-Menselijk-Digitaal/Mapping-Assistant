@@ -9,7 +9,11 @@
       "Bash(gh pr *)",
       "Bash(gh sub-issue *)",
       "Bash(npx vitest *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(gh issue-dependency *)",
+      "Bash(git fetch *)",
+      "Bash(cp \"C:\\\\Users\\\\Youri\\\\.claude\\\\projects\\\\C--Users-Youri-Projects-mapping-assistent\\\\cd61c246-6e61-4c70-9fde-e7642bbf64b5\\\\tool-results\\\\webfetch-1780579447197-dhy2cw.bin\" /tmp/openapi.yaml)",
+      "Read(//tmp/**)"
     ]
   }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
@@ -16,6 +16,9 @@ const mappingsStore = useMappings()
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const selectedSourceEndpoint = ref<ParsedEndpoint | null>(null)
 const selectedTargetEndpoint = ref<ParsedEndpoint | null>(null)
+
+const activeSourceSchema = computed(() => selectedSourceEndpoint.value?.schema ?? sourceSchema.value)
+const activeTargetSchema = computed(() => selectedTargetEndpoint.value?.schema ?? targetSchema.value)
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
@@ -53,8 +56,8 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
     <div class="w-80 shrink-0 h-full overflow-hidden">
       <CouplingDetailPanel
         v-if="mappingsStore.selectedMappingId !== null"
-        :source-schema="sourceSchema"
-        :target-schema="targetSchema"
+        :source-schema="activeSourceSchema"
+        :target-schema="activeTargetSchema"
       />
       <MappingOverview
         v-else
