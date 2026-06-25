@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import ExportButton from '@/components/ExportButton.vue'
 import ImportButton from '@/components/ImportButton.vue'
+import WorkspaceCode from '@/components/WorkspaceCode.vue'
+import RemoteUpdateBanner from '@/components/RemoteUpdateBanner.vue'
+import { loadAll, startSync, stopSync } from '@/api/sync'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
 import { useMappings } from '@/composables/useMappings'
+import { useWorkspace } from '@/composables/useWorkspace'
 import { useImport } from '@/composables/useImport'
 
 const source = useSourceSchema()
@@ -27,6 +31,7 @@ const {
   loadFromUrl: loadTargetFromUrl,
 } = target
 const mappingsStore = useMappings()
+const workspace = useWorkspace()
 const {
   importMappingSet,
   error: importError,
@@ -36,6 +41,20 @@ const {
 } = useImport()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
+
+// Hydrate every resource and start polling for cross-device updates. Data
+// orchestration lives in the data layer (loadAll + the workspace store re-loads
+// on code change), so the view only loads on mount, polls while visible, and
+// resets its own selection when the workspace changes.
+onMounted(async () => {
+  await loadAll()
+  startSync()
+})
+onUnmounted(stopSync)
+watch(
+  () => workspace.code,
+  () => mappingsStore.selectMapping(null),
+)
 
 async function onSourceFileSelected(file: File) {
   await loadSourceFromFile(file)
@@ -91,6 +110,8 @@ async function onImportFileSelected(file: File) {
       />
     </div>
     <div class="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+      <RemoteUpdateBanner />
+      <WorkspaceCode />
       <ImportButton
         :error="importError"
         :warnings="importWarnings"

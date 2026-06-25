@@ -17,8 +17,21 @@ const CODE_STORAGE_KEY = 'mapping-assistent:workspace-code'
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 8
 
+function randomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length)
+  const webcrypto = globalThis.crypto
+  if (webcrypto && typeof webcrypto.getRandomValues === 'function') {
+    webcrypto.getRandomValues(bytes)
+  } else {
+    // Fallback for environments without Web Crypto (older runtimes, some test
+    // envs). The code is a non-secret workspace label, so this is fine.
+    for (let i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  return bytes
+}
+
 export function generateCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
+  const bytes = randomBytes(CODE_LENGTH)
   let out = ''
   for (const b of bytes) out += CODE_ALPHABET[b % CODE_ALPHABET.length]
   return out

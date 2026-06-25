@@ -4,10 +4,31 @@ import type { FieldMapping, MismatchType, TransformationRule, ValidatedFieldMapp
 import type { Schema } from '@/domain/schema'
 import { getValidationStatus } from '@/utils/validationStatus'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
+import { mappingsResource } from '@/api/resources'
+import * as ops from '@/domain/mappingOps'
 
+/**
+ * Field-mapping state, backed by the shared mappings resource (vue-query cache +
+ * remote backend). The public API is unchanged from the original in-memory store
+ * — synchronous methods, `createMapping` returns the created mapping — so every
+ * consumer keeps working. Each write is optimistic: the resource updates the
+ * cache synchronously and persists in the background. Business rules live in
+ * domain/mappingOps.ts; persistence + conflict policy live in the resource.
+ */
 export const useMappings = defineStore('mappings', () => {
-  const mappings = ref<FieldMapping[]>([])
+  const mappings = mappingsResource.state
+  const remoteAhead = mappingsResource.remoteAhead
   const selectedMappingId = ref<string | null>(null)
+
+  /** Hydrate from the remote backend for the active workspace. */
+  function load(): Promise<unknown> {
+    return mappingsResource.load()
+  }
+
+  /** Apply a remote change that arrived while the user had unsaved edits. */
+  function acceptRemoteUpdate(): void {
+    mappingsResource.acceptRemote()
+  }
 
   function selectMapping(id: string | null): void {
     selectedMappingId.value = id
@@ -17,46 +38,27 @@ export const useMappings = defineStore('mappings', () => {
     return mappings.value.some((m) => m.sourceFieldId === sourceFieldId)
   }
 
-  function createMapping({
-    sourceFieldId,
-    targetFieldId,
-  }: {
+  function createMapping(input: {
     sourceFieldId: string
     targetFieldId: string
     schemas?: unknown
   }): FieldMapping | null {
-    const isDuplicate = mappings.value.some(
-      (m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === targetFieldId,
-    )
-    if (isDuplicate) return null
-
-    const mapping: FieldMapping = {
-      id: crypto.randomUUID(),
-      sourceFieldId,
-      targetFieldId,
-      transformations: [],
-      status: 'confirmed',
-    }
-
-    mappings.value.push(mapping)
-    return mapping
+    const { list, created } = ops.addMapping(mappings.value, input)
+    if (created) mappingsResource.write(list)
+    return created
   }
 
   function removeMapping(id: string): void {
-    mappings.value = mappings.value.filter((m) => m.id !== id)
+    mappingsResource.write(ops.removeMapping(mappings.value, id))
     if (selectedMappingId.value === id) selectedMappingId.value = null
   }
 
   function addTransformationRule(mappingId: string, rule: Omit<TransformationRule, 'id'>): void {
-    const mapping = mappings.value.find((m) => m.id === mappingId)
-    if (!mapping) return
-    mapping.transformations.push({ ...rule, id: crypto.randomUUID() })
+    mappingsResource.write(ops.addRule(mappings.value, mappingId, rule))
   }
 
   function removeTransformationRule(mappingId: string, ruleId: string): void {
-    const mapping = mappings.value.find((m) => m.id === mappingId)
-    if (!mapping) return
-    mapping.transformations = mapping.transformations.filter((r) => r.id !== ruleId)
+    mappingsResource.write(ops.removeRule(mappings.value, mappingId, ruleId))
   }
 
   function updateTransformationRule(
@@ -64,12 +66,11 @@ export const useMappings = defineStore('mappings', () => {
     ruleId: string,
     updates: Partial<TransformationRule>,
   ): void {
-    const mapping = mappings.value.find((m) => m.id === mappingId)
-    if (!mapping) return
-    const idx = mapping.transformations.findIndex((r) => r.id === ruleId)
-    if (idx < 0) return
-    const { id: _id, ...safeUpdates } = updates as TransformationRule
-    mapping.transformations[idx] = { ...mapping.transformations[idx]!, ...safeUpdates }
+    mappingsResource.write(ops.updateRule(mappings.value, mappingId, ruleId, updates))
+  }
+
+  function toggleManualMismatchResolution(mappingId: string, type: MismatchType): void {
+    mappingsResource.write(ops.toggleMismatch(mappings.value, mappingId, type))
   }
 
   function restoreMappings(
@@ -78,32 +79,7 @@ export const useMappings = defineStore('mappings', () => {
     targetSchema: Schema,
   ): void {
     selectedMappingId.value = null
-    const restored: FieldMapping[] = []
-    for (const m of exported) {
-      const orphaned = !sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)
-      const mapping: FieldMapping = {
-        id: crypto.randomUUID(),
-        sourceFieldId: m.sourceField,
-        targetFieldId: m.targetField,
-        transformations: m.transformations.map((t) => ({
-          ...t,
-          id: crypto.randomUUID(),
-        })) as TransformationRule[],
-        status: 'confirmed',
-      }
-      if (orphaned) mapping.orphaned = true
-      restored.push(mapping)
-    }
-    mappings.value = restored
-  }
-
-  function toggleManualMismatchResolution(mappingId: string, type: MismatchType): void {
-    const mapping = mappings.value.find((m) => m.id === mappingId)
-    if (!mapping) return
-    const current = mapping.manuallyResolvedMismatches ?? []
-    mapping.manuallyResolvedMismatches = current.includes(type)
-      ? current.filter((t) => t !== type)
-      : [...current, type]
+    mappingsResource.write(ops.restoreMappings(exported, sourceSchema, targetSchema))
   }
 
   function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
@@ -118,7 +94,10 @@ export const useMappings = defineStore('mappings', () => {
 
   return {
     mappings,
+    remoteAhead,
     selectedMappingId,
+    load,
+    acceptRemoteUpdate,
     hasMapping,
     createMapping,
     removeMapping,
@@ -126,8 +105,8 @@ export const useMappings = defineStore('mappings', () => {
     addTransformationRule,
     removeTransformationRule,
     updateTransformationRule,
-    restoreMappings,
     toggleManualMismatchResolution,
+    restoreMappings,
     mappingsWithStatus,
   }
 })

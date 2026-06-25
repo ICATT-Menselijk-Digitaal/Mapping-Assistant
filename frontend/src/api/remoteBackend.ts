@@ -64,3 +64,45 @@ export async function remove(key: string): Promise<void> {
     // best-effort delete
   }
 }
+
+/**
+ * Versioned envelope. remote-storage is a plain key/value store with no etag,
+ * timestamp or change feed, so we wrap every stored value in `{ rev, updatedAt,
+ * data }` ourselves. `rev` is a unique write token (not a counter — counters
+ * collide across devices and would hide a concurrent write); a poll compares it
+ * to the rev a client last loaded to cheaply detect "someone else changed this".
+ */
+export interface Versioned<T> {
+  rev: string
+  updatedAt: number
+  data: T
+}
+
+function nextRev(): string {
+  const c = globalThis.crypto as Crypto | undefined
+  const rnd =
+    c && typeof c.randomUUID === 'function' ? c.randomUUID() : Math.random().toString(36).slice(2)
+  return `${Date.now().toString(36)}-${rnd}`
+}
+
+function isEnvelope(v: unknown): v is Versioned<unknown> {
+  return typeof v === 'object' && v !== null && 'rev' in v && 'updatedAt' in v && 'data' in v
+}
+
+/**
+ * Read a value and normalise it to an envelope. Absent → `data: null, rev: ''`.
+ * A legacy raw value (written before versioning) also decodes to `rev: ''` so it
+ * loads once and is re-enveloped on the next write.
+ */
+export async function getVersioned<T>(key: string): Promise<Versioned<T | null>> {
+  const raw = await get<unknown>(key, null)
+  if (isEnvelope(raw)) return raw as Versioned<T | null>
+  return { rev: '', updatedAt: 0, data: (raw ?? null) as T | null }
+}
+
+/** Write a value wrapped in a fresh-rev envelope; returns the stored envelope. */
+export async function setVersioned<T>(key: string, data: T): Promise<Versioned<T>> {
+  const env: Versioned<T> = { rev: nextRev(), updatedAt: Date.now(), data }
+  await set(key, env)
+  return env
+}
