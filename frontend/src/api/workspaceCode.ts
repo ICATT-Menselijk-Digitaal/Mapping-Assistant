@@ -38,7 +38,10 @@ export function generateCode(): string {
 }
 
 export function normalizeCode(raw: string): string {
-  return raw.trim().toUpperCase()
+  // Uppercase and strip anything outside [A-Z0-9] — surrounding whitespace,
+  // dashes or other separators a pasted code may carry — so joining doesn't
+  // silently switch to a different (and empty) workspace.
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
 export function getStoredCode(): string | null {

@@ -2,12 +2,14 @@
  * Pure, immutable operations on a list of field mappings.
  *
  * This is the single home for mapping business rules (id generation, dedupe,
- * rule edits, restore/orphan detection). Both the optimistic facade
- * (useMappingsData) and the non-setup callers (AI accept/reject, import) apply
- * these same functions, so behaviour can't drift between the two paths.
+ * rule edits, restore/orphan detection). The mappings store and the non-setup
+ * callers (AI accept/reject, import) apply these same functions, so behaviour
+ * can't drift between the paths.
  *
- * Every function returns NEW arrays/objects — never mutates its input — so the
- * vue-query cache receives fresh references and reactivity fires.
+ * Never mutates its input. Returns a NEW array when something actually changes
+ * (so the vue-query cache gets a fresh reference and reactivity fires), and the
+ * SAME input reference on a no-op (e.g. an unknown id) so callers can skip the
+ * write — avoiding a spurious dirty flag, persist, and dirty-gated sync conflict.
  */
 import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 import type { Schema } from '@/domain/schema'
@@ -42,13 +44,14 @@ export function addMapping(
   input: CreateMappingInput,
 ): { list: FieldMapping[]; created: FieldMapping | null } {
   if (isDuplicate(list, input.sourceFieldId, input.targetFieldId)) {
-    return { list: [...list], created: null }
+    return { list: list as FieldMapping[], created: null }
   }
   const created = makeMapping(input)
   return { list: [...list, created], created }
 }
 
 export function removeMapping(list: readonly FieldMapping[], id: string): FieldMapping[] {
+  if (!list.some((m) => m.id === id)) return list as FieldMapping[]
   return list.filter((m) => m.id !== id)
 }
 
@@ -57,6 +60,7 @@ export function addRule(
   mappingId: string,
   rule: Omit<TransformationRule, 'id'>,
 ): FieldMapping[] {
+  if (!list.some((m) => m.id === mappingId)) return list as FieldMapping[]
   return list.map((m) =>
     m.id === mappingId
       ? { ...m, transformations: [...m.transformations, { ...rule, id: crypto.randomUUID() }] }
@@ -69,6 +73,10 @@ export function removeRule(
   mappingId: string,
   ruleId: string,
 ): FieldMapping[] {
+  const mapping = list.find((m) => m.id === mappingId)
+  if (!mapping || !mapping.transformations.some((r) => r.id === ruleId)) {
+    return list as FieldMapping[]
+  }
   return list.map((m) =>
     m.id === mappingId
       ? { ...m, transformations: m.transformations.filter((r) => r.id !== ruleId) }
@@ -83,6 +91,10 @@ export function updateRule(
   updates: Partial<TransformationRule>,
 ): FieldMapping[] {
   const { id: _id, ...safeUpdates } = updates as TransformationRule
+  const mapping = list.find((m) => m.id === mappingId)
+  if (!mapping || !mapping.transformations.some((r) => r.id === ruleId)) {
+    return list as FieldMapping[]
+  }
   return list.map((m) => {
     if (m.id !== mappingId) return m
     return {
@@ -99,6 +111,7 @@ export function toggleMismatch(
   mappingId: string,
   type: MismatchType,
 ): FieldMapping[] {
+  if (!list.some((m) => m.id === mappingId)) return list as FieldMapping[]
   return list.map((m) => {
     if (m.id !== mappingId) return m
     const current = m.manuallyResolvedMismatches ?? []

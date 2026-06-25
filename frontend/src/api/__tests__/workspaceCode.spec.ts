@@ -32,4 +32,10 @@ describe('workspaceCode', () => {
   it('normalizeCode trims and upper-cases', () => {
     expect(normalizeCode('  ab2x  ')).toBe('AB2X')
   })
+
+  it('normalizeCode strips separators a pasted code may carry', () => {
+    expect(normalizeCode('ab2x-9kdf')).toBe('AB2X9KDF')
+    expect(normalizeCode('AB2X 9KDF')).toBe('AB2X9KDF')
+    expect(normalizeCode('  a-b 2.x ')).toBe('AB2X')
+  })
 })

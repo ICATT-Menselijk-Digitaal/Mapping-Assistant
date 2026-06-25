@@ -33,10 +33,22 @@ export function registerResource(resource: SyncableResource): void {
 export const DEFAULT_POLL_INTERVAL_MS = 2000
 
 let timer: ReturnType<typeof setInterval> | null = null
+let polling = false
 
-/** Poll + reconcile every resource. Individual failures are swallowed. */
+/**
+ * Poll + reconcile every resource. Individual failures are swallowed. Re-entrant
+ * calls are dropped while a poll is in flight: on a slow network a 2s interval
+ * would otherwise lap itself, causing overlapping requests and out-of-order
+ * reconciliation. Skipping a tick is the correct backpressure.
+ */
 export async function pollAll(): Promise<void> {
-  await Promise.all([...resources].map((r) => r.poll().catch(() => {})))
+  if (polling) return
+  polling = true
+  try {
+    await Promise.all([...resources].map((r) => r.poll().catch(() => {})))
+  } finally {
+    polling = false
+  }
 }
 
 /** (Re)hydrate every resource — on app start and on workspace-code change. */

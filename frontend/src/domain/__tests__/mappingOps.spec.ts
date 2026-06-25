@@ -76,4 +76,23 @@ describe('mappingOps', () => {
     expect(restored[0]!.orphaned).toBeUndefined()
     expect(restored[1]!.orphaned).toBe(true)
   })
+
+  it('returns the SAME reference on a no-op (unknown id) so callers can skip the write', () => {
+    const m = base()
+    const list = addRule([m], m.id, { expression: '$', label: 'x', source: 'manual' })
+
+    expect(removeMapping(list, 'missing')).toBe(list)
+    expect(addRule(list, 'missing', { expression: '$', label: 'x', source: 'manual' })).toBe(list)
+    expect(removeRule(list, m.id, 'missing-rule')).toBe(list)
+    expect(updateRule(list, m.id, 'missing-rule', { label: 'x' })).toBe(list)
+    expect(toggleMismatch(list, 'missing', 'truncate')).toBe(list)
+  })
+
+  it('returns a NEW reference when something actually changes', () => {
+    const m = base()
+    const list = [m]
+    expect(removeMapping(list, m.id)).not.toBe(list)
+    expect(addRule(list, m.id, { expression: '$', label: 'x', source: 'manual' })).not.toBe(list)
+    expect(toggleMismatch(list, m.id, 'truncate')).not.toBe(list)
+  })
 })

@@ -48,17 +48,25 @@ export const useMappings = defineStore('mappings', () => {
     return created
   }
 
+  // Persist only when an op actually changed the list. The ops return the SAME
+  // reference on a no-op (unknown id), so an edit targeting something that
+  // doesn't exist won't mark the resource dirty or schedule a spurious persist /
+  // dirty-gated sync conflict.
+  function commit(next: FieldMapping[]): void {
+    if (next !== mappings.value) mappingsResource.write(next)
+  }
+
   function removeMapping(id: string): void {
-    mappingsResource.write(ops.removeMapping(mappings.value, id))
+    commit(ops.removeMapping(mappings.value, id))
     if (selectedMappingId.value === id) selectedMappingId.value = null
   }
 
   function addTransformationRule(mappingId: string, rule: Omit<TransformationRule, 'id'>): void {
-    mappingsResource.write(ops.addRule(mappings.value, mappingId, rule))
+    commit(ops.addRule(mappings.value, mappingId, rule))
   }
 
   function removeTransformationRule(mappingId: string, ruleId: string): void {
-    mappingsResource.write(ops.removeRule(mappings.value, mappingId, ruleId))
+    commit(ops.removeRule(mappings.value, mappingId, ruleId))
   }
 
   function updateTransformationRule(
@@ -66,11 +74,11 @@ export const useMappings = defineStore('mappings', () => {
     ruleId: string,
     updates: Partial<TransformationRule>,
   ): void {
-    mappingsResource.write(ops.updateRule(mappings.value, mappingId, ruleId, updates))
+    commit(ops.updateRule(mappings.value, mappingId, ruleId, updates))
   }
 
   function toggleManualMismatchResolution(mappingId: string, type: MismatchType): void {
-    mappingsResource.write(ops.toggleMismatch(mappings.value, mappingId, type))
+    commit(ops.toggleMismatch(mappings.value, mappingId, type))
   }
 
   function restoreMappings(

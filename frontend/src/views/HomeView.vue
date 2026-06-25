@@ -46,14 +46,26 @@ const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 // orchestration lives in the data layer (loadAll + the workspace store re-loads
 // on code change), so the view only loads on mount, polls while visible, and
 // resets its own selection when the workspace changes.
+let mounted = true
 onMounted(async () => {
   await loadAll()
-  startSync()
+  // If the view unmounted while loadAll() was in flight, onUnmounted already ran
+  // stopSync() — don't start an orphaned polling interval here.
+  if (mounted) startSync()
 })
-onUnmounted(stopSync)
+onUnmounted(() => {
+  mounted = false
+  stopSync()
+})
 watch(
   () => workspace.code,
-  () => mappingsStore.selectMapping(null),
+  () => {
+    mappingsStore.selectMapping(null)
+    // Fresh workspace hydrates fresh schemas; drop any stale load error so the
+    // red banner from the previous workspace doesn't linger.
+    sourceError.value = null
+    targetError.value = null
+  },
 )
 
 async function onSourceFileSelected(file: File) {
