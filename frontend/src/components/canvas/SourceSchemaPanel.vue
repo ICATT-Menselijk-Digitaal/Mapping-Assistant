@@ -91,7 +91,8 @@ const displayedGroups = computed<GroupEntry[]>(() => {
           if (groupNameMatches) return fieldMatchesStatus(f.id)
           const hasChildren = props.schema.childrenOf(f.id).length > 0
           return hasChildren
-            ? (fieldMatchesName(f) && fieldMatchesStatus(f.id)) || displayedChildrenOf(f.id).length > 0
+            ? (fieldMatchesName(f) && fieldMatchesStatus(f.id)) ||
+                displayedChildrenOf(f.id).length > 0
             : fieldMatchesName(f) && fieldMatchesStatus(f.id)
         }),
       }
@@ -102,28 +103,34 @@ const displayedGroups = computed<GroupEntry[]>(() => {
 const hasNamedGroups = computed(() => groups.value.some((g) => g.name !== ''))
 const isFilterActive = computed(() => !!searchQuery.value || filterStatus.value !== 'all')
 
-watch([searchQuery, filterStatus], () => {
-  if (isFilterActive.value) {
-    for (const g of displayedGroups.value) {
-      groupCollapsed.value = { ...groupCollapsed.value, [g.name]: false }
-    }
-    for (const f of props.schema.roots) {
-      if (props.schema.childrenOf(f.id).length > 0 && hasMatchingChildren(f.id)) {
-        fieldCollapsed.value = { ...fieldCollapsed.value, [f.id]: false }
+watch(
+  [searchQuery, filterStatus],
+  () => {
+    if (isFilterActive.value) {
+      for (const g of displayedGroups.value) {
+        groupCollapsed.value = { ...groupCollapsed.value, [g.name]: false }
       }
+      for (const f of props.schema.roots) {
+        if (props.schema.childrenOf(f.id).length > 0 && hasMatchingChildren(f.id)) {
+          fieldCollapsed.value = { ...fieldCollapsed.value, [f.id]: false }
+        }
+      }
+    } else {
+      groupCollapsed.value = Object.fromEntries(groups.value.map((g) => [g.name, true]))
+      fieldCollapsed.value = Object.fromEntries(
+        props.schema.roots
+          .filter((f) => props.schema.childrenOf(f.id).length > 0)
+          .map((f) => {
+            const hasMappedChild = props.schema
+              .childrenOf(f.id)
+              .some((c) => mappedFieldIds.value.has(c.id))
+            return [f.id, !hasMappedChild]
+          }),
+      )
     }
-  } else {
-    groupCollapsed.value = Object.fromEntries(groups.value.map((g) => [g.name, true]))
-    fieldCollapsed.value = Object.fromEntries(
-      props.schema.roots
-        .filter((f) => props.schema.childrenOf(f.id).length > 0)
-        .map((f) => {
-          const hasMappedChild = props.schema.childrenOf(f.id).some((c) => mappedFieldIds.value.has(c.id))
-          return [f.id, !hasMappedChild]
-        }),
-    )
-  }
-}, { flush: 'sync' })
+  },
+  { flush: 'sync' },
+)
 
 watch([searchQuery, filterStatus], () => {
   nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))

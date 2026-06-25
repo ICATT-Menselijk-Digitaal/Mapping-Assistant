@@ -66,12 +66,10 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
   config: ResourceConfig<TDomain, TStored>,
 ): RemoteResource<TDomain> {
   const { key, storageKey, initial } = config
-  const codec: ResourceCodec<TDomain, TStored> =
-    config.codec ??
-    ({
-      encode: (value) => value as unknown as TStored,
-      decode: (stored) => stored as unknown as TDomain,
-    })
+  const codec: ResourceCodec<TDomain, TStored> = config.codec ?? {
+    encode: (value) => value as unknown as TStored,
+    decode: (stored) => stored as unknown as TDomain,
+  }
 
   const state = shallowRef<TDomain>(queryClient.getQueryData<TDomain>(key) ?? initial())
   const remoteAhead = ref(false)

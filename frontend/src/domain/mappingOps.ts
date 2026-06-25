@@ -87,7 +87,9 @@ export function updateRule(
     if (m.id !== mappingId) return m
     return {
       ...m,
-      transformations: m.transformations.map((r) => (r.id === ruleId ? { ...r, ...safeUpdates } : r)),
+      transformations: m.transformations.map((r) =>
+        r.id === ruleId ? { ...r, ...safeUpdates } : r,
+      ),
     }
   })
 }
@@ -100,9 +102,7 @@ export function toggleMismatch(
   return list.map((m) => {
     if (m.id !== mappingId) return m
     const current = m.manuallyResolvedMismatches ?? []
-    const next = current.includes(type)
-      ? current.filter((t) => t !== type)
-      : [...current, type]
+    const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type]
     return { ...m, manuallyResolvedMismatches: next }
   })
 }

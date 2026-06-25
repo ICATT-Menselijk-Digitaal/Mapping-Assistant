@@ -347,7 +347,10 @@ describe('Search and status filter', () => {
   it('allows manual collapse of a parent field while Unmapped filter is active', async () => {
     const div = document.createElement('div')
     document.body.appendChild(div)
-    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedNodes) }, attachTo: div })
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(nestedNodes) },
+      attachTo: div,
+    })
     await wrapper.find('[data-testid="filter-unmapped"]').trigger('click')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
