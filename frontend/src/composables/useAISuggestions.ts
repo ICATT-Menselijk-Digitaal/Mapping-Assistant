@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { aiStatsResource } from '@/api/resources'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
 export const CONFIDENCE_THRESHOLD = 0.7
@@ -31,10 +32,23 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   const lowConfidenceSuggestions = ref<AiSuggestion[]>([])
   const isLoading = ref(false)
   const error = ref<AIServiceError | null>(null)
-  const accepted = ref(0)
-  const rejected = ref(0)
-  const totalGenerated = ref(0)
-  const rejectedPairs = ref<Set<string>>(new Set())
+
+  // Accumulated AI statistics live in the shared aiStats resource (persisted +
+  // workspace-scoped). Counters are writable projections (set seeds the resource,
+  // as import/tests do); rejectedPairs is a read-only Set view.
+  const accepted = computed({
+    get: () => aiStatsResource.state.value.accepted,
+    set: (value) => aiStatsResource.update((stats) => ({ ...stats, accepted: value })),
+  })
+  const rejected = computed({
+    get: () => aiStatsResource.state.value.rejected,
+    set: (value) => aiStatsResource.update((stats) => ({ ...stats, rejected: value })),
+  })
+  const totalGenerated = computed({
+    get: () => aiStatsResource.state.value.totalGenerated,
+    set: (value) => aiStatsResource.update((stats) => ({ ...stats, totalGenerated: value })),
+  })
+  const rejectedPairs = computed(() => new Set(aiStatsResource.state.value.rejectedPairs))
 
   async function generateSuggestions(
     sourceFields: SchemaField[],
@@ -115,13 +129,14 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
       const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
 
+      const rejectedSet = rejectedPairs.value
       const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
         const src = sourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
         const tgt = unmappedTargetFields.find(
           (f) => f.path === s.targetField || f.name === s.targetField,
         )
         if (!src || !tgt) return acc
-        if (rejectedPairs.value.has(`${src.id}::${tgt.id}`)) return acc
+        if (rejectedSet.has(`${src.id}::${tgt.id}`)) return acc
         acc.push({
           id: crypto.randomUUID() as string,
           sourceFieldId: src.id,
@@ -140,7 +155,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           score: s.confidenceScore,
         })),
       )
-      totalGenerated.value += resolved.length
+      aiStatsResource.update((stats) => ({
+        ...stats,
+        totalGenerated: stats.totalGenerated + resolved.length,
+      }))
       suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
       lowConfidenceSuggestions.value = resolved.filter(
         (s) => s.confidenceScore < CONFIDENCE_THRESHOLD,
@@ -174,7 +192,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     } else {
       lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
     }
-    accepted.value++
+    aiStatsResource.update((stats) => ({ ...stats, accepted: stats.accepted + 1 }))
   }
 
   function rejectSuggestion(id: string): void {
@@ -188,17 +206,25 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     } else {
       lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
     }
-    rejected.value++
-    rejectedPairs.value.add(`${suggestion.sourceFieldId}::${suggestion.targetFieldId}`)
+    const pairKey = `${suggestion.sourceFieldId}::${suggestion.targetFieldId}`
+    aiStatsResource.update((stats) => ({
+      ...stats,
+      rejected: stats.rejected + 1,
+      rejectedPairs: stats.rejectedPairs.includes(pairKey)
+        ? stats.rejectedPairs
+        : [...stats.rejectedPairs, pairKey],
+    }))
   }
 
   function restoreStatistics(stats: ExportedAIStatistics): void {
     suggestions.value = []
     lowConfidenceSuggestions.value = []
-    totalGenerated.value = stats.totalGenerated
-    accepted.value = stats.accepted
-    rejected.value = stats.rejected
-    rejectedPairs.value = new Set(stats.rejectedPairs)
+    aiStatsResource.write({
+      totalGenerated: stats.totalGenerated,
+      accepted: stats.accepted,
+      rejected: stats.rejected,
+      rejectedPairs: [...stats.rejectedPairs],
+    })
   }
 
   return {
