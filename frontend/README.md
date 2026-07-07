@@ -29,6 +29,16 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+### Environment Variables
+
+AI-assisted mapping/transformation suggestions call OpenRouter directly from the browser and need an API key. Create `frontend/.env.local` (git-ignored, never commit it) with:
+
+```
+VITE_OPENROUTER_API_KEY=your-openrouter-key-here
+```
+
+Get a key from [openrouter.ai/keys](https://openrouter.ai/keys). Without this file, the rest of the app works, but AI suggestion features will fail. Vite only reads `.env.local` on startup, so restart `npm run dev` after creating or editing it.
+
 ### Compile and Hot-Reload for Development
 
 ```sh
