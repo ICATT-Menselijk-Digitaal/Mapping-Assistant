@@ -58,12 +58,12 @@ Nog te bepalen.
 
 ## Contact
 
+Naam: Martin de Bijl\
+Email: martin.debijl@dimpact.nl\
+Organisatie: Dimpact
+
 Email: office@icatt.nl\
 Organisatie: ICATT
-
-Naam: Martin de Bijl\
-Email: [in te vullen]\
-Organisatie: Dimpact
 
 ## Meer informatie
 
