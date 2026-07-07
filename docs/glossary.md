@@ -1,0 +1,16 @@
+# Glossary
+
+Domain terms used across the Mapping Assistant's specs and issues. See `docs/steering/VISION.md` for the full Bounded Context breakdown — this glossary tracks terms as they're introduced or refined by individual Epics/Features.
+
+## AI assistance
+
+- **Suggestion scope** — the set of schema objects an administrator chooses to include before running an AI suggestion pass, used to keep suggestion runs usable against real-world-sized schemas instead of relying on a hard field cap. Introduced in [#82](../../issues/82).
+- **Suggestion reasoning** — the written rationale an AI suggestion (mapping, transformation, or validation rule) includes for why it was proposed, shown alongside its confidence score. Introduced in [#82](../../issues/82).
+- **AI-inferred validation rule** — a validation rule the AI derives from a field's free-text description, rather than only from its declared schema constraints (e.g. inferring a postal-code format from a description that has no matching regex/format constraint in the schema). Reviewed and accepted/rejected by the administrator like any other AI suggestion. Introduced in [#82](../../issues/82).
+- **Suggestion cost** — the cost and token usage recorded for a single AI suggestion call (mapping or transformation), sourced from the LLM provider's per-request usage data. Introduced in [#83](../../issues/83).
+- **Model comparison report** — an internal report comparing suggestion cost (and, where available, acceptance rate) across the different LLMs available through OpenRouter, used to inform a production model choice. Introduced in [#83](../../issues/83).
+
+## Trial environment
+
+- **Trial visitor** — someone trying out the Mapping Assistant on the public test environment, typically a dev-team contact rather than the general public. Distinct from the product's primary actor, the Technical administrator. Provides their own AI provider API key rather than using a team-managed one. Introduced in [#84](../../issues/84).
+
