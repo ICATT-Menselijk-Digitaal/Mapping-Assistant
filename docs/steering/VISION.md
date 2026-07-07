@@ -10,11 +10,13 @@ Mapping Assistant enables technical administrators at Dutch municipalities to de
 
 The project has transitioned from PoC to an actual funded product. The current focus is on reproducing a real-world mapping use case (where the mapping has already been established manually) and establishing the repeatability needed to serve additional applications beyond the initial case.
 
+Mapping Assistant is built by ICATT, commissioned by Dimpact.
+
 ## Target Users
 
 | Actor | Context | Primary goals |
 |---|---|---|
-| Technical administrator | Employed at a Dutch municipality; responsible for maintaining data mappings between internal and external systems | Complete a source-to-target field mapping, export the result, and update it when schemas change |
+| Technical administrator (Dutch UI term: "functioneel beheerder") | Employed at a Dutch municipality; responsible for maintaining data mappings between internal and external systems | Complete a source-to-target field mapping, export the result, and update it when schemas change |
 
 ## Core Principles
 
@@ -23,6 +25,7 @@ The project has transitioned from PoC to an actual funded product. The current f
 3. **Measurable AI performance** — The accuracy of AI suggestions is tracked systematically so that system quality can be demonstrably improved. This is an internal product quality metric, not an administrator-facing dashboard.
 4. **Repeatable** — Mapping configurations can be reused for different combinations of source and target systems. The workflow is consistent regardless of the systems involved.
 5. **Exportable output** — Every completed mapping produces a structured, machine-readable export that can be processed by external systems without manual transformation.
+6. **Responsible AI** — AI is used transparently and accountably, in line with the Dutch Digitaliseringsstrategie: suggestions are explainable, reviewable, and never applied without human confirmation, and their cost and performance are tracked openly rather than treated as a black box.
 
 ## Strategic Goals
 

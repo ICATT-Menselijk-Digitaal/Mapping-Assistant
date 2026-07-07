@@ -2,6 +2,10 @@
 
 Domain terms used across the Mapping Assistant's specs and issues. See `docs/steering/VISION.md` for the full Bounded Context breakdown — this glossary tracks terms as they're introduced or refined by individual Epics/Features.
 
+## Core actors
+
+- **Technical administrator** — the product's primary actor (see `docs/steering/VISION.md`). Dutch UI term: **functioneel beheerder**.
+
 ## AI assistance
 
 - **Suggestion scope** — the set of schema objects an administrator chooses to include before running an AI suggestion pass, used to keep suggestion runs usable against real-world-sized schemas instead of relying on a hard field cap. Introduced in [#82](../../issues/82).
