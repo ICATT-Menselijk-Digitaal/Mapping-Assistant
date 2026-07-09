@@ -9,10 +9,14 @@ Domain terms used across the Mapping Assistant's specs and issues. See `docs/ste
 ## AI assistance
 
 - **Suggestion scope** — the set of schema objects an administrator chooses to include before running an AI suggestion pass, used to keep suggestion runs usable against real-world-sized schemas instead of relying on a hard field cap. Introduced in [#82](../../issues/82).
-- **Suggestion reasoning** — the written rationale an AI suggestion (mapping, transformation, or validation rule) includes for why it was proposed, shown alongside its confidence score. Introduced in [#82](../../issues/82).
-- **AI-inferred validation rule** — a validation rule the AI derives from a field's free-text description, rather than only from its declared schema constraints (e.g. inferring a postal-code format from a description that has no matching regex/format constraint in the schema). Reviewed and accepted/rejected by the administrator like any other AI suggestion. Introduced in [#82](../../issues/82).
+- **Suggestion reasoning** — the written rationale an AI suggestion (mapping or transformation) includes for why it was proposed, shown alongside its confidence score. Introduced in [#82](../../issues/82).
+- **Validation rule** — a semantic constraint on a field's value (e.g. a format or pattern) that's implied by its free-text description but not declared in its schema properties (data type, max length, required). Only actionable once a field is part of a mapped pair — not a standalone, reviewable AI suggestion; referenced within transformation suggestion reasoning when relevant. Introduced in [#82](../../issues/82), scoped down from an earlier, more complex design.
 - **Suggestion cost** — the cost and token usage recorded for a single AI suggestion call (mapping or transformation), sourced from the LLM provider's per-request usage data. Introduced in [#83](../../issues/83).
 - **Model comparison report** — an internal report comparing suggestion cost (and, where available, acceptance rate) across the different LLMs available through OpenRouter, used to inform a production model choice. Introduced in [#83](../../issues/83).
+
+## Schema fields
+
+- **Container field** — a schema field that only groups other fields (e.g. "Zaak" or "initiator") and has no mappable value of its own. Never mappable directly, and never eligible as an AI suggestion candidate — only its leaf fields are. Introduced in [#87](../../issues/87).
 
 ## Trial environment
 
