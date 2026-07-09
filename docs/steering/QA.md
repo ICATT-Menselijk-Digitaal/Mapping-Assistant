@@ -77,6 +77,18 @@ cd frontend && npm run type-check
 - [ ] Documentation updated (if this task changes something described in `docs/steering/` or `docs/glossary.md`)
 - [ ] No `test.only` left in the codebase
 
+## Feature Completion Checklist
+
+<!-- Each item is "if applicable" — skip items that don't apply, but document why. -->
+
+- [ ] **Changelog** — An entry has been added to the top of `CHANGELOG.md` with the feature/bug name and a link to the GitHub issue. If there are new environment variables or other upgrade-relevant changes, they are mentioned here.
+- [ ] **Readme** — README(s) updated with information on how to install, configure, and run the application locally, including any new environment variables.
+- [ ] **User secrets** — User secrets in 1Password have been added/updated.
+- [ ] **Decision record** — Any significant functional/product decision has been added to `docs/decision-record.md` (in Dutch).
+- [ ] **Cleanup** — Branches, test data, and temporary copies of databases/files have been cleaned up.
+- [ ] **UX** — Significant design changes have been checked with a UX specialist.
+- [ ] **Test documentation** — Regression test scenarios not covered by automated tests, known issues, and things deliberately not tested are documented in this file's Known Issues section.
+
 ## Test Environments
 
 | Environment | Purpose | Access |
@@ -87,6 +99,7 @@ cd frontend && npm run type-check
 ## Known Issues
 
 - **E2E coverage gap:** The only E2E test (`e2e/vue.spec.ts`) is the Vue scaffold placeholder — it checks for "You did it!" text and does not cover any real administrator flow. E2E is also disabled in CI. Real E2E coverage is not yet in place.
+- **Silent AI transformation-suggestion failures:** if a transformation-suggestion AI call fails (unreachable service, invalid JSONata expression returned) or times out, `useTransformationSuggestions.ts` silently discards the error — the loading indicator just disappears with no error message, no suggestion, and no explanation shown to the administrator. Originally declared as an edge case in closed Feature #42, without deeper rationale. Should surface a visible error state instead.
 - **No coverage enforcement:** Coverage thresholds are not configured in `vitest.config.ts` — the 80% target is a convention, not a hard gate.
 
 ## Roadmap: Incoming Tester

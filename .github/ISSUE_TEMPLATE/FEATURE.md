@@ -63,3 +63,17 @@ assignees: ""
 <!-- Link task issues as they are created -->
 
 - [ ]
+
+---
+
+## Feature Completion Checklist
+
+<!-- Each item is "if applicable" — skip items that don't apply, but document why. Source: docs/steering/QA.md -->
+
+- [ ] **Changelog** — An entry has been added to the top of `CHANGELOG.md` with the feature/bug name and a link to the GitHub issue. If there are new environment variables or other upgrade-relevant changes, they are mentioned here.
+- [ ] **Readme** — README(s) updated with information on how to install, configure, and run the application locally, including any new environment variables.
+- [ ] **User secrets** — User secrets in 1Password have been added/updated.
+- [ ] **Decision record** — Any significant functional/product decision has been added to `docs/decision-record.md` (in Dutch).
+- [ ] **Cleanup** — Branches, test data, and temporary copies of databases/files have been cleaned up.
+- [ ] **UX** — Significant design changes have been checked with a UX specialist.
+- [ ] **Test documentation** — Regression test scenarios not covered by automated tests, known issues, and things deliberately not tested are documented in `docs/steering/QA.md`'s Known Issues section.
