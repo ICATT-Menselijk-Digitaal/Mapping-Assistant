@@ -64,9 +64,17 @@ cd frontend && npm run type-check
 
 ## Definition of Done
 
-- [ ] All Gherkin scenarios covered by automated tests
-- [ ] Lint and type-check pass (no TypeScript errors, no lint violations)
-- [ ] Unit/component tests pass
+- [ ] Linting passes (`npm run lint:ci`)
+- [ ] Formatting passes (`npm run format:ci`)
+- [ ] Type check passes (`npm run type-check`)
+- [ ] All Gherkin scenarios correctly implemented and covered by tests
+- [ ] Edge cases handled
+- [ ] Contracts match implementation
+- [ ] Observability in place
+- [ ] Design reviewed (if UI)
+- [ ] PR approved by at least one reviewer
+- [ ] No unrelated changes or scope creep
+- [ ] Documentation updated (if this task changes something described in `docs/steering/` or `docs/glossary.md`)
 - [ ] No `test.only` left in the codebase
 
 ## Test Environments

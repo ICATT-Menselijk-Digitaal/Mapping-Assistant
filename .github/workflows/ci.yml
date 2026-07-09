@@ -25,12 +25,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - name: Oxlint
-        run: npx oxlint .
-      - name: ESLint
-        run: npx eslint .
+      - name: Lint
+        run: npm run lint:ci
       - name: Prettier check
-        run: npx prettier --check --experimental-cli src/
+        run: npm run format:ci
 
   type-check:
     name: Type check

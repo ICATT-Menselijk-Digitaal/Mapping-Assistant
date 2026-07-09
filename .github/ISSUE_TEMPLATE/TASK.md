@@ -149,13 +149,17 @@ Feature: {{feature_name}}
 
 ## Definition of Done
 
-- [ ] Contracts match implementation
-- [ ] All Gherkin scenarios covered by tests
+- [ ] Linting passes (`npm run lint:ci`)
+- [ ] Formatting passes (`npm run format:ci`)
+- [ ] Type check passes (`npm run type-check`)
+- [ ] All Gherkin scenarios correctly implemented and covered by tests
 - [ ] Edge cases handled
+- [ ] Contracts match implementation
 - [ ] Observability in place
-- [ ] Code reviewed
 - [ ] Design reviewed (if UI)
-- [ ] Documentation updated
+- [ ] PR approved by at least one reviewer
+- [ ] No unrelated changes or scope creep
+- [ ] Documentation updated (if this task changes something described in `docs/steering/` or `docs/glossary.md`)
 
 ---
 

@@ -14,7 +14,11 @@
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "lint:ci": "run-s lint:ci:*",
+    "lint:ci:oxlint": "oxlint .",
+    "lint:ci:eslint": "eslint .",
+    "format": "prettier --write --experimental-cli src/",
+    "format:ci": "prettier --check --experimental-cli src/"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
