@@ -1,0 +1,9 @@
+apiVersion: v2
+name: mapping-assistant
+description: A Helm chart for the Mapping Assistant frontend
+
+type: application
+
+# Chart version and appVersion will be filled in during a release, leave as is
+version: 0.0.0
+appVersion: 0.0.0
