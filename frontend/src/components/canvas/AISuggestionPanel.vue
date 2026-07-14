@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Schema } from '@/domain/schema'
-import { useAISuggestions } from '@/composables/useAISuggestions'
+import { useAISuggestions, AIKeyRejectedError } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
 import { useApiKey } from '@/composables/useApiKey'
 import AISuggestionCard from './AISuggestionCard.vue'
@@ -13,7 +13,13 @@ const props = defineProps<{
 
 const aiStore = useAISuggestions()
 const mappingsStore = useMappings()
-const { hasKey, getKey } = useApiKey()
+const { hasKey, getKey, removeStoredKey } = useApiKey()
+
+const keyRejected = computed(() => aiStore.error instanceof AIKeyRejectedError)
+
+watch(keyRejected, (isRejected) => {
+  if (isRejected) removeStoredKey()
+})
 
 const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
@@ -132,9 +138,25 @@ async function generate() {
   </div>
 
   <template v-else>
-    <!-- Error banner (shown above suggestions when present) -->
+    <!-- Key rejected: stored key was rejected mid-session -->
     <div
-      v-if="aiStore.error"
+      v-if="keyRejected"
+      class="shrink-0 flex flex-col gap-2 px-3 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm"
+      data-testid="key-rejected-state"
+    >
+      <p>Je API-sleutel is geweigerd. Voer een nieuwe sleutel in om door te gaan.</p>
+      <button
+        class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded"
+        data-testid="update-key-button"
+        @click="getKey()"
+      >
+        Werk je API-sleutel bij
+      </button>
+    </div>
+
+    <!-- Generic error banner (shown above suggestions when present) -->
+    <div
+      v-else-if="aiStore.error"
       class="shrink-0 flex flex-col gap-2 px-3 py-2.5 bg-red-50 border-b border-red-100 text-red-700 text-sm"
       data-testid="error-state"
     >

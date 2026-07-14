@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AISuggestionPanel from '../AISuggestionPanel.vue'
-import { useAISuggestions, AIServiceError } from '@/composables/useAISuggestions'
+import {
+  useAISuggestions,
+  AIServiceError,
+  AIKeyRejectedError,
+} from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
 import { useApiKey, resetApiKeyState, syncEnvKey } from '@/composables/useApiKey'
 import type { AiSuggestion } from '@/types'
@@ -597,6 +601,48 @@ describe('AISuggestionPanel', () => {
 
       expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
       expect(mappingsStore.mappings).toHaveLength(0)
+    })
+  })
+
+  describe('key-rejected error state', () => {
+    it('shows the key-rejected banner when the suggestion call returns 401/403', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="key-rejected-state"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(false)
+    })
+
+    it('clears the stored key when the key-rejected banner appears', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const { hasKey } = useApiKey()
+      // Key is set in beforeEach
+      expect(hasKey.value).toBe(true)
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      expect(hasKey.value).toBe(false)
+    })
+
+    it('shows "Werk je API-sleutel bij" button in the banner', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      const btn = wrapper.find('[data-testid="update-key-button"]')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toBe('Werk je API-sleutel bij')
+    })
+
+    it('opens the key entry prompt when "Werk je API-sleutel bij" is clicked', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const { isPromptVisible } = useApiKey()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="update-key-button"]').trigger('click')
+      expect(isPromptVisible.value).toBe(true)
     })
   })
 })
