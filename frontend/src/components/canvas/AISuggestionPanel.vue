@@ -64,6 +64,11 @@ const resolvedLowConfidence = computed(() =>
 async function generate() {
   await aiStore.generateSuggestions(zaakSourceFields.value, zaakUnmappedTargetFields.value)
 }
+
+async function changeKey() {
+  removeStoredKey()
+  await getKey()
+}
 </script>
 
 <template>
@@ -275,6 +280,20 @@ async function generate() {
         @click="generate"
       >
         Genereer suggesties
+      </button>
+    </div>
+
+    <!-- API key affordance — visible when a key is stored -->
+    <div
+      v-if="hasKey"
+      class="shrink-0 flex items-center justify-end gap-3 px-3 py-2 border-t border-slate-100 text-xs text-slate-400"
+      data-testid="api-key-affordance"
+    >
+      <button class="hover:text-slate-600" data-testid="change-key-button" @click="changeKey">
+        Wijzig sleutel
+      </button>
+      <button class="hover:text-red-600" data-testid="remove-key-button" @click="removeStoredKey">
+        Verwijder sleutel
       </button>
     </div>
   </template>
