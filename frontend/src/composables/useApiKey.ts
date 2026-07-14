@@ -37,7 +37,7 @@ const hasKey = computed(() => {
 export async function validateKey(key: string): Promise<'valid' | 'invalid' | 'unreachable'> {
   isValidating.value = true
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/models', {
+    const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
       headers: { Authorization: `Bearer ${key}` },
     })
     if (response.ok) return 'valid'
