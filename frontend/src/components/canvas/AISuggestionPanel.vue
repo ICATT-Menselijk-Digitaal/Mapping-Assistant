@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
+import { useApiKey } from '@/composables/useApiKey'
 import AISuggestionCard from './AISuggestionCard.vue'
 
 const props = defineProps<{
@@ -12,6 +13,7 @@ const props = defineProps<{
 
 const aiStore = useAISuggestions()
 const mappingsStore = useMappings()
+const { hasKey, getKey } = useApiKey()
 
 const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
@@ -227,7 +229,23 @@ async function generate() {
       </div>
     </div>
 
-    <!-- Default: generate button (no error, no suggestions, unmapped fields exist) -->
+    <!-- No API key: show placeholder instead of generate button -->
+    <div
+      v-else-if="!aiStore.error && !hasKey"
+      class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-slate-500 text-sm gap-3"
+      data-testid="no-key-placeholder"
+    >
+      <p>Stel je API-sleutel in om AI-suggesties te gebruiken.</p>
+      <button
+        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded"
+        data-testid="setup-key-button"
+        @click="getKey()"
+      >
+        Stel je API-sleutel in
+      </button>
+    </div>
+
+    <!-- Default: generate button (no error, no suggestions, unmapped fields exist, key present) -->
     <div v-else-if="!aiStore.error" class="flex-1 flex items-center justify-center py-10">
       <button
         class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
