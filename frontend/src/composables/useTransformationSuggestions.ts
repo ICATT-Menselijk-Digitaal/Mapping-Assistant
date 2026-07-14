@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import jsonata from 'jsonata'
+import { useApiKey } from '@/composables/useApiKey'
 import type { SchemaField } from '@/types'
 import type { MismatchType, TransformationRule } from '@/types/mapping'
 import { useMappings } from '@/composables/useMappings'
@@ -96,13 +97,15 @@ export const useTransformationSuggestions = defineStore('transformationSuggestio
     targetField: SchemaField,
     existingRules: TransformationRule[],
   ): Promise<void> {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined
+    loadingMappingIds.value = new Set(loadingMappingIds.value).add(mappingId)
+
+    const apiKey = await useApiKey().getKey()
     if (!apiKey) {
-      console.warn('[TransformationSuggestions] OpenRouter API key not configured')
+      const next = new Set(loadingMappingIds.value)
+      next.delete(mappingId)
+      loadingMappingIds.value = next
       return
     }
-
-    loadingMappingIds.value = new Set(loadingMappingIds.value).add(mappingId)
 
     const prompt = buildPrompt(sourceField, targetField, existingRules)
     console.log(`[AI Suggestie] Prompt:\n${prompt}`)

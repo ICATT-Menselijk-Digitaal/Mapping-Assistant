@@ -1,9 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AISuggestionPanel from '../AISuggestionPanel.vue'
-import { useAISuggestions, AIServiceError } from '@/composables/useAISuggestions'
+import {
+  useAISuggestions,
+  AIServiceError,
+  AIKeyRejectedError,
+} from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
+import { useApiKey, resetApiKeyState, syncEnvKey } from '@/composables/useApiKey'
 import type { AiSuggestion } from '@/types'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
@@ -39,6 +44,12 @@ function mountPanel(props = { sourceSchema, targetSchema }) {
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  resetApiKeyState()
+  useApiKey().provideKey('test-key')
+})
+
+afterEach(() => {
+  resetApiKeyState()
 })
 
 describe('AISuggestionPanel', () => {
@@ -335,6 +346,54 @@ describe('AISuggestionPanel', () => {
     })
   })
 
+  describe('no API key placeholder', () => {
+    beforeEach(() => {
+      resetApiKeyState() // clear sessionKey, storedKey and localStorage
+    })
+
+    it('shows the placeholder when no API key is available', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(false)
+    })
+
+    it('calls getKey when the setup CTA is clicked', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      const ctaBtn = wrapper.find('[data-testid="setup-key-button"]')
+      expect(ctaBtn.exists()).toBe(true)
+      await ctaBtn.trigger('click')
+      // getKey() is called on the singleton; isPromptVisible should be true
+      const { isPromptVisible } = useApiKey()
+      expect(isPromptVisible.value).toBe(true)
+    })
+
+    it('shows the generate button after a key is provided', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+
+      const { provideKey } = useApiKey()
+      provideKey('new-test-key')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(true)
+    })
+
+    it('shows generate button when env var key is configured', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'env-key-123')
+      syncEnvKey() // sync reactive mirror so hasKey reacts to the stub
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(true)
+      vi.unstubAllEnvs()
+      syncEnvKey() // restore reactive mirror
+    })
+  })
+
   // Confidence threshold: panel renders all store suggestions (filtering is store's responsibility)
   describe('confidence threshold', () => {
     it('renders all suggestions present in the store', async () => {
@@ -542,6 +601,81 @@ describe('AISuggestionPanel', () => {
 
       expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
       expect(mappingsStore.mappings).toHaveLength(0)
+    })
+  })
+
+  describe('API key affordance', () => {
+    it('shows affordance when a key is stored', () => {
+      // beforeEach already sets a key via provideKey('test-key')
+      const wrapper = mountPanel()
+      expect(wrapper.find('[data-testid="api-key-affordance"]').exists()).toBe(true)
+    })
+
+    it('hides affordance when no key is stored', async () => {
+      resetApiKeyState() // clears key set in beforeEach
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="api-key-affordance"]').exists()).toBe(false)
+    })
+
+    it('removes key and shows placeholder when "Verwijder sleutel" is clicked', async () => {
+      const wrapper = mountPanel()
+      const { hasKey } = useApiKey()
+      expect(hasKey.value).toBe(true)
+      await wrapper.find('[data-testid="remove-key-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(hasKey.value).toBe(false)
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+    })
+
+    it('removes key and opens prompt when "Wijzig sleutel" is clicked', async () => {
+      const wrapper = mountPanel()
+      const { isPromptVisible } = useApiKey()
+      await wrapper.find('[data-testid="change-key-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(isPromptVisible.value).toBe(true)
+    })
+  })
+
+  describe('key-rejected error state', () => {
+    it('shows the key-rejected banner when the suggestion call returns 401/403', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="key-rejected-state"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(false)
+    })
+
+    it('clears the stored key when the key-rejected banner appears', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const { hasKey } = useApiKey()
+      // Key is set in beforeEach
+      expect(hasKey.value).toBe(true)
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      expect(hasKey.value).toBe(false)
+    })
+
+    it('shows "Werk je API-sleutel bij" button in the banner', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      const btn = wrapper.find('[data-testid="update-key-button"]')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toBe('Werk je API-sleutel bij')
+    })
+
+    it('opens the key entry prompt when "Werk je API-sleutel bij" is clicked', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const { isPromptVisible } = useApiKey()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="update-key-button"]').trigger('click')
+      expect(isPromptVisible.value).toBe(true)
     })
   })
 })
