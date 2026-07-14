@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { useApiKey } from '@/composables/useApiKey'
 import { aiStatsResource } from '@/api/resources'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
@@ -67,8 +68,11 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     isLoading.value = true
     error.value = null
 
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined
-    if (!apiKey) throw new AIServiceError('OpenRouter API key not configured')
+    const apiKey = await useApiKey().getKey()
+    if (!apiKey) {
+      isLoading.value = false
+      return []
+    }
 
     // Capped to control prompt size and keep API costs low during PoC
     const sourceEntries = sourceFields
