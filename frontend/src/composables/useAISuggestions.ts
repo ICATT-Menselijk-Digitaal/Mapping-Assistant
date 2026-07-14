@@ -19,6 +19,13 @@ export class AIServiceError extends Error {
   }
 }
 
+export class AIKeyRejectedError extends AIServiceError {
+  constructor() {
+    super('API key rejected by the AI provider')
+    this.name = 'AIKeyRejectedError'
+  }
+}
+
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
@@ -108,6 +115,9 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         }),
       })
 
+      if (response.status === 401 || response.status === 403) {
+        throw new AIKeyRejectedError()
+      }
       if (!response.ok) {
         throw new AIServiceError(`OpenRouter API returned ${response.status}`)
       }
