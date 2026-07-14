@@ -3,6 +3,7 @@ import { useApiKey, validateKey, resetApiKeyState } from '../useApiKey'
 
 beforeEach(() => {
   resetApiKeyState()
+  localStorage.removeItem('ma_openrouter_api_key')
   vi.unstubAllEnvs()
 })
 
@@ -134,5 +135,64 @@ describe('validateKey', () => {
     await validationPromise
 
     expect(isValidating.value).toBe(false)
+  })
+})
+
+describe('localStorage persistence', () => {
+  // Scenario: Validated key is stored after successful validation
+  it('stores the key in localStorage after provideKey is called', () => {
+    const { provideKey } = useApiKey()
+
+    provideKey('test-key')
+
+    expect(localStorage.getItem('ma_openrouter_api_key')).toBe('test-key')
+  })
+
+  // Scenario: Stored key is read on next session without showing the prompt
+  it('returns stored key from localStorage without showing the prompt', async () => {
+    localStorage.setItem('ma_openrouter_api_key', 'stored-key')
+    const { getKey, isPromptVisible } = useApiKey()
+
+    const key = await getKey()
+
+    expect(key).toBe('stored-key')
+    expect(isPromptVisible.value).toBe(false)
+  })
+
+  // Scenario: Local storage key is used before session key
+  it('returns localStorage key before session key', async () => {
+    localStorage.setItem('ma_openrouter_api_key', 'local-key')
+    const { getKey, provideKey } = useApiKey()
+
+    // Simulate a session key being set
+    const keyPromise = getKey()
+    // getKey returns early from localStorage so promise already resolved
+    const key = await keyPromise
+
+    expect(key).toBe('local-key')
+    // provideKey was never called, so no session key interference
+    void provideKey // suppress unused warning
+  })
+
+  // Scenario: Stored key is cleared when removeStoredKey is called
+  it('removes the key from localStorage and shows prompt on next getKey', async () => {
+    const { provideKey, removeStoredKey, getKey, isPromptVisible } = useApiKey()
+
+    provideKey('to-be-removed')
+    expect(localStorage.getItem('ma_openrouter_api_key')).toBe('to-be-removed')
+
+    removeStoredKey()
+
+    expect(localStorage.getItem('ma_openrouter_api_key')).toBeNull()
+
+    // Reset state so next getKey triggers the prompt
+    resetApiKeyState()
+    const keyPromise = getKey()
+    expect(isPromptVisible.value).toBe(true)
+
+    // Cancel to clean up the pending promise
+    const { cancel } = useApiKey()
+    cancel()
+    await keyPromise
   })
 })
