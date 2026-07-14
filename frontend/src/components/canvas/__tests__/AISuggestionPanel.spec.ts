@@ -604,6 +604,39 @@ describe('AISuggestionPanel', () => {
     })
   })
 
+  describe('API key affordance', () => {
+    it('shows affordance when a key is stored', () => {
+      // beforeEach already sets a key via provideKey('test-key')
+      const wrapper = mountPanel()
+      expect(wrapper.find('[data-testid="api-key-affordance"]').exists()).toBe(true)
+    })
+
+    it('hides affordance when no key is stored', async () => {
+      resetApiKeyState() // clears key set in beforeEach
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="api-key-affordance"]').exists()).toBe(false)
+    })
+
+    it('removes key and shows placeholder when "Verwijder sleutel" is clicked', async () => {
+      const wrapper = mountPanel()
+      const { hasKey } = useApiKey()
+      expect(hasKey.value).toBe(true)
+      await wrapper.find('[data-testid="remove-key-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(hasKey.value).toBe(false)
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+    })
+
+    it('removes key and opens prompt when "Wijzig sleutel" is clicked', async () => {
+      const wrapper = mountPanel()
+      const { isPromptVisible } = useApiKey()
+      await wrapper.find('[data-testid="change-key-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(isPromptVisible.value).toBe(true)
+    })
+  })
+
   describe('key-rejected error state', () => {
     it('shows the key-rejected banner when the suggestion call returns 401/403', async () => {
       const wrapper = mountPanel()
