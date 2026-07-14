@@ -74,11 +74,7 @@ watch(isPromptVisible, (visible) => {
           data-testid="api-key-input"
           autofocus
         />
-        <p
-          v-if="validationError"
-          class="text-red-600 text-xs mb-3"
-          data-testid="api-key-error"
-        >
+        <p v-if="validationError" class="text-red-600 text-xs mb-3" data-testid="api-key-error">
           {{ validationError }}
         </p>
         <div v-else class="mb-3" />

@@ -77,9 +77,7 @@ describe('useApiKey', () => {
 describe('validateKey', () => {
   // Scenario: Trial Visitor submits a valid key
   it('returns "valid" when the API responds with 200', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(null, { status: 200 }),
-    )
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 200 }))
 
     const result = await validateKey('sk-or-valid')
     expect(result).toBe('valid')
@@ -87,9 +85,7 @@ describe('validateKey', () => {
 
   // Scenario: Trial Visitor submits an invalid key (401)
   it('returns "invalid" when the API responds with 401', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(null, { status: 401 }),
-    )
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 401 }))
 
     const result = await validateKey('sk-or-bad')
     expect(result).toBe('invalid')
@@ -97,9 +93,7 @@ describe('validateKey', () => {
 
   // Scenario: Trial Visitor submits an invalid key (403)
   it('returns "invalid" when the API responds with 403', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(null, { status: 403 }),
-    )
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 403 }))
 
     const result = await validateKey('sk-or-forbidden')
     expect(result).toBe('invalid')
@@ -114,9 +108,7 @@ describe('validateKey', () => {
   })
 
   it('returns "unreachable" for unexpected non-200/401/403 status codes', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(null, { status: 500 }),
-    )
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(null, { status: 500 }))
 
     const result = await validateKey('sk-or-any')
     expect(result).toBe('unreachable')
