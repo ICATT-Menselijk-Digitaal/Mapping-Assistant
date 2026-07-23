@@ -119,6 +119,7 @@ async function onImportFileSelected(file: File) {
         v-model:active-tab="activeTab"
         :source-schema="sourceSchema"
         :target-schema="targetSchema"
+        class="h-full"
       />
     </div>
     <div class="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
