@@ -81,7 +81,7 @@ function onSourceFileChange(event: Event) {
 }
 
 const sourceUrlInput = ref(
-  'https://cors.redoc.ly/https://esuite-data-extractie-gcp2.esuite-development.net/q/openapi',
+  'https://raw.githubusercontent.com/NL-AMS-LOCGOV/esuite-data-extractie/refs/heads/main/openapi-spec/OpenAPI.yaml',
 )
 
 function onSourceUrlSubmit() {
