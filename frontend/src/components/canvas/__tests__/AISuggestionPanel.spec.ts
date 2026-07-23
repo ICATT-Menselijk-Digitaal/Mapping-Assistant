@@ -35,6 +35,44 @@ const targetNodes: SchemaFieldNode[] = [
 const sourceSchema = buildSchema('', sourceNodes)
 const targetSchema = buildSchema('', targetNodes)
 
+// Schema with container fields for feature 87 tests
+const sourceNodesWithContainer: SchemaFieldNode[] = [
+  {
+    id: 'src-container',
+    name: 'Zaak',
+    path: 'Zaak',
+    dataType: 'object',
+    required: false,
+    children: [
+      { id: 'src-1', name: 'identificatie', path: 'Zaak.identificatie', dataType: 'string', required: true },
+      {
+        id: 'src-nested-container',
+        name: 'betrokkene',
+        path: 'Zaak.betrokkene',
+        dataType: 'object',
+        required: false,
+        children: [
+          { id: 'src-deep', name: 'naam', path: 'Zaak.betrokkene.naam', dataType: 'string', required: false },
+        ],
+      },
+    ],
+  },
+]
+const targetNodesWithContainer: SchemaFieldNode[] = [
+  {
+    id: 'tgt-container',
+    name: 'Zaak',
+    path: 'Zaak',
+    dataType: 'object',
+    required: false,
+    children: [
+      { id: 'tgt-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
+    ],
+  },
+]
+const sourceSchemaWithContainers = buildSchema('', sourceNodesWithContainer)
+const targetSchemaWithContainers = buildSchema('', targetNodesWithContainer)
+
 function mountPanel(props = { sourceSchema, targetSchema }) {
   return mount(AISuggestionPanel, {
     global: { plugins: [createPinia()], stubs: { Teleport: true } },
@@ -84,8 +122,8 @@ describe('AISuggestionPanel', () => {
     ] as AiSuggestion[]
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
-    expect(wrapper.text()).toContain('identificatie')
-    expect(wrapper.text()).toContain('uuid')
+    expect(wrapper.text()).toContain('Zaak.identificatie')
+    expect(wrapper.text()).toContain('Zaak.uuid')
   })
 
   // Scenario: Empty state when no unmapped target fields
@@ -678,4 +716,94 @@ describe('AISuggestionPanel', () => {
       expect(isPromptVisible.value).toBe(true)
     })
   })
+
+  // Scenario: Container fields excluded from AI suggestion candidates
+  describe('container field exclusion', () => {
+    it('excludes container source fields from generateSuggestions arguments', async () => {
+      const wrapper = mountPanel({
+        sourceSchema: sourceSchemaWithContainers,
+        targetSchema: targetSchemaWithContainers,
+      })
+      const aiStore = useAISuggestions()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [sourceArgs] = spy.mock.calls[0]!
+      expect(sourceArgs.every((f) => sourceSchemaWithContainers.childrenOf(f.id).length === 0)).toBe(true)
+      expect(sourceArgs.some((f) => f.id === 'src-container')).toBe(false)
+    })
+
+    it('excludes container target fields from generateSuggestions arguments', async () => {
+      const wrapper = mountPanel({
+        sourceSchema: sourceSchemaWithContainers,
+        targetSchema: targetSchemaWithContainers,
+      })
+      const aiStore = useAISuggestions()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [, targetArgs] = spy.mock.calls[0]!
+      expect(targetArgs.every((f) => targetSchemaWithContainers.childrenOf(f.id).length === 0)).toBe(true)
+      expect(targetArgs.some((f) => f.id === 'tgt-container')).toBe(false)
+    })
+
+    it('excludes container fields at multiple nesting depths', async () => {
+      const wrapper = mountPanel({
+        sourceSchema: sourceSchemaWithContainers,
+        targetSchema: targetSchemaWithContainers,
+      })
+      const aiStore = useAISuggestions()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [sourceArgs] = spy.mock.calls[0]!
+      expect(sourceArgs.some((f) => f.id === 'src-nested-container')).toBe(false)
+      expect(sourceArgs.some((f) => f.id === 'src-deep')).toBe(true)
+    })
+  })
+
+  // Scenario: Full path displayed in suggestion cards
+  describe('full path display', () => {
+    it('shows the full dot-notation path for source and target fields in suggestion cards', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        {
+          id: '1',
+          sourceFieldId: 'src-1',
+          targetFieldId: 'tgt-1',
+          confidenceScore: 0.97,
+          status: 'pending',
+        },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+      expect(wrapper.text()).toContain('Zaak.identificatie')
+      expect(wrapper.text()).toContain('Zaak.uuid')
+    })
+
+    it('shows path as-is for top-level fields where path equals name (no dot added)', async () => {
+      // Fields named "Zaak" at the top level: path === name, no dot-notation needed
+      const topLevelNodes: SchemaFieldNode[] = [
+        { id: 'src-top', name: 'Zaak', path: 'Zaak', dataType: 'string', required: true },
+      ]
+      const topLevelTargetNodes: SchemaFieldNode[] = [
+        { id: 'tgt-top', name: 'Zaak', path: 'Zaak', dataType: 'string', required: true },
+      ]
+      const srcSchema = buildSchema('', topLevelNodes)
+      const tgtSchema = buildSchema('', topLevelTargetNodes)
+      const wrapper = mountPanel({ sourceSchema: srcSchema, targetSchema: tgtSchema })
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        {
+          id: '1',
+          sourceFieldId: 'src-top',
+          targetFieldId: 'tgt-top',
+          confidenceScore: 0.97,
+          status: 'pending',
+        },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+      const card = wrapper.find('[data-testid="suggestion-card"]')
+      expect(card.exists()).toBe(true)
+      expect(card.text()).toContain('Zaak')
+    })
+  })
 })
+
