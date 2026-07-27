@@ -92,7 +92,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       .map((f) => ({ path: f.path, description: f.description }))
 
     const systemPrompt =
-      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
+      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array, each item having sourceField (path), targetField (path), and confidenceScore (number 0.0-1.0). Only return valid JSON, no markdown.'
 
     const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
 
@@ -185,7 +185,9 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         bySource.set(s.sourceFieldId, bucket)
       }
       const topSuggestions = [...bySource.values()].flatMap((arr) =>
-        arr.sort((a, b) => b.confidenceScore - a.confidenceScore).slice(0, MAX_SUGGESTIONS_PER_SOURCE),
+        arr
+          .sort((a, b) => b.confidenceScore - a.confidenceScore)
+          .slice(0, MAX_SUGGESTIONS_PER_SOURCE),
       )
 
       suggestions.value = topSuggestions
