@@ -44,7 +44,13 @@ const sourceNodesWithContainer: SchemaFieldNode[] = [
     dataType: 'object',
     required: false,
     children: [
-      { id: 'src-1', name: 'identificatie', path: 'Zaak.identificatie', dataType: 'string', required: true },
+      {
+        id: 'src-1',
+        name: 'identificatie',
+        path: 'Zaak.identificatie',
+        dataType: 'string',
+        required: true,
+      },
       {
         id: 'src-nested-container',
         name: 'betrokkene',
@@ -52,7 +58,13 @@ const sourceNodesWithContainer: SchemaFieldNode[] = [
         dataType: 'object',
         required: false,
         children: [
-          { id: 'src-deep', name: 'naam', path: 'Zaak.betrokkene.naam', dataType: 'string', required: false },
+          {
+            id: 'src-deep',
+            name: 'naam',
+            path: 'Zaak.betrokkene.naam',
+            dataType: 'string',
+            required: false,
+          },
         ],
       },
     ],
@@ -728,7 +740,9 @@ describe('AISuggestionPanel', () => {
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
       const [sourceArgs] = spy.mock.calls[0]!
-      expect(sourceArgs.every((f) => sourceSchemaWithContainers.childrenOf(f.id).length === 0)).toBe(true)
+      expect(
+        sourceArgs.every((f) => sourceSchemaWithContainers.childrenOf(f.id).length === 0),
+      ).toBe(true)
       expect(sourceArgs.some((f) => f.id === 'src-container')).toBe(false)
     })
 
@@ -741,7 +755,9 @@ describe('AISuggestionPanel', () => {
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
       const [, targetArgs] = spy.mock.calls[0]!
-      expect(targetArgs.every((f) => targetSchemaWithContainers.childrenOf(f.id).length === 0)).toBe(true)
+      expect(
+        targetArgs.every((f) => targetSchemaWithContainers.childrenOf(f.id).length === 0),
+      ).toBe(true)
       expect(targetArgs.some((f) => f.id === 'tgt-container')).toBe(false)
     })
 
@@ -806,4 +822,3 @@ describe('AISuggestionPanel', () => {
     })
   })
 })
-
