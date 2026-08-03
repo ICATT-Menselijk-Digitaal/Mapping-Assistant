@@ -81,7 +81,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       return []
     }
 
-    // Capped to control prompt size and keep API costs low during PoC
+    // TODO(production): remove this cap. Capped to control prompt size and keep API costs low during PoC
     const sourceEntries = sourceFields
       .slice(0, 5)
       .map((f) => ({ path: f.path, description: f.description }))
