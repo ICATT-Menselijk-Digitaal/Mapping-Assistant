@@ -79,6 +79,22 @@ const targetNodesWithContainer: SchemaFieldNode[] = [
     required: false,
     children: [
       { id: 'tgt-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
+      {
+        id: 'tgt-nested-container',
+        name: 'betrokkene',
+        path: 'Zaak.betrokkene',
+        dataType: 'object',
+        required: false,
+        children: [
+          {
+            id: 'tgt-deep',
+            name: 'naam',
+            path: 'Zaak.betrokkene.naam',
+            dataType: 'string',
+            required: false,
+          },
+        ],
+      },
     ],
   },
 ]
@@ -769,9 +785,11 @@ describe('AISuggestionPanel', () => {
       const aiStore = useAISuggestions()
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
-      const [sourceArgs] = spy.mock.calls[0]!
+      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
       expect(sourceArgs.some((f) => f.id === 'src-nested-container')).toBe(false)
       expect(sourceArgs.some((f) => f.id === 'src-deep')).toBe(true)
+      expect(targetArgs.some((f) => f.id === 'tgt-nested-container')).toBe(false)
+      expect(targetArgs.some((f) => f.id === 'tgt-deep')).toBe(true)
     })
   })
 
@@ -819,6 +837,7 @@ describe('AISuggestionPanel', () => {
       const card = wrapper.find('[data-testid="suggestion-card"]')
       expect(card.exists()).toBe(true)
       expect(card.text()).toContain('Zaak')
+      expect(card.text()).not.toContain('Zaak.')
     })
   })
 })
