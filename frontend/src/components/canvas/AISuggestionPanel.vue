@@ -24,6 +24,7 @@ watch(keyRejected, (isRejected) => {
 const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
+// TODO(production): remove the Zaak-only scoping and the slice(0, 5) cap on both sides below.
 // Capped to Zaak context only to control prompt size and cost during PoC
 const zaakSourceFields = computed(() =>
   props.sourceSchema
