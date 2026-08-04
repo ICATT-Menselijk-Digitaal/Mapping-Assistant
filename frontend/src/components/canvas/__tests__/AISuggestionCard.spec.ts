@@ -105,5 +105,22 @@ describe('AISuggestionCard', () => {
       const wrapper = mountCard()
       expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(false)
     })
+
+    // Scenario: Expanding Toelichting reveals the AI's reasoning
+    it('reveals the reasoning text when the Toelichting toggle is clicked', async () => {
+      const wrapper = mountCard({
+        suggestionId: 'sug-1',
+        sourceName: 'customerId',
+        targetName: 'client_id',
+        confidenceScore: 0.97,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+      })
+
+      await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+
+      const text = wrapper.find('[data-testid="toelichting-text"]')
+      expect(text.exists()).toBe(true)
+      expect(text.text()).toBe('Beide velden bevatten het klant-identificatienummer.')
+    })
   })
 })
