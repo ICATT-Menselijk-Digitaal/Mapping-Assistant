@@ -830,6 +830,41 @@ describe('useAISuggestions', () => {
       expect(result[0]?.reasoning).toBe('Beide velden bevatten de voornaam van een persoon.')
     })
 
+    // Edge Case: MIN_REASONING_LENGTH must not reject a legitimately short reasoning
+    it('does not filter out a short but legitimate reasoning', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: 'Zelfde veldnaam.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.reasoning).toBe('Zelfde veldnaam.')
+    })
+
     // Scenario: Generic filler reasoning is filtered out (Dutch — the reasoning
     // is shown to the administrator, see Task #112, so the AI writes it in Dutch)
     it('filters out a suggestion whose reasoning is empty or generic filler', async () => {
