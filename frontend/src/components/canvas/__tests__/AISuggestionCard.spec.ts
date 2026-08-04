@@ -122,5 +122,25 @@ describe('AISuggestionCard', () => {
       expect(text.exists()).toBe(true)
       expect(text.text()).toBe('Beide velden bevatten het klant-identificatienummer.')
     })
+
+    // Scenario: Unusually long reasoning stays readable
+    it('wraps unusually long reasoning instead of breaking the card layout', async () => {
+      const longReasoning =
+        'Beide velden verwijzen naar hetzelfde klant-identificatienummer, zoals gebruikt in het bronsysteem en het doelsysteem, ' +
+        'en de naamgeving van beide velden komt sterk overeen ondanks het verschil in schrijfwijze tussen de twee schema-conventies.'
+      const wrapper = mountCard({
+        suggestionId: 'sug-1',
+        sourceName: 'customerId',
+        targetName: 'client_id',
+        confidenceScore: 0.97,
+        reasoning: longReasoning,
+      })
+
+      await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+
+      const text = wrapper.find('[data-testid="toelichting-text"]')
+      expect(text.text()).toBe(longReasoning)
+      expect(text.classes()).toContain('break-words')
+    })
   })
 })
