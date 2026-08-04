@@ -35,6 +35,7 @@ interface ClaudeApiSuggestion {
   sourceField: string
   targetField: string
   confidenceScore: number
+  reasoning: string
 }
 
 export const useAISuggestions = defineStore('aiSuggestions', () => {
@@ -158,6 +159,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           sourceFieldId: src.id,
           targetFieldId: tgt.id,
           confidenceScore: Math.max(0, Math.min(1, s.confidenceScore)),
+          reasoning: s.reasoning,
           status: 'pending',
         })
         return acc

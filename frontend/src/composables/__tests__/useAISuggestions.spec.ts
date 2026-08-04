@@ -759,6 +759,42 @@ describe('useAISuggestions', () => {
     })
   })
 
+  // Scenario: Suggestion with coherent reasoning is shown to the administrator
+  describe('reasoning', () => {
+    it('attaches the AI-written reasoning to the returned suggestion', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: 'Both fields represent a person given name.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result[0]?.reasoning).toBe('Both fields represent a person given name.')
+    })
+  })
+
   describe('rejected pairs filtering', () => {
     const zaaktypeField: SchemaField = {
       id: 'src-zaaktype',
