@@ -913,14 +913,19 @@ describe('useAISuggestions', () => {
     // Scenario: The AI is instructed to keep reasoning concise
     it('instructs the AI to write a concise, one-sentence Dutch reasoning per suggestion', async () => {
       const fetchMock = vi
-        .fn()
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
         .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
       vi.stubGlobal('fetch', fetchMock)
 
       const store = useAISuggestions()
       await store.generateSuggestions(sourceFields, unmappedTargetFields)
 
-      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body)
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
       const systemPrompt: string = requestBody.messages[0].content
 
       expect(systemPrompt).toContain('reasoning')
