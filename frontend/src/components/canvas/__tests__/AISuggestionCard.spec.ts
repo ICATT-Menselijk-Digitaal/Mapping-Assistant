@@ -85,4 +85,25 @@ describe('AISuggestionCard', () => {
     expect(wrapper.find('[data-testid="accept-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="reject-button"]').exists()).toBe(true)
   })
+
+  // Scenario: Reasoning is collapsed by default
+  describe('reasoning', () => {
+    it('shows a Toelichting toggle but keeps the reasoning collapsed by default', () => {
+      const wrapper = mountCard({
+        suggestionId: 'sug-1',
+        sourceName: 'customerId',
+        targetName: 'client_id',
+        confidenceScore: 0.97,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+      })
+
+      expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="toelichting-text"]').exists()).toBe(false)
+    })
+
+    it('does not show a Toelichting toggle when no reasoning is present', () => {
+      const wrapper = mountCard()
+      expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(false)
+    })
+  })
 })
