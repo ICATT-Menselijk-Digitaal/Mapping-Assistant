@@ -195,6 +195,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           sourceFieldId: s.sourceFieldId,
           targetFieldId: s.targetFieldId,
           score: s.confidenceScore,
+          reasoning: s.reasoning,
         })),
         `dropped for invalid reasoning: ${droppedForReasoning}`,
       )
