@@ -872,6 +872,43 @@ describe('useAISuggestions', () => {
       expect(store.suggestions).toHaveLength(0)
       expect(store.lowConfidenceSuggestions).toHaveLength(0)
     })
+
+    // Scenario: Unparseable reasoning is filtered out entirely
+    it('filters out a suggestion entirely when its reasoning cannot be parsed as a string', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          // reasoning omitted entirely — simulates a response the AI
+                          // failed to include the field on, independently of confidenceScore
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result).toHaveLength(0)
+      expect(store.suggestions.some((s) => s.sourceFieldId === 'src-1')).toBe(false)
+      expect(store.lowConfidenceSuggestions.some((s) => s.sourceFieldId === 'src-1')).toBe(false)
+    })
   })
 
   describe('rejected pairs filtering', () => {
