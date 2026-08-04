@@ -119,7 +119,7 @@ async function requestAiSuggestion() {
 <template>
   <div
     v-if="selectedMapping && sourceField && targetField"
-    class="flex flex-col bg-white border border-slate-200 rounded-sm overflow-hidden max-h-full"
+    class="flex flex-col bg-white border border-slate-200 rounded-sm overflow-hidden h-full"
     data-testid="coupling-detail-panel"
   >
     <!-- Header -->

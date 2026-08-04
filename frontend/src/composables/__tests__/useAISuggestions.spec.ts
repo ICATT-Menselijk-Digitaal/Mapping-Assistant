@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useAISuggestions, AIServiceError } from '../useAISuggestions'
+import {
+  useAISuggestions,
+  AIServiceError,
+  MIN_CONFIDENCE_THRESHOLD,
+  MAX_SUGGESTIONS_PER_SOURCE,
+} from '../useAISuggestions'
 import { useMappings } from '../useMappings'
 import type { SchemaField } from '@/types'
 
@@ -564,6 +569,193 @@ describe('useAISuggestions', () => {
 
       await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
       expect(aiStore.totalGenerated).toBe(4)
+    })
+  })
+
+  describe('sort order and suggestion filtering', () => {
+    function mockResponse(pairs: Array<{ s: string; t: string; score: number }>) {
+      return {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                suggestions: pairs.map((p) => ({
+                  sourceField: p.s,
+                  targetField: p.t,
+                  confidenceScore: p.score,
+                })),
+              }),
+            },
+          },
+        ],
+      }
+    }
+
+    it('high-confidence suggestions are sorted from highest to lowest confidence', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              mockResponse([
+                { s: 'firstName', t: 'first_name', score: 0.75 },
+                { s: 'lastName', t: 'last_name', score: 0.95 },
+              ]),
+            ),
+        }),
+      )
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      const scores = store.suggestions.map((s) => s.confidenceScore)
+      expect(scores).toEqual([...scores].sort((a, b) => b - a))
+      expect(scores[0]).toBeGreaterThanOrEqual(scores[1] ?? 0)
+    })
+
+    it('low-confidence suggestions are sorted from highest to lowest confidence, independently', async () => {
+      const extraSource: SchemaField = {
+        id: 'src-3',
+        name: 'email',
+        path: 'email',
+        dataType: 'string',
+        required: false,
+      }
+      const extraTarget: SchemaField = {
+        id: 'tgt-3',
+        name: 'emailAddress',
+        path: 'emailAddress',
+        dataType: 'string',
+        required: false,
+      }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              mockResponse([
+                { s: 'firstName', t: 'first_name', score: 0.45 },
+                { s: 'lastName', t: 'last_name', score: 0.65 },
+                { s: 'email', t: 'emailAddress', score: 0.35 },
+              ]),
+            ),
+        }),
+      )
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(
+        [...sourceFields, extraSource],
+        [...unmappedTargetFields, extraTarget],
+      )
+
+      const scores = store.lowConfidenceSuggestions.map((s) => s.confidenceScore)
+      expect(scores).toEqual([...scores].sort((a, b) => b - a))
+    })
+
+    it(`filters out suggestions with confidence below ${MIN_CONFIDENCE_THRESHOLD}`, async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              mockResponse([
+                { s: 'firstName', t: 'first_name', score: 0.95 },
+                { s: 'lastName', t: 'last_name', score: 0.29 },
+              ]),
+            ),
+        }),
+      )
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      const all = [...store.suggestions, ...store.lowConfidenceSuggestions]
+      expect(all.every((s) => s.confidenceScore >= MIN_CONFIDENCE_THRESHOLD)).toBe(true)
+      expect(all).toHaveLength(1)
+    })
+
+    it(`shows at most ${MAX_SUGGESTIONS_PER_SOURCE} suggestions per source field`, async () => {
+      const extraTarget1: SchemaField = {
+        id: 'tgt-3',
+        name: 'given_name',
+        path: 'given_name',
+        dataType: 'string',
+        required: false,
+      }
+      const extraTarget2: SchemaField = {
+        id: 'tgt-4',
+        name: 'forename',
+        path: 'forename',
+        dataType: 'string',
+        required: false,
+      }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              mockResponse([
+                { s: 'firstName', t: 'first_name', score: 0.95 },
+                { s: 'firstName', t: 'given_name', score: 0.85 },
+                { s: 'firstName', t: 'forename', score: 0.75 },
+              ]),
+            ),
+        }),
+      )
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(
+        [sourceFields[0]!],
+        [...unmappedTargetFields, extraTarget1, extraTarget2],
+      )
+
+      const all = [...store.suggestions, ...store.lowConfidenceSuggestions]
+      const forSrc1 = all.filter((s) => s.sourceFieldId === 'src-1')
+      expect(forSrc1).toHaveLength(MAX_SUGGESTIONS_PER_SOURCE)
+      expect(forSrc1[0]!.confidenceScore).toBeGreaterThanOrEqual(forSrc1[1]!.confidenceScore)
+    })
+
+    it('all AI suggestions within the selected scope are rendered (no volume-based truncation)', async () => {
+      const manySourceFields: SchemaField[] = Array.from({ length: 5 }, (_, i) => ({
+        id: `src-${i + 1}`,
+        name: `field${i + 1}`,
+        path: `field${i + 1}`,
+        dataType: 'string' as const,
+        required: false,
+      }))
+      const manyTargetFields: SchemaField[] = Array.from({ length: 5 }, (_, i) => ({
+        id: `tgt-${i + 1}`,
+        name: `target${i + 1}`,
+        path: `target${i + 1}`,
+        dataType: 'string' as const,
+        required: false,
+      }))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              mockResponse(
+                manySourceFields.map((f, i) => ({
+                  s: f.path,
+                  t: manyTargetFields[i]!.path,
+                  score: 0.9,
+                })),
+              ),
+            ),
+        }),
+      )
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(manySourceFields, manyTargetFields)
+
+      const all = [...store.suggestions, ...store.lowConfidenceSuggestions]
+      expect(all).toHaveLength(5)
     })
   })
 

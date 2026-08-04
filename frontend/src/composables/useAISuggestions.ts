@@ -8,6 +8,8 @@ import { aiStatsResource } from '@/api/resources'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
 export const CONFIDENCE_THRESHOLD = 0.7
+export const MIN_CONFIDENCE_THRESHOLD = 0.3
+export const MAX_SUGGESTIONS_PER_SOURCE = 2
 
 export class AIServiceError extends Error {
   constructor(
@@ -90,7 +92,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       .map((f) => ({ path: f.path, description: f.description }))
 
     const systemPrompt =
-      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
+      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array, each item having sourceField (path), targetField (path), and confidenceScore (number 0.0-1.0). Only return valid JSON, no markdown.'
 
     const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
 
@@ -173,12 +175,29 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         ...stats,
         totalGenerated: stats.totalGenerated + resolved.length,
       }))
-      suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
-      lowConfidenceSuggestions.value = resolved.filter(
-        (s) => s.confidenceScore < CONFIDENCE_THRESHOLD,
+
+      const aboveMin = resolved.filter((s) => s.confidenceScore >= MIN_CONFIDENCE_THRESHOLD)
+
+      const bySource = new Map<string, AiSuggestion[]>()
+      for (const s of aboveMin) {
+        const bucket = bySource.get(s.sourceFieldId) ?? []
+        bucket.push(s)
+        bySource.set(s.sourceFieldId, bucket)
+      }
+      const topSuggestions = [...bySource.values()].flatMap((arr) =>
+        arr
+          .sort((a, b) => b.confidenceScore - a.confidenceScore)
+          .slice(0, MAX_SUGGESTIONS_PER_SOURCE),
       )
 
-      return resolved
+      suggestions.value = topSuggestions
+        .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+        .sort((a, b) => b.confidenceScore - a.confidenceScore)
+      lowConfidenceSuggestions.value = topSuggestions
+        .filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
+        .sort((a, b) => b.confidenceScore - a.confidenceScore)
+
+      return topSuggestions
     } catch (e) {
       const err = new AIServiceError('Failed to parse AI response', e)
       error.value = err

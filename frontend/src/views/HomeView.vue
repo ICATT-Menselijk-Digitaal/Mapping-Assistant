@@ -108,35 +108,37 @@ async function onImportFileSelected(file: File) {
         />
       </div>
     </div>
-    <div class="w-80 shrink-0 h-full overflow-hidden">
+    <div class="w-80 shrink-0 flex flex-col gap-2 h-full min-h-0">
       <CouplingDetailPanel
         v-if="mappingsStore.selectedMappingId !== null"
         :source-schema="sourceSchema"
         :target-schema="targetSchema"
+        class="flex-1 min-h-0"
       />
       <MappingOverview
         v-else
         v-model:active-tab="activeTab"
         :source-schema="sourceSchema"
         :target-schema="targetSchema"
+        class="flex-1 min-h-0"
       />
-    </div>
-    <div class="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
-      <RemoteUpdateBanner />
-      <WorkspaceCode />
-      <ImportButton
-        :error="importError"
-        :warnings="importWarnings"
-        @file-selected="onImportFileSelected"
-        @dismiss-error="clearImportError"
-        @dismiss-warnings="clearImportWarnings"
-      />
-      <ExportButton
-        :source-schema="sourceSchema"
-        :target-schema="targetSchema"
-        :source-url="sourceSchemaUrl"
-        :target-url="targetSchemaUrl"
-      />
+      <div class="shrink-0 flex flex-col items-end gap-2">
+        <RemoteUpdateBanner />
+        <WorkspaceCode />
+        <ImportButton
+          :error="importError"
+          :warnings="importWarnings"
+          @file-selected="onImportFileSelected"
+          @dismiss-error="clearImportError"
+          @dismiss-warnings="clearImportWarnings"
+        />
+        <ExportButton
+          :source-schema="sourceSchema"
+          :target-schema="targetSchema"
+          :source-url="sourceSchemaUrl"
+          :target-url="targetSchemaUrl"
+        />
+      </div>
     </div>
   </main>
 </template>
