@@ -77,3 +77,12 @@ assignees: ""
 - [ ] **Cleanup** — Branches, test data, and temporary copies of databases/files have been cleaned up.
 - [ ] **UX** — Significant design changes have been checked with a UX specialist.
 - [ ] **Test documentation** — Regression test scenarios not covered by automated tests, known issues, and things deliberately not tested are documented in `docs/steering/QA.md`'s Known Issues section.
+
+---
+
+## Administration
+
+Clock hours on:
+
+- Project: Cooperatie Dimpact | Dimpact: Mapping Assistant
+- Dienst: Dimpact: Mapping Assistant

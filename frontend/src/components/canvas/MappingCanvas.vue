@@ -80,8 +80,9 @@ function onSourceFileChange(event: Event) {
   if (file) emit('SourceFileSelected', file)
 }
 
+// TODO(production): remove temporary default link
 const sourceUrlInput = ref(
-  'https://cors.redoc.ly/https://esuite-data-extractie-gcp2.esuite-development.net/q/openapi',
+  'https://raw.githubusercontent.com/NL-AMS-LOCGOV/esuite-data-extractie/refs/heads/main/openapi-spec/OpenAPI.yaml',
 )
 
 function onSourceUrlSubmit() {
@@ -94,6 +95,7 @@ function onTargetFileChange(event: Event) {
   if (file) emit('TargetFileSelected', file)
 }
 
+// TODO(production): remove temporary default link
 const targetUrlInput = ref('https://openzaak.dev.kiss-demo.nl/zaken/api/v1/openapi.json')
 
 function onTargetUrlSubmit() {

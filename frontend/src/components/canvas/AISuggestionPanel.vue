@@ -24,11 +24,17 @@ watch(keyRejected, (isRejected) => {
 const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
+// TODO(production): remove the Zaak-only scoping and the slice(0, 5) cap on both sides below.
 // Capped to Zaak context only to control prompt size and cost during PoC
 const zaakSourceFields = computed(() =>
   props.sourceSchema
     .all()
-    .filter((f) => f.path.startsWith('Zaak') && !mappedSourceIds.value.has(f.id))
+    .filter(
+      (f) =>
+        f.path.startsWith('Zaak') &&
+        !mappedSourceIds.value.has(f.id) &&
+        props.sourceSchema.childrenOf(f.id).length === 0,
+    )
     .slice(0, 5),
 )
 
@@ -37,14 +43,16 @@ const unmappedTargetFields = computed(() =>
 )
 
 const zaakUnmappedTargetFields = computed(() =>
-  unmappedTargetFields.value.filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
+  unmappedTargetFields.value
+    .filter((f) => f.path.startsWith('Zaak') && props.targetSchema.childrenOf(f.id).length === 0)
+    .slice(0, 5),
 )
 
 const resolvedSuggestions = computed(() =>
   aiStore.suggestions.map((s) => ({
     id: s.id,
-    sourceName: props.sourceSchema.byId(s.sourceFieldId)?.name ?? s.sourceFieldId,
-    targetName: props.targetSchema.byId(s.targetFieldId)?.name ?? s.targetFieldId,
+    sourceName: props.sourceSchema.byId(s.sourceFieldId)?.path ?? s.sourceFieldId,
+    targetName: props.targetSchema.byId(s.targetFieldId)?.path ?? s.targetFieldId,
     confidenceScore: s.confidenceScore,
   })),
 )
@@ -55,8 +63,8 @@ const showLowConfidence = ref(false)
 const resolvedLowConfidence = computed(() =>
   aiStore.lowConfidenceSuggestions.map((s) => ({
     id: s.id,
-    sourceName: props.sourceSchema.byId(s.sourceFieldId)?.name ?? s.sourceFieldId,
-    targetName: props.targetSchema.byId(s.targetFieldId)?.name ?? s.targetFieldId,
+    sourceName: props.sourceSchema.byId(s.sourceFieldId)?.path ?? s.sourceFieldId,
+    targetName: props.targetSchema.byId(s.targetFieldId)?.path ?? s.targetFieldId,
     confidenceScore: s.confidenceScore,
   })),
 )
