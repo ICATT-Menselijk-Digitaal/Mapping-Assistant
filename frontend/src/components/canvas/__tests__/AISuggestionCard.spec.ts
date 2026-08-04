@@ -3,7 +3,14 @@ import { mount } from '@vue/test-utils'
 import AISuggestionCard from '../AISuggestionCard.vue'
 
 function mountCard(
-  props = {
+  props: {
+    suggestionId: string
+    sourceName: string
+    targetName: string
+    confidenceScore: number
+    reasoning?: string
+    interactive?: boolean
+  } = {
     suggestionId: 'sug-1',
     sourceName: 'customerId',
     targetName: 'client_id',
