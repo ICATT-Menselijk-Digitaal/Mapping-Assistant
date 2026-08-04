@@ -10,6 +10,25 @@ import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 export const CONFIDENCE_THRESHOLD = 0.7
 export const MIN_CONFIDENCE_THRESHOLD = 0.3
 export const MAX_SUGGESTIONS_PER_SOURCE = 2
+export const MIN_REASONING_LENGTH = 5
+// Reasoning is written in Dutch (it is shown to the administrator, see Task #112),
+// so the filler blocklist matches Dutch phrasing rather than English.
+export const GENERIC_FILLER_PHRASES: readonly string[] = [
+  'dit lijkt een goede match',
+  'goede match',
+  'deze velden zijn vergelijkbaar',
+  'logische koppeling',
+  'waarschijnlijke match',
+  'deze velden komen overeen',
+]
+
+function isValidReasoning(reasoning: unknown): reasoning is string {
+  if (typeof reasoning !== 'string') return false
+  const trimmed = reasoning.trim()
+  if (trimmed.length < MIN_REASONING_LENGTH) return false
+  const lower = trimmed.toLowerCase()
+  return !GENERIC_FILLER_PHRASES.some((phrase) => lower.includes(phrase))
+}
 
 export class AIServiceError extends Error {
   constructor(
@@ -147,6 +166,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
 
       const rejectedSet = rejectedPairs.value
+      let droppedForReasoning = 0
       const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
         const src = sourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
         const tgt = unmappedTargetFields.find(
@@ -154,6 +174,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         )
         if (!src || !tgt) return acc
         if (rejectedSet.has(`${src.id}::${tgt.id}`)) return acc
+        if (!isValidReasoning(s.reasoning)) {
+          droppedForReasoning++
+          return acc
+        }
         acc.push({
           id: crypto.randomUUID() as string,
           sourceFieldId: src.id,
@@ -172,6 +196,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           targetFieldId: s.targetFieldId,
           score: s.confidenceScore,
         })),
+        `dropped for invalid reasoning: ${droppedForReasoning}`,
       )
       aiStatsResource.update((stats) => ({
         ...stats,

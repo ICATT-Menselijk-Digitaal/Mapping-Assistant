@@ -25,8 +25,18 @@ const mockOpenRouterResponse = {
       message: {
         content: JSON.stringify({
           suggestions: [
-            { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
-            { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+            {
+              sourceField: 'firstName',
+              targetField: 'first_name',
+              confidenceScore: 0.95,
+              reasoning: 'Beide velden bevatten de voornaam van een persoon.',
+            },
+            {
+              sourceField: 'lastName',
+              targetField: 'last_name',
+              confidenceScore: 0.92,
+              reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+            },
           ],
         }),
       },
@@ -403,6 +413,7 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
                       ],
                     }),
@@ -449,8 +460,14 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
-                        { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.5 },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.5,
+                          reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                        },
                       ],
                     }),
                   },
@@ -485,8 +502,14 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
-                        { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.5 },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.5,
+                          reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                        },
                       ],
                     }),
                   },
@@ -520,8 +543,14 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
-                        { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.5 },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.5,
+                          reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                        },
                       ],
                     }),
                   },
@@ -552,8 +581,14 @@ describe('useAISuggestions', () => {
                         sourceField: 'firstName',
                         targetField: 'first_name',
                         confidenceScore: 0.95,
+                        reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                       },
-                      { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+                      {
+                        sourceField: 'lastName',
+                        targetField: 'last_name',
+                        confidenceScore: 0.92,
+                        reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                      },
                     ],
                   }),
                 },
@@ -583,6 +618,7 @@ describe('useAISuggestions', () => {
                   sourceField: p.s,
                   targetField: p.t,
                   confidenceScore: p.score,
+                  reasoning: `Veldnamen ${p.s} en ${p.t} komen sterk overeen.`,
                 })),
               }),
             },
@@ -777,7 +813,7 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
-                          reasoning: 'Both fields represent a person given name.',
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
                       ],
                     }),
@@ -791,7 +827,50 @@ describe('useAISuggestions', () => {
       const store = useAISuggestions()
       const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
 
-      expect(result[0]?.reasoning).toBe('Both fields represent a person given name.')
+      expect(result[0]?.reasoning).toBe('Beide velden bevatten de voornaam van een persoon.')
+    })
+
+    // Scenario: Generic filler reasoning is filtered out (Dutch — the reasoning
+    // is shown to the administrator, see Task #112, so the AI writes it in Dutch)
+    it('filters out a suggestion whose reasoning is empty or generic filler', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: 'Dit lijkt een goede match',
+                        },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.92,
+                          reasoning: '',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result).toHaveLength(0)
+      expect(store.suggestions).toHaveLength(0)
+      expect(store.lowConfidenceSuggestions).toHaveLength(0)
     })
   })
 
@@ -850,6 +929,7 @@ describe('useAISuggestions', () => {
                   sourceField: p.s,
                   targetField: p.t,
                   confidenceScore: p.score,
+                  reasoning: `Veldnamen ${p.s} en ${p.t} komen sterk overeen.`,
                 })),
               }),
             },
@@ -917,7 +997,12 @@ describe('useAISuggestions', () => {
             message: {
               content: JSON.stringify({
                 suggestions: [
-                  { sourceField: 'zaaktype', targetField: 'caseType', confidenceScore: 0.95 },
+                  {
+                    sourceField: 'zaaktype',
+                    targetField: 'caseType',
+                    confidenceScore: 0.95,
+                    reasoning: 'Beide velden bevatten de classificatie van het zaaktype.',
+                  },
                 ],
               }),
             },
@@ -965,7 +1050,12 @@ describe('useAISuggestions', () => {
             message: {
               content: JSON.stringify({
                 suggestions: [
-                  { sourceField: 'omschrijving', targetField: 'description', confidenceScore: 0.9 },
+                  {
+                    sourceField: 'omschrijving',
+                    targetField: 'description',
+                    confidenceScore: 0.9,
+                    reasoning: 'Beide velden bevatten een vrije-tekst omschrijving.',
+                  },
                 ],
               }),
             },
