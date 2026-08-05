@@ -25,8 +25,18 @@ const mockOpenRouterResponse = {
       message: {
         content: JSON.stringify({
           suggestions: [
-            { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
-            { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+            {
+              sourceField: 'firstName',
+              targetField: 'first_name',
+              confidenceScore: 0.95,
+              reasoning: 'Beide velden bevatten de voornaam van een persoon.',
+            },
+            {
+              sourceField: 'lastName',
+              targetField: 'last_name',
+              confidenceScore: 0.92,
+              reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+            },
           ],
         }),
       },
@@ -403,6 +413,7 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
                       ],
                     }),
@@ -449,8 +460,14 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
-                        { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.5 },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.5,
+                          reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                        },
                       ],
                     }),
                   },
@@ -485,8 +502,14 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
-                        { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.5 },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.5,
+                          reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                        },
                       ],
                     }),
                   },
@@ -520,8 +543,14 @@ describe('useAISuggestions', () => {
                           sourceField: 'firstName',
                           targetField: 'first_name',
                           confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                         },
-                        { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.5 },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.5,
+                          reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                        },
                       ],
                     }),
                   },
@@ -552,8 +581,14 @@ describe('useAISuggestions', () => {
                         sourceField: 'firstName',
                         targetField: 'first_name',
                         confidenceScore: 0.95,
+                        reasoning: 'Beide velden bevatten de voornaam van een persoon.',
                       },
-                      { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+                      {
+                        sourceField: 'lastName',
+                        targetField: 'last_name',
+                        confidenceScore: 0.92,
+                        reasoning: 'Beide velden bevatten de achternaam van een persoon.',
+                      },
                     ],
                   }),
                 },
@@ -583,6 +618,7 @@ describe('useAISuggestions', () => {
                   sourceField: p.s,
                   targetField: p.t,
                   confidenceScore: p.score,
+                  reasoning: `Veldnamen ${p.s} en ${p.t} komen sterk overeen.`,
                 })),
               }),
             },
@@ -759,6 +795,215 @@ describe('useAISuggestions', () => {
     })
   })
 
+  // Scenario: Suggestion with coherent reasoning is shown to the administrator
+  describe('reasoning', () => {
+    it('attaches the AI-written reasoning to the returned suggestion', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: 'Beide velden bevatten de voornaam van een persoon.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result[0]?.reasoning).toBe('Beide velden bevatten de voornaam van een persoon.')
+    })
+
+    // Edge Case: MIN_REASONING_LENGTH must not reject a legitimately short reasoning
+    it('does not filter out a short but legitimate reasoning', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: 'Zelfde veldnaam.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.reasoning).toBe('Zelfde veldnaam.')
+    })
+
+    // Reviewer finding (Copilot): validation trims to check length/filler phrases,
+    // but stored reasoning should not retain leading/trailing whitespace either
+    it('trims surrounding whitespace from the stored reasoning', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: '  Beide velden bevatten de voornaam van een persoon.  ',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result[0]?.reasoning).toBe('Beide velden bevatten de voornaam van een persoon.')
+    })
+
+    // Scenario: Generic filler reasoning is filtered out (Dutch — the reasoning
+    // is shown to the administrator, see Task #112, so the AI writes it in Dutch)
+    it('filters out a suggestion whose reasoning is empty or generic filler', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: 'Dit lijkt een goede match',
+                        },
+                        {
+                          sourceField: 'lastName',
+                          targetField: 'last_name',
+                          confidenceScore: 0.92,
+                          reasoning: '',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result).toHaveLength(0)
+      expect(store.suggestions).toHaveLength(0)
+      expect(store.lowConfidenceSuggestions).toHaveLength(0)
+    })
+
+    // Scenario: Unparseable reasoning is filtered out entirely
+    it('filters out a suggestion entirely when its reasoning cannot be parsed as a string', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          // reasoning omitted entirely — simulates a response the AI
+                          // failed to include the field on, independently of confidenceScore
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result).toHaveLength(0)
+      expect(store.suggestions.some((s) => s.sourceFieldId === 'src-1')).toBe(false)
+      expect(store.lowConfidenceSuggestions.some((s) => s.sourceFieldId === 'src-1')).toBe(false)
+    })
+
+    // Scenario: The AI is instructed to keep reasoning concise
+    it('instructs the AI to write a concise, one-sentence Dutch reasoning per suggestion', async () => {
+      const fetchMock = vi
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+      const systemPrompt: string = requestBody.messages[0].content
+
+      expect(systemPrompt).toContain('reasoning')
+      expect(systemPrompt.toLowerCase()).toContain('dutch')
+      expect(systemPrompt.toLowerCase()).toMatch(/concise|one sentence/)
+    })
+  })
+
   describe('rejected pairs filtering', () => {
     const zaaktypeField: SchemaField = {
       id: 'src-zaaktype',
@@ -814,6 +1059,7 @@ describe('useAISuggestions', () => {
                   sourceField: p.s,
                   targetField: p.t,
                   confidenceScore: p.score,
+                  reasoning: `Veldnamen ${p.s} en ${p.t} komen sterk overeen.`,
                 })),
               }),
             },
@@ -881,7 +1127,12 @@ describe('useAISuggestions', () => {
             message: {
               content: JSON.stringify({
                 suggestions: [
-                  { sourceField: 'zaaktype', targetField: 'caseType', confidenceScore: 0.95 },
+                  {
+                    sourceField: 'zaaktype',
+                    targetField: 'caseType',
+                    confidenceScore: 0.95,
+                    reasoning: 'Beide velden bevatten de classificatie van het zaaktype.',
+                  },
                 ],
               }),
             },
@@ -929,7 +1180,12 @@ describe('useAISuggestions', () => {
             message: {
               content: JSON.stringify({
                 suggestions: [
-                  { sourceField: 'omschrijving', targetField: 'description', confidenceScore: 0.9 },
+                  {
+                    sourceField: 'omschrijving',
+                    targetField: 'description',
+                    confidenceScore: 0.9,
+                    reasoning: 'Beide velden bevatten een vrije-tekst omschrijving.',
+                  },
                 ],
               }),
             },

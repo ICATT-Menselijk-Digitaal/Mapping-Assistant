@@ -10,6 +10,25 @@ import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 export const CONFIDENCE_THRESHOLD = 0.7
 export const MIN_CONFIDENCE_THRESHOLD = 0.3
 export const MAX_SUGGESTIONS_PER_SOURCE = 2
+export const MIN_REASONING_LENGTH = 5
+// Reasoning is written in Dutch (it is shown to the administrator, see Task #112),
+// so the filler blocklist matches Dutch phrasing rather than English.
+export const GENERIC_FILLER_PHRASES: readonly string[] = [
+  'dit lijkt een goede match',
+  'goede match',
+  'deze velden zijn vergelijkbaar',
+  'logische koppeling',
+  'waarschijnlijke match',
+  'deze velden komen overeen',
+]
+
+function isValidReasoning(reasoning: unknown): reasoning is string {
+  if (typeof reasoning !== 'string') return false
+  const trimmed = reasoning.trim()
+  if (trimmed.length < MIN_REASONING_LENGTH) return false
+  const lower = trimmed.toLowerCase()
+  return !GENERIC_FILLER_PHRASES.some((phrase) => lower.includes(phrase))
+}
 
 export class AIServiceError extends Error {
   constructor(
@@ -35,6 +54,7 @@ interface ClaudeApiSuggestion {
   sourceField: string
   targetField: string
   confidenceScore: number
+  reasoning: string
 }
 
 export const useAISuggestions = defineStore('aiSuggestions', () => {
@@ -92,7 +112,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       .map((f) => ({ path: f.path, description: f.description }))
 
     const systemPrompt =
-      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array, each item having sourceField (path), targetField (path), and confidenceScore (number 0.0-1.0). Only return valid JSON, no markdown.'
+      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), "confidenceScore" (number 0.0-1.0), and "reasoning" (a single concise sentence, written in Dutch, explaining why these two specific fields were paired — this text is shown directly to the administrator). Only return valid JSON, no markdown.'
 
     const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
 
@@ -146,6 +166,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
 
       const rejectedSet = rejectedPairs.value
+      let droppedForReasoning = 0
       const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
         const src = sourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
         const tgt = unmappedTargetFields.find(
@@ -153,24 +174,30 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         )
         if (!src || !tgt) return acc
         if (rejectedSet.has(`${src.id}::${tgt.id}`)) return acc
+        if (!isValidReasoning(s.reasoning)) {
+          droppedForReasoning++
+          return acc
+        }
         acc.push({
           id: crypto.randomUUID() as string,
           sourceFieldId: src.id,
           targetFieldId: tgt.id,
           confidenceScore: Math.max(0, Math.min(1, s.confidenceScore)),
+          reasoning: s.reasoning.trim(),
           status: 'pending',
         })
         return acc
       }, [])
 
-      console.log(
-        '[AI] Suggestions',
-        resolved.map((s) => ({
+      console.log('[AI] Suggestions', {
+        suggestions: resolved.map((s) => ({
           sourceFieldId: s.sourceFieldId,
           targetFieldId: s.targetFieldId,
           score: s.confidenceScore,
+          reasoning: s.reasoning,
         })),
-      )
+        droppedForReasoning,
+      })
       aiStatsResource.update((stats) => ({
         ...stats,
         totalGenerated: stats.totalGenerated + resolved.length,

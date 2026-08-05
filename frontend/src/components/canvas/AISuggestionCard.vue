@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 withDefaults(
   defineProps<{
     suggestionId: string
     sourceName: string
     targetName: string
     confidenceScore: number
+    reasoning?: string
     interactive?: boolean
   }>(),
   { interactive: true },
@@ -14,6 +17,8 @@ const emit = defineEmits<{
   accept: [id: string]
   reject: [id: string]
 }>()
+
+const expanded = ref(false)
 
 function badge(score: number) {
   if (score >= 0.8) return { label: 'Hoog', cls: 'bg-green-100 text-green-700' }
@@ -42,6 +47,33 @@ function badge(score: number) {
       >
         {{ badge(confidenceScore).label }} · {{ Math.round(confidenceScore * 100) }}%
       </span>
+    </div>
+    <div v-if="reasoning">
+      <button
+        class="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
+        data-testid="toelichting-toggle"
+        @click="expanded = !expanded"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="w-3 h-3 transition-transform"
+          :class="expanded ? 'rotate-90' : ''"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+        Toelichting
+      </button>
+      <p
+        v-if="expanded"
+        class="text-xs text-slate-600 break-words mt-1"
+        data-testid="toelichting-text"
+      >
+        {{ reasoning }}
+      </p>
     </div>
     <div v-if="interactive" class="flex gap-2">
       <button
