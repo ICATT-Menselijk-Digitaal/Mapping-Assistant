@@ -183,22 +183,21 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           sourceFieldId: src.id,
           targetFieldId: tgt.id,
           confidenceScore: Math.max(0, Math.min(1, s.confidenceScore)),
-          reasoning: s.reasoning,
+          reasoning: s.reasoning.trim(),
           status: 'pending',
         })
         return acc
       }, [])
 
-      console.log(
-        '[AI] Suggestions',
-        resolved.map((s) => ({
+      console.log('[AI] Suggestions', {
+        suggestions: resolved.map((s) => ({
           sourceFieldId: s.sourceFieldId,
           targetFieldId: s.targetFieldId,
           score: s.confidenceScore,
           reasoning: s.reasoning,
         })),
-        `dropped for invalid reasoning: ${droppedForReasoning}`,
-      )
+        droppedForReasoning,
+      })
       aiStatsResource.update((stats) => ({
         ...stats,
         totalGenerated: stats.totalGenerated + resolved.length,

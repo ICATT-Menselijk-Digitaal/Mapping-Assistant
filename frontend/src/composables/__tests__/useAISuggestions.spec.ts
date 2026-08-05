@@ -865,6 +865,41 @@ describe('useAISuggestions', () => {
       expect(result[0]?.reasoning).toBe('Zelfde veldnaam.')
     })
 
+    // Reviewer finding (Copilot): validation trims to check length/filler phrases,
+    // but stored reasoning should not retain leading/trailing whitespace either
+    it('trims surrounding whitespace from the stored reasoning', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'firstName',
+                          targetField: 'first_name',
+                          confidenceScore: 0.95,
+                          reasoning: '  Beide velden bevatten de voornaam van een persoon.  ',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(result[0]?.reasoning).toBe('Beide velden bevatten de voornaam van een persoon.')
+    })
+
     // Scenario: Generic filler reasoning is filtered out (Dutch — the reasoning
     // is shown to the administrator, see Task #112, so the AI writes it in Dutch)
     it('filters out a suggestion whose reasoning is empty or generic filler', async () => {
