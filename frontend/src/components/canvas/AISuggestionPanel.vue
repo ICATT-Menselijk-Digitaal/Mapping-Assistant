@@ -54,6 +54,7 @@ const resolvedSuggestions = computed(() =>
     sourceName: props.sourceSchema.byId(s.sourceFieldId)?.path ?? s.sourceFieldId,
     targetName: props.targetSchema.byId(s.targetFieldId)?.path ?? s.targetFieldId,
     confidenceScore: s.confidenceScore,
+    reasoning: s.reasoning,
   })),
 )
 
@@ -66,6 +67,7 @@ const resolvedLowConfidence = computed(() =>
     sourceName: props.sourceSchema.byId(s.sourceFieldId)?.path ?? s.sourceFieldId,
     targetName: props.targetSchema.byId(s.targetFieldId)?.path ?? s.targetFieldId,
     confidenceScore: s.confidenceScore,
+    reasoning: s.reasoning,
   })),
 )
 
@@ -219,6 +221,7 @@ async function changeKey() {
         :source-name="s.sourceName"
         :target-name="s.targetName"
         :confidence-score="s.confidenceScore"
+        :reasoning="s.reasoning"
         @accept="aiStore.acceptSuggestion($event, { source: sourceSchema, target: targetSchema })"
         @reject="aiStore.rejectSuggestion($event)"
       />
@@ -255,6 +258,7 @@ async function changeKey() {
             :source-name="s.sourceName"
             :target-name="s.targetName"
             :confidence-score="s.confidenceScore"
+            :reasoning="s.reasoning"
             @accept="
               aiStore.acceptSuggestion($event, { source: sourceSchema, target: targetSchema })
             "

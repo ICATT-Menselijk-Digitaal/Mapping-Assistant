@@ -3,7 +3,14 @@ import { mount } from '@vue/test-utils'
 import AISuggestionCard from '../AISuggestionCard.vue'
 
 function mountCard(
-  props = {
+  props: {
+    suggestionId: string
+    sourceName: string
+    targetName: string
+    confidenceScore: number
+    reasoning?: string
+    interactive?: boolean
+  } = {
     suggestionId: 'sug-1',
     sourceName: 'customerId',
     targetName: 'client_id',
@@ -84,5 +91,63 @@ describe('AISuggestionCard', () => {
     const wrapper = mountCard()
     expect(wrapper.find('[data-testid="accept-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="reject-button"]').exists()).toBe(true)
+  })
+
+  // Scenario: Reasoning is collapsed by default
+  describe('reasoning', () => {
+    it('shows a Toelichting toggle but keeps the reasoning collapsed by default', () => {
+      const wrapper = mountCard({
+        suggestionId: 'sug-1',
+        sourceName: 'customerId',
+        targetName: 'client_id',
+        confidenceScore: 0.97,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+      })
+
+      expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="toelichting-text"]').exists()).toBe(false)
+    })
+
+    it('does not show a Toelichting toggle when no reasoning is present', () => {
+      const wrapper = mountCard()
+      expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(false)
+    })
+
+    // Scenario: Expanding Toelichting reveals the AI's reasoning
+    it('reveals the reasoning text when the Toelichting toggle is clicked', async () => {
+      const wrapper = mountCard({
+        suggestionId: 'sug-1',
+        sourceName: 'customerId',
+        targetName: 'client_id',
+        confidenceScore: 0.97,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+      })
+
+      await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+
+      const text = wrapper.find('[data-testid="toelichting-text"]')
+      expect(text.exists()).toBe(true)
+      expect(text.text()).toBe('Beide velden bevatten het klant-identificatienummer.')
+    })
+
+    // Scenario: Unusually long reasoning stays readable
+    it('wraps unusually long reasoning instead of breaking the card layout', async () => {
+      const longReasoning =
+        'Beide velden verwijzen naar hetzelfde klant-identificatienummer, zoals gebruikt in het bronsysteem en het doelsysteem, ' +
+        'en de naamgeving van beide velden komt sterk overeen ondanks het verschil in schrijfwijze tussen de twee schema-conventies.'
+      const wrapper = mountCard({
+        suggestionId: 'sug-1',
+        sourceName: 'customerId',
+        targetName: 'client_id',
+        confidenceScore: 0.97,
+        reasoning: longReasoning,
+      })
+
+      await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+
+      const text = wrapper.find('[data-testid="toelichting-text"]')
+      expect(text.text()).toBe(longReasoning)
+      expect(text.classes()).toContain('break-words')
+    })
   })
 })

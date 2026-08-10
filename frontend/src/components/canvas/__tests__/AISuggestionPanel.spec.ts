@@ -154,6 +154,55 @@ describe('AISuggestionPanel', () => {
     expect(wrapper.text()).toContain('Zaak.uuid')
   })
 
+  // Task #112: reasoning must be wired through from the store to the card
+  it('passes reasoning through to the suggestion card as a Toelichting toggle', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    aiStore.suggestions = [
+      {
+        id: '1',
+        sourceFieldId: 'src-1',
+        targetFieldId: 'tgt-1',
+        confidenceScore: 0.97,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+        status: 'pending',
+      },
+    ] as AiSuggestion[]
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="toelichting-text"]').text()).toBe(
+      'Beide velden bevatten het klant-identificatienummer.',
+    )
+  })
+
+  // Task #112: reasoning must be wired through for low-confidence suggestions too
+  it('passes reasoning through to low-confidence suggestion cards', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    aiStore.lowConfidenceSuggestions = [
+      {
+        id: '1',
+        sourceFieldId: 'src-1',
+        targetFieldId: 'tgt-1',
+        confidenceScore: 0.55,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+        status: 'pending',
+      },
+    ] as AiSuggestion[]
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="toelichting-text"]').text()).toBe(
+      'Beide velden bevatten het klant-identificatienummer.',
+    )
+  })
+
   // Scenario: Empty state when no unmapped target fields
   it('shows empty state when all target fields are already mapped', async () => {
     const wrapper = mountPanel()
