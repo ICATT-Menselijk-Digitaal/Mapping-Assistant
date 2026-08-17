@@ -982,7 +982,7 @@ describe('useAISuggestions', () => {
     })
 
     // Scenario: The AI is instructed to keep reasoning concise
-    it('instructs the AI to write a concise, one-sentence Dutch reasoning per suggestion', async () => {
+    it('instructs the AI to write concise Dutch reasoning, with a "Let op:" sentence naming a mismatch', async () => {
       const fetchMock = vi
         .fn<
           (
@@ -1001,7 +1001,8 @@ describe('useAISuggestions', () => {
 
       expect(systemPrompt).toContain('reasoning')
       expect(systemPrompt.toLowerCase()).toContain('dutch')
-      expect(systemPrompt.toLowerCase()).toMatch(/concise|one sentence/)
+      expect(systemPrompt.toLowerCase()).toContain('concise')
+      expect(systemPrompt).toContain('Let op:')
     })
   })
 
