@@ -7,7 +7,7 @@ import { useApiKey } from '@/composables/useApiKey'
 import { aiStatsResource } from '@/api/resources'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
-export const CONFIDENCE_THRESHOLD = 0.7
+export const CONFIDENCE_THRESHOLD_FOR_SPLIT = 0.7
 export const MIN_CONFIDENCE_THRESHOLD = 0.3
 export const MAX_SUGGESTIONS_PER_SOURCE = 2
 export const MIN_REASONING_LENGTH = 5
@@ -221,10 +221,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       )
 
       suggestions.value = topSuggestions
-        .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+        .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD_FOR_SPLIT)
         .sort((a, b) => b.confidenceScore - a.confidenceScore)
       lowConfidenceSuggestions.value = topSuggestions
-        .filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
+        .filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD_FOR_SPLIT)
         .sort((a, b) => b.confidenceScore - a.confidenceScore)
 
       return topSuggestions

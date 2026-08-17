@@ -3,7 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import {
   useAISuggestions,
   AIServiceError,
-  CONFIDENCE_THRESHOLD,
+  CONFIDENCE_THRESHOLD_FOR_SPLIT,
   MIN_CONFIDENCE_THRESHOLD,
   MAX_SUGGESTIONS_PER_SOURCE,
 } from '../useAISuggestions'
@@ -1229,7 +1229,7 @@ describe('useAISuggestions', () => {
 
       const all = [...result]
       expect(all).toHaveLength(1)
-      expect(all[0]?.confidenceScore).toBeLessThan(CONFIDENCE_THRESHOLD)
+      expect(all[0]?.confidenceScore).toBeLessThan(CONFIDENCE_THRESHOLD_FOR_SPLIT)
     })
   })
 
