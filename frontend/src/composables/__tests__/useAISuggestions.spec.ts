@@ -1006,11 +1006,15 @@ describe('useAISuggestions', () => {
   })
 
   describe('type-aware suggestions', () => {
-    function extractFieldEntries(fetchMock: ReturnType<typeof vi.fn>, side: 'Source' | 'Unmapped target') {
+    function extractFieldEntries(
+      fetchMock: ReturnType<typeof vi.fn>,
+      side: 'Source' | 'Unmapped target',
+    ) {
       const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
       const userMessage: string = requestBody.messages[1].content
       const prefix = `${side} fields: `
-      const stopMarker = side === 'Source' ? '\n\nUnmapped target fields:' : '\n\nReturn JSON suggestions.'
+      const stopMarker =
+        side === 'Source' ? '\n\nUnmapped target fields:' : '\n\nReturn JSON suggestions.'
       const json = userMessage.split(prefix)[1]!.split(stopMarker)[0]!
       return JSON.parse(json) as Array<Record<string, unknown>>
     }
@@ -1049,7 +1053,12 @@ describe('useAISuggestions', () => {
 
       const sentSource = extractFieldEntries(fetchMock, 'Source')
       const sentTarget = extractFieldEntries(fetchMock, 'Unmapped target')
-      expect(sentSource[0]).toMatchObject({ path: 'firstName', dataType: 'string', required: true, maxLength: 50 })
+      expect(sentSource[0]).toMatchObject({
+        path: 'firstName',
+        dataType: 'string',
+        required: true,
+        maxLength: 50,
+      })
       expect(sentTarget[0]).toMatchObject({
         path: 'first_name',
         dataType: 'string',
@@ -1175,7 +1184,10 @@ describe('useAISuggestions', () => {
       )
 
       const store = useAISuggestions()
-      const result = await store.generateSuggestions([partialMismatchSource], [partialMismatchTarget])
+      const result = await store.generateSuggestions(
+        [partialMismatchSource],
+        [partialMismatchTarget],
+      )
 
       expect(result[0]?.confidenceScore).toBe(0.8)
       expect(result[0]?.reasoning).toContain('verplicht')
