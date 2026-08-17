@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import {
   useAISuggestions,
   AIServiceError,
+  CONFIDENCE_THRESHOLD,
   MIN_CONFIDENCE_THRESHOLD,
   MAX_SUGGESTIONS_PER_SOURCE,
 } from '../useAISuggestions'
@@ -1001,6 +1002,234 @@ describe('useAISuggestions', () => {
       expect(systemPrompt).toContain('reasoning')
       expect(systemPrompt.toLowerCase()).toContain('dutch')
       expect(systemPrompt.toLowerCase()).toMatch(/concise|one sentence/)
+    })
+  })
+
+  describe('type-aware suggestions', () => {
+    function extractFieldEntries(fetchMock: ReturnType<typeof vi.fn>, side: 'Source' | 'Unmapped target') {
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+      const userMessage: string = requestBody.messages[1].content
+      const prefix = `${side} fields: `
+      const stopMarker = side === 'Source' ? '\n\nUnmapped target fields:' : '\n\nReturn JSON suggestions.'
+      const json = userMessage.split(prefix)[1]!.split(stopMarker)[0]!
+      return JSON.parse(json) as Array<Record<string, unknown>>
+    }
+
+    // Scenario: Suggestion run considers field type and constraints
+    it("includes each field's data type, required flag, and max length in the request sent to the AI", async () => {
+      const fetchMock = vi
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const source: SchemaField = {
+        id: 'src-1',
+        name: 'firstName',
+        path: 'firstName',
+        dataType: 'string',
+        required: true,
+        maxLength: 50,
+      }
+      const target: SchemaField = {
+        id: 'tgt-1',
+        name: 'first_name',
+        path: 'first_name',
+        dataType: 'string',
+        required: true,
+        maxLength: 50,
+      }
+
+      const store = useAISuggestions()
+      await store.generateSuggestions([source], [target])
+
+      const sentSource = extractFieldEntries(fetchMock, 'Source')
+      const sentTarget = extractFieldEntries(fetchMock, 'Unmapped target')
+      expect(sentSource[0]).toMatchObject({ path: 'firstName', dataType: 'string', required: true, maxLength: 50 })
+      expect(sentTarget[0]).toMatchObject({
+        path: 'first_name',
+        dataType: 'string',
+        required: true,
+        maxLength: 50,
+      })
+    })
+
+    // Scenario: Missing constraint information does not block suggestion generation
+    it('omits max length from the request when a field does not declare one', async () => {
+      const fetchMock = vi
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const sourceWithoutMaxLength: SchemaField = {
+        id: 'src-1',
+        name: 'firstName',
+        path: 'firstName',
+        dataType: 'string',
+        required: true,
+      }
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions([sourceWithoutMaxLength], unmappedTargetFields)
+
+      expect(result.length).toBeGreaterThan(0)
+      const sentSource = extractFieldEntries(fetchMock, 'Source')
+      expect(sentSource[0]).not.toHaveProperty('maxLength')
+    })
+
+    // Scenario: Type mismatch lowers a mapping suggestion's confidence score
+    it('instructs the AI to score a type or constraint mismatch lower than an equivalent same-type match', async () => {
+      const fetchMock = vi
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+      const systemPrompt: string = requestBody.messages[0].content
+      expect(systemPrompt.toLowerCase()).toContain('data type')
+      expect(systemPrompt.toLowerCase()).toMatch(/mismatch/)
+      expect(systemPrompt.toLowerCase()).toMatch(/lower/)
+    })
+
+    // Scenario: Suggestion reasoning names the specific type or constraint difference
+    it('instructs the AI to name the specific type or constraint difference in the reasoning', async () => {
+      const fetchMock = vi
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+      const systemPrompt: string = requestBody.messages[0].content
+      expect(systemPrompt.toLowerCase()).toMatch(/mismatch/)
+      expect(systemPrompt.toLowerCase()).toContain('reasoning')
+    })
+
+    // Scenario: Partial constraint mismatch reflects a smaller confidence reduction
+    it('passes through a smaller confidence reduction for a same-type pair with a required or max length difference', async () => {
+      const partialMismatchSource: SchemaField = {
+        id: 'src-1',
+        name: 'notes',
+        path: 'notes',
+        dataType: 'string',
+        required: false,
+        maxLength: 500,
+      }
+      const partialMismatchTarget: SchemaField = {
+        id: 'tgt-1',
+        name: 'notes',
+        path: 'notes',
+        dataType: 'string',
+        required: true,
+        maxLength: 100,
+      }
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'notes',
+                          targetField: 'notes',
+                          confidenceScore: 0.8,
+                          reasoning: 'Zelfde veldnaam, maar het doelveld is verplicht en korter.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions([partialMismatchSource], [partialMismatchTarget])
+
+      expect(result[0]?.confidenceScore).toBe(0.8)
+      expect(result[0]?.reasoning).toContain('verplicht')
+    })
+
+    // Scenario: Fundamentally incompatible field types still produce a suggestion
+    it('still returns a suggestion for a fundamentally incompatible type pair, with a low confidence score', async () => {
+      const booleanSource: SchemaField = {
+        id: 'src-1',
+        name: 'isActive',
+        path: 'isActive',
+        dataType: 'boolean',
+        required: true,
+      }
+      const dateTarget: SchemaField = {
+        id: 'tgt-1',
+        name: 'activatedOn',
+        path: 'activatedOn',
+        dataType: 'date',
+        required: true,
+      }
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      suggestions: [
+                        {
+                          sourceField: 'isActive',
+                          targetField: 'activatedOn',
+                          confidenceScore: 0.35,
+                          reasoning: 'Brontype boolean komt niet overeen met doeltype date.',
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+        }),
+      )
+
+      const store = useAISuggestions()
+      const result = await store.generateSuggestions([booleanSource], [dateTarget])
+
+      const all = [...result]
+      expect(all).toHaveLength(1)
+      expect(all[0]?.confidenceScore).toBeLessThan(CONFIDENCE_THRESHOLD)
     })
   })
 

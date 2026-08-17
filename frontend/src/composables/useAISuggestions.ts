@@ -104,15 +104,18 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     }
 
     // TODO(production): remove this cap. Capped to control prompt size and keep API costs low during PoC
-    const sourceEntries = sourceFields
-      .slice(0, 5)
-      .map((f) => ({ path: f.path, description: f.description }))
-    const targetEntries = unmappedTargetFields
-      .slice(0, 5)
-      .map((f) => ({ path: f.path, description: f.description }))
+    const toFieldEntry = (f: SchemaField) => ({
+      path: f.path,
+      description: f.description,
+      dataType: f.dataType,
+      required: f.required,
+      maxLength: f.maxLength,
+    })
+    const sourceEntries = sourceFields.slice(0, 5).map(toFieldEntry)
+    const targetEntries = unmappedTargetFields.slice(0, 5).map(toFieldEntry)
 
     const systemPrompt =
-      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), "confidenceScore" (number 0.0-1.0), and "reasoning" (a single concise sentence, written in Dutch, explaining why these two specific fields were paired — this text is shown directly to the administrator). Only return valid JSON, no markdown.'
+      'You are a field mapping assistant. Given source and target schema fields (each with a path, optional description, data type, required flag, and optional max length), suggest the best one-to-one mappings. Take each field\'s data type, required flag, and max length into account: when a candidate pair has a type or constraint mismatch (for example different data types, a stricter max length, or a required/optional difference), score it lower than an equivalent same-type match with no mismatch, and mention the specific mismatch in the reasoning. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), "confidenceScore" (number 0.0-1.0), and "reasoning" (a single concise sentence, written in Dutch, explaining why these two specific fields were paired — this text is shown directly to the administrator). Only return valid JSON, no markdown.'
 
     const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
 
