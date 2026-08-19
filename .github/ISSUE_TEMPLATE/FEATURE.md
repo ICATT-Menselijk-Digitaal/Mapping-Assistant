@@ -10,11 +10,11 @@ assignees: ""
 
 ## Summary
 
-<!-- Always start with "This feature is needed for / to ensure ..." — one or two plain-language
+<!-- Always start with "This feature is needed to ..." (or "... to ensure ...") — one or two plain-language
      sentences on why this feature exists and what it actually lets someone do. Add the Bounded
      Context it lives in (and the seam it crosses, if any) only if that's not already obvious. -->
 
-This feature is needed for / to ensure ...
+This feature is needed to ...
 
 ---
 
