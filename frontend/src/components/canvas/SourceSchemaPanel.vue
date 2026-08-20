@@ -29,6 +29,20 @@ watch(
   { immediate: true },
 )
 
+const allRootsSelected = computed(() => {
+  const roots = props.schema.roots
+  return roots.length > 0 && roots.every((r) => scopeStore.isSelected(scopeSide.value, r.id))
+})
+function toggleSelectAllScope() {
+  const roots = props.schema.roots
+  const allSelected = allRootsSelected.value
+  for (const r of roots) {
+    const currently = scopeStore.isSelected(scopeSide.value, r.id)
+    if (allSelected && currently) scopeStore.toggle(scopeSide.value, r.id)
+    else if (!allSelected && !currently) scopeStore.toggle(scopeSide.value, r.id)
+  }
+}
+
 function isGroupSelected(rootIds: readonly string[]): boolean {
   return rootIds.length > 0 && rootIds.every((id) => scopeStore.isSelected(scopeSide.value, id))
 }
@@ -298,6 +312,13 @@ defineExpose({ scrollToField })
             Niet gekoppeld
           </button>
         </div>
+        <button
+          :data-testid="`scope-select-all-${side}`"
+          class="text-[11px] px-2 py-1 rounded border bg-white text-slate-500 border-slate-200 hover:text-slate-700 transition-colors"
+          @click="toggleSelectAllScope"
+        >
+          {{ allRootsSelected ? 'Deselecteer alles (bereik)' : 'Selecteer alles (bereik)' }}
+        </button>
       </div>
 
       <!-- No-results state -->
