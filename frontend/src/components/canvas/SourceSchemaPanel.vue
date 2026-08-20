@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { useSuggestionScope } from '@/composables/useSuggestionScope'
 import { highlightHtml } from '@/utils/highlightSegments'
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -18,6 +19,27 @@ const emit = defineEmits<{
 }>()
 
 const { mappings } = storeToRefs(useMappings())
+const scopeStore = useSuggestionScope()
+
+const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
+
+watch(
+  () => props.schema,
+  (s) => scopeStore.pruneAgainst(scopeSide.value, s),
+  { immediate: true },
+)
+
+function isGroupSelected(rootIds: readonly string[]): boolean {
+  return rootIds.length > 0 && rootIds.every((id) => scopeStore.isSelected(scopeSide.value, id))
+}
+function toggleGroupScope(rootIds: readonly string[]) {
+  const allSelected = isGroupSelected(rootIds)
+  for (const id of rootIds) {
+    const currently = scopeStore.isSelected(scopeSide.value, id)
+    if (allSelected && currently) scopeStore.toggle(scopeSide.value, id)
+    else if (!allSelected && !currently) scopeStore.toggle(scopeSide.value, id)
+  }
+}
 
 const searchQuery = ref('')
 const filterStatus = ref<'all' | 'mapped' | 'unmapped'>('all')
@@ -296,24 +318,40 @@ defineExpose({ scrollToField })
         :data-testid="hasNamedGroups ? `schema-group-${group.name}` : undefined"
       >
         <!-- Group header (only when named groups) -->
-        <button
+        <div
           v-if="hasNamedGroups"
-          :data-testid="`schema-group-toggle-${group.name}`"
-          :data-anchor-group="`${side}:${group.name}`"
-          class="w-full flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-left text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-          @click="toggleGroup(group.name)"
+          class="w-full flex items-center bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
         >
-          <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
-          <span
-            v-html="
-              highlightHtml(
-                group.name,
-                searchQuery,
-                'bg-yellow-200 text-inherit rounded font-semibold',
-              )
-            "
-          />
-        </button>
+          <button
+            :data-testid="`schema-group-toggle-${group.name}`"
+            :data-anchor-group="`${side}:${group.name}`"
+            class="flex-1 flex items-center gap-2 px-3 py-1.5 text-left"
+            @click="toggleGroup(group.name)"
+          >
+            <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
+            <span
+              v-html="
+                highlightHtml(
+                  group.name,
+                  searchQuery,
+                  'bg-yellow-200 text-inherit rounded font-semibold',
+                )
+              "
+            />
+          </button>
+          <label
+            class="shrink-0 pr-3 pl-2 flex items-center cursor-pointer"
+            :title="`Bereik: ${group.name}`"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :data-testid="`scope-checkbox-${side}-${group.name}`"
+              :checked="isGroupSelected(group.fields.map((f) => f.id))"
+              @change="toggleGroupScope(group.fields.map((f) => f.id))"
+            />
+          </label>
+        </div>
 
         <!-- Group fields -->
         <div

@@ -3,11 +3,16 @@ import { computed, ref, watch } from 'vue'
 import type { Schema } from '@/domain/schema'
 import type { SchemaField } from '@/types'
 
-const STORAGE_KEY = 'ma_suggestion_scope_source_container_ids'
+export type ScopeSide = 'source' | 'target'
 
-function readStored(): string[] {
+const STORAGE_KEYS: Record<ScopeSide, string> = {
+  source: 'ma_suggestion_scope_source_root_ids',
+  target: 'ma_suggestion_scope_target_root_ids',
+}
+
+function readStored(side: ScopeSide): string[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEYS[side])
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
@@ -16,24 +21,16 @@ function readStored(): string[] {
   }
 }
 
-function writeStored(ids: readonly string[]): void {
+function writeStored(side: ScopeSide, ids: readonly string[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
+    localStorage.setItem(STORAGE_KEYS[side], JSON.stringify(ids))
   } catch {
     // localStorage unavailable — best-effort persistence
   }
 }
 
-export function isContainer(field: SchemaField): boolean {
-  return field.dataType === 'object' || field.dataType === 'array'
-}
-
-export function listContainers(schema: Schema): readonly SchemaField[] {
-  return schema.all().filter((f) => isContainer(f) && schema.childrenOf(f.id).length > 0)
-}
-
-export function leavesUnder(schema: Schema, containerIds: Iterable<string>): SchemaField[] {
-  const ids = new Set(containerIds)
+export function leavesUnder(schema: Schema, rootIds: Iterable<string>): SchemaField[] {
+  const ids = new Set(rootIds)
   if (ids.size === 0) return []
   const out: SchemaField[] = []
   const seen = new Set<string>()
@@ -53,51 +50,57 @@ export function leavesUnder(schema: Schema, containerIds: Iterable<string>): Sch
 }
 
 export const useSuggestionScope = defineStore('suggestionScope', () => {
-  const selectedSourceContainerIds = ref<Set<string>>(new Set(readStored()))
+  const selectedSourceRootIds = ref<Set<string>>(new Set(readStored('source')))
+  const selectedTargetRootIds = ref<Set<string>>(new Set(readStored('target')))
 
-  watch(selectedSourceContainerIds, (set) => writeStored([...set]), { flush: 'sync' })
+  watch(selectedSourceRootIds, (set) => writeStored('source', [...set]), { flush: 'sync' })
+  watch(selectedTargetRootIds, (set) => writeStored('target', [...set]), { flush: 'sync' })
 
-  const hasSelection = computed(() => selectedSourceContainerIds.value.size > 0)
-
-  function isSelected(containerId: string): boolean {
-    return selectedSourceContainerIds.value.has(containerId)
+  function ref_(side: ScopeSide) {
+    return side === 'source' ? selectedSourceRootIds : selectedTargetRootIds
   }
 
-  function toggle(containerId: string): void {
-    const next = new Set(selectedSourceContainerIds.value)
-    if (next.has(containerId)) next.delete(containerId)
-    else next.add(containerId)
-    selectedSourceContainerIds.value = next
+  const hasSourceSelection = computed(() => selectedSourceRootIds.value.size > 0)
+  const hasTargetSelection = computed(() => selectedTargetRootIds.value.size > 0)
+
+  function isSelected(side: ScopeSide, rootId: string): boolean {
+    return ref_(side).value.has(rootId)
   }
 
-  function selectAll(schema: Schema): void {
-    selectedSourceContainerIds.value = new Set(listContainers(schema).map((f) => f.id))
+  function toggle(side: ScopeSide, rootId: string): void {
+    const target = ref_(side)
+    const next = new Set(target.value)
+    if (next.has(rootId)) next.delete(rootId)
+    else next.add(rootId)
+    target.value = next
   }
 
-  function clear(): void {
-    selectedSourceContainerIds.value = new Set()
+  function clear(side: ScopeSide): void {
+    ref_(side).value = new Set()
   }
 
-  function pruneAgainst(schema: Schema): void {
-    const valid = new Set(listContainers(schema).map((f) => f.id))
-    const filtered = [...selectedSourceContainerIds.value].filter((id) => valid.has(id))
-    if (filtered.length !== selectedSourceContainerIds.value.size) {
-      selectedSourceContainerIds.value = new Set(filtered)
+  function pruneAgainst(side: ScopeSide, schema: Schema): void {
+    const valid = new Set(schema.roots.map((f) => f.id))
+    const target = ref_(side)
+    const filtered = [...target.value].filter((id) => valid.has(id))
+    if (filtered.length !== target.value.size) {
+      target.value = new Set(filtered)
     }
   }
 
-  function scopedSourceLeaves(schema: Schema): SchemaField[] {
-    return leavesUnder(schema, selectedSourceContainerIds.value)
+  function scopedLeaves(side: ScopeSide, schema: Schema): SchemaField[] {
+    return leavesUnder(schema, ref_(side).value)
   }
 
   return {
-    selectedSourceContainerIds,
-    hasSelection,
+    selectedSourceRootIds,
+    selectedTargetRootIds,
+    hasSourceSelection,
+    hasTargetSelection,
     isSelected,
     toggle,
-    selectAll,
     clear,
     pruneAgainst,
-    scopedSourceLeaves,
+    scopedLeaves,
   }
 })

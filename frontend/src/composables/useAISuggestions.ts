@@ -57,6 +57,61 @@ interface ClaudeApiSuggestion {
   reasoning: string
 }
 
+// Recover a suggestions array from a Claude response that may have been cut
+// off mid-object because max_tokens was hit. Returns whatever complete
+// `{ ... }` objects can be parsed before the truncation point.
+function extractSuggestionsLenient(raw: string): ClaudeApiSuggestion[] {
+  try {
+    const parsed = JSON.parse(raw) as { suggestions?: ClaudeApiSuggestion[] }
+    if (Array.isArray(parsed.suggestions)) return parsed.suggestions
+  } catch {
+    // fall through to lenient scan
+  }
+
+  const arrStart = raw.indexOf('"suggestions"')
+  const bracket = arrStart === -1 ? -1 : raw.indexOf('[', arrStart)
+  if (bracket === -1) return []
+
+  const out: ClaudeApiSuggestion[] = []
+  let depth = 0
+  let objStart = -1
+  let inString = false
+  let escape = false
+  for (let i = bracket + 1; i < raw.length; i++) {
+    const c = raw[i]!
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (inString) {
+      if (c === '\\') escape = true
+      else if (c === '"') inString = false
+      continue
+    }
+    if (c === '"') {
+      inString = true
+      continue
+    }
+    if (c === '{') {
+      if (depth === 0) objStart = i
+      depth++
+    } else if (c === '}') {
+      depth--
+      if (depth === 0 && objStart !== -1) {
+        try {
+          out.push(JSON.parse(raw.slice(objStart, i + 1)) as ClaudeApiSuggestion)
+        } catch {
+          // skip malformed object
+        }
+        objStart = -1
+      }
+    } else if (c === ']' && depth === 0) {
+      break
+    }
+  }
+  return out
+}
+
 export const useAISuggestions = defineStore('aiSuggestions', () => {
   const suggestions = ref<AiSuggestion[]>([])
   const lowConfidenceSuggestions = ref<AiSuggestion[]>([])
@@ -127,7 +182,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
-          max_tokens: 1024,
+          max_tokens: 16000,
           messages: [
             {
               role: 'system',
@@ -170,11 +225,14 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const start = raw.indexOf('{')
       const end = raw.lastIndexOf('}')
       const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
-      const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
+      const apiSuggestions = extractSuggestionsLenient(text)
+      if (apiSuggestions.length === 0) {
+        throw new Error('No suggestions could be parsed from AI response')
+      }
 
       const rejectedSet = rejectedPairs.value
       let droppedForReasoning = 0
-      const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
+      const resolved: AiSuggestion[] = apiSuggestions.reduce<AiSuggestion[]>((acc, s) => {
         const src = sourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
         const tgt = unmappedTargetFields.find(
           (f) => f.path === s.targetField || f.name === s.targetField,

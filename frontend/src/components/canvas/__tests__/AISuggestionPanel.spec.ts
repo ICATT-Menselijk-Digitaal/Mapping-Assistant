@@ -114,7 +114,8 @@ beforeEach(() => {
   resetApiKeyState()
   useApiKey().provideKey('test-key')
   try {
-    localStorage.removeItem('ma_suggestion_scope_source_container_ids')
+    localStorage.removeItem('ma_suggestion_scope_source_root_ids')
+    localStorage.removeItem('ma_suggestion_scope_target_root_ids')
   } catch {
     // ignore
   }
@@ -213,6 +214,10 @@ describe('AISuggestionPanel', () => {
   it('shows empty state when all target fields are already mapped', async () => {
     const wrapper = mountPanel()
     const mappingsStore = useMappings()
+    const scopeStore = useSuggestionScope()
+    scopeStore.toggle('source', 'src-1')
+    scopeStore.toggle('target', 'tgt-1')
+    scopeStore.toggle('target', 'tgt-2')
     mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
     // Simulate tgt-2 also mapped
     mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
@@ -224,6 +229,10 @@ describe('AISuggestionPanel', () => {
   it('calls generateSuggestions when generate button is clicked', async () => {
     const wrapper = mountPanel()
     const aiStore = useAISuggestions()
+    const scopeStore = useSuggestionScope()
+    scopeStore.toggle('source', 'src-1')
+    scopeStore.toggle('target', 'tgt-1')
+    await wrapper.vm.$nextTick()
     const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
     await wrapper.find('[data-testid="generate-button"]').trigger('click')
     expect(spy).toHaveBeenCalledOnce()
@@ -249,6 +258,9 @@ describe('AISuggestionPanel', () => {
 
     it('shows "Opnieuw genereren" button in error state when unmapped fields exist', async () => {
       const wrapper = mountPanel()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-1')
+      scopeStore.toggle('target', 'tgt-1')
       const aiStore = useAISuggestions()
       aiStore.error = new AIServiceError('AI service unreachable')
       await wrapper.vm.$nextTick()
@@ -288,6 +300,9 @@ describe('AISuggestionPanel', () => {
 
     it('calls generateSuggestions when retry button in error state is clicked', async () => {
       const wrapper = mountPanel()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-1')
+      scopeStore.toggle('target', 'tgt-1')
       const aiStore = useAISuggestions()
       aiStore.error = new AIServiceError('AI service unreachable')
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
@@ -809,7 +824,8 @@ describe('AISuggestionPanel', () => {
       })
       const aiStore = useAISuggestions()
       const scopeStore = useSuggestionScope()
-      scopeStore.selectAll(sourceSchemaWithContainers)
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
@@ -827,7 +843,8 @@ describe('AISuggestionPanel', () => {
       })
       const aiStore = useAISuggestions()
       const scopeStore = useSuggestionScope()
-      scopeStore.selectAll(sourceSchemaWithContainers)
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
@@ -845,7 +862,8 @@ describe('AISuggestionPanel', () => {
       })
       const aiStore = useAISuggestions()
       const scopeStore = useSuggestionScope()
-      scopeStore.selectAll(sourceSchemaWithContainers)
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
@@ -864,40 +882,41 @@ describe('AISuggestionPanel', () => {
       targetSchema: targetSchemaWithContainers,
     }
 
-    it('shows the scope selector when the source schema has container fields', () => {
+    it('disables generate button until both source and target roots are selected', async () => {
       const wrapper = mountPanel(scopedProps)
-      expect(wrapper.find('[data-testid="scope-selector"]').exists()).toBe(true)
-    })
-
-    it('disables generate button until a container is selected', async () => {
-      const wrapper = mountPanel(scopedProps)
-      await wrapper.vm.$nextTick()
-      const btn = wrapper.find('[data-testid="generate-button"]')
-      expect(btn.attributes('disabled')).toBeDefined()
-
       const scopeStore = useSuggestionScope()
-      scopeStore.toggle('src-container')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
+
+      scopeStore.toggle('source', 'src-container')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
+
+      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeUndefined()
     })
 
-    it('only sends leaves of selected containers to generateSuggestions', async () => {
+    it('only sends leaves under selected source and target roots to generateSuggestions', async () => {
       const wrapper = mountPanel(scopedProps)
       const scopeStore = useSuggestionScope()
-      scopeStore.toggle('src-nested-container')
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       const aiStore = useAISuggestions()
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
-      const sourceArgs = spy.mock.calls[0]![0]
-      expect(sourceArgs.map((f) => f.id)).toEqual(['src-deep'])
+      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
+      expect(sourceArgs.map((f) => f.id).sort()).toEqual(['src-1', 'src-deep'])
+      expect(targetArgs.map((f) => f.id).sort()).toEqual(['tgt-1', 'tgt-deep'])
     })
 
     it('clears existing suggestions when scope selection changes', async () => {
       const wrapper = mountPanel(scopedProps)
       const aiStore = useAISuggestions()
       const scopeStore = useSuggestionScope()
-      scopeStore.toggle('src-container')
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       aiStore.suggestions = [
         {
@@ -908,40 +927,92 @@ describe('AISuggestionPanel', () => {
           status: 'pending',
         },
       ] as AiSuggestion[]
-      scopeStore.toggle('src-nested-container')
+      scopeStore.toggle('source', 'src-container')
       await wrapper.vm.$nextTick()
       expect(aiStore.suggestions).toHaveLength(0)
     })
 
-    it('select-all toggle picks every source container', async () => {
+    it('persists per-side selection to localStorage', async () => {
       const wrapper = mountPanel(scopedProps)
-      await wrapper.find('[data-testid="scope-toggle"]').trigger('click')
-      await wrapper.find('[data-testid="scope-select-all"]').trigger('change')
       const scopeStore = useSuggestionScope()
-      expect(scopeStore.selectedSourceContainerIds.size).toBe(2)
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
+      await wrapper.vm.$nextTick()
+      expect(JSON.parse(localStorage.getItem('ma_suggestion_scope_source_root_ids')!)).toContain(
+        'src-container',
+      )
+      expect(JSON.parse(localStorage.getItem('ma_suggestion_scope_target_root_ids')!)).toContain(
+        'tgt-container',
+      )
     })
 
-    it('persists the selection to localStorage', async () => {
-      const wrapper = mountPanel(scopedProps)
+    it('limits generateSuggestions to the first 10 fields per side when the test-run toggle is on (default)', async () => {
+      const manyRoots = Array.from({ length: 25 }, (_, i) => ({
+        id: `s-${i}`,
+        name: `s${i}`,
+        path: `s${i}`,
+        dataType: 'string' as const,
+        required: false,
+      }))
+      const manyTargets = Array.from({ length: 25 }, (_, i) => ({
+        id: `t-${i}`,
+        name: `t${i}`,
+        path: `t${i}`,
+        dataType: 'string' as const,
+        required: false,
+      }))
+      const bigSource = buildSchema('', manyRoots)
+      const bigTarget = buildSchema('', manyTargets)
+      const wrapper = mountPanel({ sourceSchema: bigSource, targetSchema: bigTarget })
       const scopeStore = useSuggestionScope()
-      scopeStore.toggle('src-container')
+      for (const r of manyRoots) scopeStore.toggle('source', r.id)
+      for (const r of manyTargets) scopeStore.toggle('target', r.id)
       await wrapper.vm.$nextTick()
-      const raw = localStorage.getItem('ma_suggestion_scope_source_container_ids')
-      expect(raw).toBeTruthy()
-      expect(JSON.parse(raw!)).toContain('src-container')
-    })
 
-    it('sends all target leaves regardless of scope (target side is not scoped)', async () => {
-      const wrapper = mountPanel(scopedProps)
-      const scopeStore = useSuggestionScope()
-      scopeStore.toggle('src-container')
-      await wrapper.vm.$nextTick()
       const aiStore = useAISuggestions()
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
       await wrapper.find('[data-testid="generate-button"]').trigger('click')
-      const targetArgs = spy.mock.calls[0]![1]
-      const targetIds = targetArgs.map((f) => f.id).sort()
-      expect(targetIds).toEqual(['tgt-1', 'tgt-deep'])
+      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
+      expect(sourceArgs).toHaveLength(10)
+      expect(targetArgs).toHaveLength(10)
+    })
+
+    it('sends all fields when the test-run toggle is off', async () => {
+      const manyRoots = Array.from({ length: 15 }, (_, i) => ({
+        id: `s-${i}`,
+        name: `s${i}`,
+        path: `s${i}`,
+        dataType: 'string' as const,
+        required: false,
+      }))
+      const manyTargets = Array.from({ length: 15 }, (_, i) => ({
+        id: `t-${i}`,
+        name: `t${i}`,
+        path: `t${i}`,
+        dataType: 'string' as const,
+        required: false,
+      }))
+      const bigSource = buildSchema('', manyRoots)
+      const bigTarget = buildSchema('', manyTargets)
+      const wrapper = mountPanel({ sourceSchema: bigSource, targetSchema: bigTarget })
+      const scopeStore = useSuggestionScope()
+      for (const r of manyRoots) scopeStore.toggle('source', r.id)
+      for (const r of manyTargets) scopeStore.toggle('target', r.id)
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="limit-test-run"]').setValue(false)
+
+      const aiStore = useAISuggestions()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
+      expect(sourceArgs).toHaveLength(15)
+      expect(targetArgs).toHaveLength(15)
+    })
+
+    it('shows the "no scope" hint when either side has no selection', async () => {
+      const wrapper = mountPanel(scopedProps)
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="scope-required-hint"]').exists()).toBe(true)
     })
   })
 

@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
-import {
-  useSuggestionScope,
-  listContainers,
-  leavesUnder,
-} from '@/composables/useSuggestionScope'
+import { useSuggestionScope, leavesUnder } from '@/composables/useSuggestionScope'
 
 const nodes: SchemaFieldNode[] = [
   {
@@ -47,90 +43,97 @@ const nodes: SchemaFieldNode[] = [
 ]
 const schema = buildSchema('Test', nodes)
 
-describe('useSuggestionScope helpers', () => {
-  it('listContainers returns object/array fields that have children', () => {
-    const ids = listContainers(schema).map((f) => f.id).sort()
-    expect(ids).toEqual(['nested', 'root', 'root-2'])
-  })
+const SOURCE_KEY = 'ma_suggestion_scope_source_root_ids'
+const TARGET_KEY = 'ma_suggestion_scope_target_root_ids'
 
-  it('leavesUnder collects leaf descendants of the given containers', () => {
-    const ids = leavesUnder(schema, ['root']).map((f) => f.id).sort()
+describe('leavesUnder', () => {
+  it('collects every leaf descendant of the given roots', () => {
+    const ids = leavesUnder(schema, ['root'])
+      .map((f) => f.id)
+      .sort()
     expect(ids).toEqual(['leaf-1', 'leaf-2'])
   })
 
-  it('leavesUnder returns [] when no containers selected', () => {
+  it('returns [] when no roots are selected', () => {
     expect(leavesUnder(schema, [])).toEqual([])
+  })
+
+  it('treats a selected leaf-root as itself', () => {
+    expect(leavesUnder(schema, ['leaf-3']).map((f) => f.id)).toEqual(['leaf-3'])
   })
 })
 
 describe('useSuggestionScope store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    localStorage.removeItem('ma_suggestion_scope_source_container_ids')
+    localStorage.removeItem(SOURCE_KEY)
+    localStorage.removeItem(TARGET_KEY)
   })
 
-  it('starts with empty selection when localStorage is empty', () => {
+  it('starts with empty selections when localStorage is empty', () => {
     const store = useSuggestionScope()
-    expect(store.hasSelection).toBe(false)
-    expect(store.selectedSourceContainerIds.size).toBe(0)
+    expect(store.hasSourceSelection).toBe(false)
+    expect(store.hasTargetSelection).toBe(false)
   })
 
-  it('toggle adds and removes container ids', () => {
+  it('toggle adds and removes ids per side', () => {
     const store = useSuggestionScope()
-    store.toggle('root')
-    expect(store.isSelected('root')).toBe(true)
-    store.toggle('root')
-    expect(store.isSelected('root')).toBe(false)
+    store.toggle('source', 'root')
+    expect(store.isSelected('source', 'root')).toBe(true)
+    expect(store.isSelected('target', 'root')).toBe(false)
+    store.toggle('source', 'root')
+    expect(store.isSelected('source', 'root')).toBe(false)
   })
 
-  it('selectAll picks every container in the schema', () => {
+  it('source and target selections are independent', () => {
     const store = useSuggestionScope()
-    store.selectAll(schema)
-    expect(store.selectedSourceContainerIds.size).toBe(3)
+    store.toggle('source', 'root')
+    store.toggle('target', 'root-2')
+    expect([...store.selectedSourceRootIds]).toEqual(['root'])
+    expect([...store.selectedTargetRootIds]).toEqual(['root-2'])
   })
 
-  it('clear empties the selection', () => {
+  it('clear empties one side without touching the other', () => {
     const store = useSuggestionScope()
-    store.selectAll(schema)
-    store.clear()
-    expect(store.hasSelection).toBe(false)
+    store.toggle('source', 'root')
+    store.toggle('target', 'root-2')
+    store.clear('source')
+    expect(store.hasSourceSelection).toBe(false)
+    expect(store.hasTargetSelection).toBe(true)
   })
 
-  it('persists selection to localStorage', () => {
+  it('persists each side to its own localStorage key', () => {
     const store = useSuggestionScope()
-    store.toggle('root')
-    const raw = localStorage.getItem('ma_suggestion_scope_source_container_ids')
-    expect(raw).toBeTruthy()
-    expect(JSON.parse(raw!)).toContain('root')
+    store.toggle('source', 'root')
+    store.toggle('target', 'root-2')
+    expect(JSON.parse(localStorage.getItem(SOURCE_KEY)!)).toEqual(['root'])
+    expect(JSON.parse(localStorage.getItem(TARGET_KEY)!)).toEqual(['root-2'])
   })
 
-  it('restores selection from localStorage on new store instance', () => {
-    localStorage.setItem(
-      'ma_suggestion_scope_source_container_ids',
-      JSON.stringify(['root', 'nested']),
-    )
+  it('restores each side from its localStorage key on a fresh store', () => {
+    localStorage.setItem(SOURCE_KEY, JSON.stringify(['root']))
+    localStorage.setItem(TARGET_KEY, JSON.stringify(['root-2']))
     setActivePinia(createPinia())
     const store = useSuggestionScope()
-    expect(store.isSelected('root')).toBe(true)
-    expect(store.isSelected('nested')).toBe(true)
+    expect(store.isSelected('source', 'root')).toBe(true)
+    expect(store.isSelected('target', 'root-2')).toBe(true)
   })
 
-  it('pruneAgainst drops ids that no longer match a container', () => {
-    localStorage.setItem(
-      'ma_suggestion_scope_source_container_ids',
-      JSON.stringify(['root', 'ghost-id']),
-    )
+  it('pruneAgainst drops ids that no longer match a schema root', () => {
+    localStorage.setItem(SOURCE_KEY, JSON.stringify(['root', 'ghost-id']))
     setActivePinia(createPinia())
     const store = useSuggestionScope()
-    store.pruneAgainst(schema)
-    expect(store.isSelected('root')).toBe(true)
-    expect(store.isSelected('ghost-id')).toBe(false)
+    store.pruneAgainst('source', schema)
+    expect(store.isSelected('source', 'root')).toBe(true)
+    expect(store.isSelected('source', 'ghost-id')).toBe(false)
   })
 
-  it('scopedSourceLeaves returns leaf descendants of selected containers only', () => {
+  it('scopedLeaves returns leaf descendants of selected roots for the given side', () => {
     const store = useSuggestionScope()
-    store.toggle('root-2')
-    const ids = store.scopedSourceLeaves(schema).map((f) => f.id)
-    expect(ids).toEqual(['leaf-3'])
+    store.toggle('source', 'root-2')
+    store.toggle('target', 'root')
+    expect(store.scopedLeaves('source', schema).map((f) => f.id)).toEqual(['leaf-3'])
+    const targetIds = store.scopedLeaves('target', schema).map((f) => f.id).sort()
+    expect(targetIds).toEqual(['leaf-1', 'leaf-2'])
   })
 })
