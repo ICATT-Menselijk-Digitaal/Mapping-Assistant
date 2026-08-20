@@ -1005,6 +1005,28 @@ describe('useAISuggestions', () => {
       expect(systemPrompt.toLowerCase()).toContain('dutch')
       expect(systemPrompt.toLowerCase()).toMatch(/concise|one sentence/)
     })
+
+    // Scenario: System prompt is marked cacheable
+    it('marks the system prompt as cacheable via an ephemeral content block', async () => {
+      const fetchMock = vi
+        .fn<
+          (
+            url: string,
+            init: RequestInit,
+          ) => Promise<{ ok: true; json: () => Promise<typeof mockOpenRouterResponse> }>
+        >()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const store = useAISuggestions()
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
+      const systemContent = requestBody.messages[0].content
+
+      expect(Array.isArray(systemContent)).toBe(true)
+      expect(systemContent[0].cache_control).toEqual({ type: 'ephemeral' })
+    })
   })
 
   describe('rejected pairs filtering', () => {
