@@ -133,7 +133,10 @@ describe('useSuggestionScope store', () => {
     store.toggle('source', 'root-2')
     store.toggle('target', 'root')
     expect(store.scopedLeaves('source', schema).map((f) => f.id)).toEqual(['leaf-3'])
-    const targetIds = store.scopedLeaves('target', schema).map((f) => f.id).sort()
+    const targetIds = store
+      .scopedLeaves('target', schema)
+      .map((f) => f.id)
+      .sort()
     expect(targetIds).toEqual(['leaf-1', 'leaf-2'])
   })
 })

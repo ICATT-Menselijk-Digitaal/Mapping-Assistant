@@ -66,9 +66,7 @@ const scopeHasNothingToSuggest = computed(
     scopeStore.hasTargetSelection &&
     scopedTargetFields.value.length === 0,
 )
-const canShowEmptyState = computed(
-  () => !aiStore.error && scopeHasNothingToSuggest.value,
-)
+const canShowEmptyState = computed(() => !aiStore.error && scopeHasNothingToSuggest.value)
 
 const resolvedSuggestions = computed(() =>
   aiStore.suggestions.map((s) => ({
@@ -229,7 +227,9 @@ async function changeKey() {
       class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-slate-400 text-sm"
       data-testid="empty-state"
     >
-      <p v-if="scopeHasNothingToSuggest">Geen ongemapte doelvelden binnen het geselecteerde bereik.</p>
+      <p v-if="scopeHasNothingToSuggest">
+        Geen ongemapte doelvelden binnen het geselecteerde bereik.
+      </p>
       <p v-else>Geen ongemapte doelvelden.</p>
     </div>
 
@@ -252,11 +252,7 @@ async function changeKey() {
           Genereer suggesties
         </button>
         <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
-          <input
-            v-model="limitTestRun"
-            type="checkbox"
-            data-testid="limit-test-run"
-          />
+          <input v-model="limitTestRun" type="checkbox" data-testid="limit-test-run" />
           <span>Beperk tot eerste 10 velden (testrun)</span>
         </label>
       </div>
@@ -332,7 +328,10 @@ async function changeKey() {
     </div>
 
     <!-- Default: generate button (no error, no suggestions, unmapped fields exist, key present) -->
-    <div v-else-if="!aiStore.error" class="flex-1 flex flex-col items-center justify-center gap-2 py-10">
+    <div
+      v-else-if="!aiStore.error"
+      class="flex-1 flex flex-col items-center justify-center gap-2 py-10"
+    >
       <button
         class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:bg-slate-300 disabled:cursor-not-allowed"
         data-testid="generate-button"
@@ -342,11 +341,7 @@ async function changeKey() {
         Genereer suggesties
       </button>
       <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
-        <input
-          v-model="limitTestRun"
-          type="checkbox"
-          data-testid="limit-test-run"
-        />
+        <input v-model="limitTestRun" type="checkbox" data-testid="limit-test-run" />
         <span>Beperk tot eerste 10 velden (testrun)</span>
       </label>
       <p
