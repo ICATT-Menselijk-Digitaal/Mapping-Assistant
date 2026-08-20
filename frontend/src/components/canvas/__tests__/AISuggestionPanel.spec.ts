@@ -882,17 +882,13 @@ describe('AISuggestionPanel', () => {
       targetSchema: targetSchemaWithContainers,
     }
 
-    it('disables generate button until both source and target roots are selected', async () => {
+    it('disables generate button until a source root is selected (target is not scope-gated)', async () => {
       const wrapper = mountPanel(scopedProps)
       const scopeStore = useSuggestionScope()
       await wrapper.vm.$nextTick()
       expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
 
       scopeStore.toggle('source', 'src-container')
-      await wrapper.vm.$nextTick()
-      expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
-
-      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeUndefined()
     })
@@ -911,12 +907,11 @@ describe('AISuggestionPanel', () => {
       expect(targetArgs.map((f) => f.id).sort()).toEqual(['tgt-1', 'tgt-deep'])
     })
 
-    it('clears existing suggestions when scope selection changes', async () => {
+    it('keeps existing suggestions visible when scope selection changes', async () => {
       const wrapper = mountPanel(scopedProps)
       const aiStore = useAISuggestions()
       const scopeStore = useSuggestionScope()
       scopeStore.toggle('source', 'src-container')
-      scopeStore.toggle('target', 'tgt-container')
       await wrapper.vm.$nextTick()
       aiStore.suggestions = [
         {
@@ -929,7 +924,7 @@ describe('AISuggestionPanel', () => {
       ] as AiSuggestion[]
       scopeStore.toggle('source', 'src-container')
       await wrapper.vm.$nextTick()
-      expect(aiStore.suggestions).toHaveLength(0)
+      expect(aiStore.suggestions).toHaveLength(1)
     })
 
     it('persists per-side selection to localStorage', async () => {

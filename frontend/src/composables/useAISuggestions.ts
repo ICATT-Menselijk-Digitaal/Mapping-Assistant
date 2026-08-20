@@ -60,7 +60,7 @@ interface ClaudeApiSuggestion {
 // Recover a suggestions array from a Claude response that may have been cut
 // off mid-object because max_tokens was hit. Returns whatever complete
 // `{ ... }` objects can be parsed before the truncation point.
-function extractSuggestionsLenient(raw: string): ClaudeApiSuggestion[] {
+function extractSuggestionsLenient(raw: string): ClaudeApiSuggestion[] | null {
   try {
     const parsed = JSON.parse(raw) as { suggestions?: ClaudeApiSuggestion[] }
     if (Array.isArray(parsed.suggestions)) return parsed.suggestions
@@ -70,7 +70,7 @@ function extractSuggestionsLenient(raw: string): ClaudeApiSuggestion[] {
 
   const arrStart = raw.indexOf('"suggestions"')
   const bracket = arrStart === -1 ? -1 : raw.indexOf('[', arrStart)
-  if (bracket === -1) return []
+  if (bracket === -1) return null
 
   const out: ClaudeApiSuggestion[] = []
   let depth = 0
@@ -225,8 +225,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       const start = raw.indexOf('{')
       const end = raw.lastIndexOf('}')
       const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
+      // Returns null when parsing failed outright; [] is a legitimate response
+      // (AI explicitly reported no matches) and must not raise an error.
       const apiSuggestions = extractSuggestionsLenient(text)
-      if (apiSuggestions.length === 0) {
+      if (apiSuggestions === null) {
         throw new Error('No suggestions could be parsed from AI response')
       }
 

@@ -23,9 +23,15 @@ const scopeStore = useSuggestionScope()
 
 const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
 
+// Per Feature #89: only the source side is scope-selectable. Target is
+// always fully included in AI calls, so no scope UI is rendered on it.
+const scopeEnabled = computed(() => scopeSide.value === 'source')
+
 watch(
   () => props.schema,
-  (s) => scopeStore.pruneAgainst(scopeSide.value, s),
+  (s) => {
+    if (scopeEnabled.value) scopeStore.pruneAgainst(scopeSide.value, s)
+  },
   { immediate: true },
 )
 
@@ -313,6 +319,7 @@ defineExpose({ scrollToField })
           </button>
         </div>
         <button
+          v-if="scopeEnabled"
           :data-testid="`scope-select-all-${side}`"
           class="text-[11px] px-2 py-1 rounded border bg-white text-slate-500 border-slate-200 hover:text-slate-700 transition-colors"
           @click="toggleSelectAllScope"
@@ -361,6 +368,7 @@ defineExpose({ scrollToField })
             />
           </button>
           <label
+            v-if="scopeEnabled"
             class="shrink-0 pr-3 pl-2 flex items-center cursor-pointer"
             :title="`Bereik: ${group.name}`"
             @click.stop
