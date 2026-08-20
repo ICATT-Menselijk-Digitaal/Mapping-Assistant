@@ -103,13 +103,11 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       return []
     }
 
-    // TODO(production): remove this cap. Capped to control prompt size and keep API costs low during PoC
-    const sourceEntries = sourceFields
-      .slice(0, 5)
-      .map((f) => ({ path: f.path, description: f.description }))
-    const targetEntries = unmappedTargetFields
-      .slice(0, 5)
-      .map((f) => ({ path: f.path, description: f.description }))
+    const sourceEntries = sourceFields.map((f) => ({ path: f.path, description: f.description }))
+    const targetEntries = unmappedTargetFields.map((f) => ({
+      path: f.path,
+      description: f.description,
+    }))
 
     const systemPrompt =
       'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), "confidenceScore" (number 0.0-1.0), and "reasoning" (a single concise sentence, written in Dutch, explaining why these two specific fields were paired — this text is shown directly to the administrator). Only return valid JSON, no markdown.'
@@ -131,7 +129,16 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           model: CLAUDE_MODEL,
           max_tokens: 1024,
           messages: [
-            { role: 'system', content: systemPrompt },
+            {
+              role: 'system',
+              content: [
+                {
+                  type: 'text',
+                  text: systemPrompt,
+                  cache_control: { type: 'ephemeral' },
+                },
+              ],
+            },
             { role: 'user', content: userMessage },
           ],
         }),

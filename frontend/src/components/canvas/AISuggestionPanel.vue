@@ -4,6 +4,7 @@ import type { Schema } from '@/domain/schema'
 import { useAISuggestions, AIKeyRejectedError } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
 import { useApiKey } from '@/composables/useApiKey'
+import { useSuggestionScope, listContainers } from '@/composables/useSuggestionScope'
 import AISuggestionCard from './AISuggestionCard.vue'
 
 const props = defineProps<{
@@ -13,6 +14,7 @@ const props = defineProps<{
 
 const aiStore = useAISuggestions()
 const mappingsStore = useMappings()
+const scopeStore = useSuggestionScope()
 const { hasKey, getKey, removeStoredKey } = useApiKey()
 
 const keyRejected = computed(() => aiStore.error instanceof AIKeyRejectedError)
@@ -24,28 +26,68 @@ watch(keyRejected, (isRejected) => {
 const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
-// TODO(production): remove the Zaak-only scoping and the slice(0, 5) cap on both sides below.
-// Capped to Zaak context only to control prompt size and cost during PoC
-const zaakSourceFields = computed(() =>
-  props.sourceSchema
-    .all()
-    .filter(
-      (f) =>
-        f.path.startsWith('Zaak') &&
-        !mappedSourceIds.value.has(f.id) &&
-        props.sourceSchema.childrenOf(f.id).length === 0,
-    )
-    .slice(0, 5),
+const sourceContainers = computed(() => listContainers(props.sourceSchema))
+
+watch(
+  sourceContainers,
+  () => scopeStore.pruneAgainst(props.sourceSchema),
+  { immediate: true },
 )
+
+// Clear suggestions whenever the scope selection changes so previous suggestions
+// never remain visible against a stale scope. (Edge case in feature #89.)
+watch(
+  () => [...scopeStore.selectedSourceContainerIds],
+  () => {
+    aiStore.suggestions = []
+    aiStore.lowConfidenceSuggestions = []
+  },
+)
+
+const scopedSourceFields = computed(() => {
+  // If the schema has no container fields, scope selection is meaningless —
+  // fall back to every unmapped leaf.
+  if (sourceContainers.value.length === 0) {
+    return props.sourceSchema
+      .all()
+      .filter(
+        (f) =>
+          props.sourceSchema.childrenOf(f.id).length === 0 && !mappedSourceIds.value.has(f.id),
+      )
+  }
+  return scopeStore
+    .scopedSourceLeaves(props.sourceSchema)
+    .filter((f) => !mappedSourceIds.value.has(f.id))
+})
 
 const unmappedTargetFields = computed(() =>
-  props.targetSchema.all().filter((f) => !mappedTargetIds.value.has(f.id)),
+  props.targetSchema
+    .all()
+    .filter((f) => !mappedTargetIds.value.has(f.id) && props.targetSchema.childrenOf(f.id).length === 0),
 )
 
-const zaakUnmappedTargetFields = computed(() =>
-  unmappedTargetFields.value
-    .filter((f) => f.path.startsWith('Zaak') && props.targetSchema.childrenOf(f.id).length === 0)
-    .slice(0, 5),
+const allContainersSelected = computed(
+  () =>
+    sourceContainers.value.length > 0 &&
+    sourceContainers.value.every((c) => scopeStore.isSelected(c.id)),
+)
+
+function toggleSelectAll() {
+  if (allContainersSelected.value) scopeStore.clear()
+  else scopeStore.selectAll(props.sourceSchema)
+}
+
+const showScopeSelector = ref(false)
+const scopeRequired = computed(() => sourceContainers.value.length > 0)
+const canGenerate = computed(
+  () =>
+    (!scopeRequired.value || scopeStore.hasSelection) &&
+    scopedSourceFields.value.length > 0 &&
+    unmappedTargetFields.value.length > 0,
+)
+const scopeHasNothingToSuggest = computed(
+  () =>
+    scopeRequired.value && scopeStore.hasSelection && unmappedTargetFields.value.length === 0,
 )
 
 const resolvedSuggestions = computed(() =>
@@ -72,7 +114,7 @@ const resolvedLowConfidence = computed(() =>
 )
 
 async function generate() {
-  await aiStore.generateSuggestions(zaakSourceFields.value, zaakUnmappedTargetFields.value)
+  await aiStore.generateSuggestions(scopedSourceFields.value, unmappedTargetFields.value)
 }
 
 async function changeKey() {
@@ -141,6 +183,49 @@ async function changeKey() {
     </Teleport>
   </div>
 
+  <!-- Scope selector: choose which source container fields to include in the suggestion run -->
+  <div
+    v-if="!aiStore.isLoading && sourceContainers.length > 0"
+    class="shrink-0 border-b border-slate-100 text-sm"
+    data-testid="scope-selector"
+  >
+    <button
+      class="w-full flex items-center justify-between px-3 py-2 text-left text-slate-600 hover:bg-slate-50"
+      data-testid="scope-toggle"
+      @click="showScopeSelector = !showScopeSelector"
+    >
+      <span class="font-medium text-xs">
+        Bereik ({{ scopeStore.selectedSourceContainerIds.size }}/{{ sourceContainers.length }})
+      </span>
+      <span class="text-slate-400 text-xs">{{ showScopeSelector ? '▾' : '▸' }}</span>
+    </button>
+    <div v-if="showScopeSelector" class="px-3 pb-2 flex flex-col gap-1" data-testid="scope-list">
+      <label class="flex items-center gap-2 text-xs text-slate-500 border-b border-slate-100 pb-1">
+        <input
+          type="checkbox"
+          data-testid="scope-select-all"
+          :checked="allContainersSelected"
+          @change="toggleSelectAll"
+        />
+        <span>{{ allContainersSelected ? 'Deselecteer alles' : 'Selecteer alles' }}</span>
+      </label>
+      <label
+        v-for="container in sourceContainers"
+        :key="container.id"
+        class="flex items-center gap-2 text-xs text-slate-700 font-mono"
+        :data-testid="`scope-option-${container.id}`"
+      >
+        <input
+          type="checkbox"
+          :checked="scopeStore.isSelected(container.id)"
+          :data-testid="`scope-checkbox-${container.id}`"
+          @change="scopeStore.toggle(container.id)"
+        />
+        <span>{{ container.path }}</span>
+      </label>
+    </div>
+  </div>
+
   <!-- Loading -->
   <div
     v-if="aiStore.isLoading"
@@ -177,9 +262,10 @@ async function changeKey() {
     >
       <p>AI-service niet beschikbaar. U kunt handmatig koppelen of opnieuw proberen.</p>
       <button
-        v-if="zaakUnmappedTargetFields.length > 0"
-        class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded"
+        v-if="unmappedTargetFields.length > 0"
+        class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded disabled:bg-slate-300 disabled:cursor-not-allowed"
         data-testid="generate-button"
+        :disabled="!canGenerate"
         @click="generate"
       >
         Opnieuw genereren
@@ -188,11 +274,12 @@ async function changeKey() {
 
     <!-- Empty: all target fields already mapped (only without error) -->
     <div
-      v-if="zaakUnmappedTargetFields.length === 0 && !aiStore.error"
+      v-if="unmappedTargetFields.length === 0 && !aiStore.error"
       class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-slate-400 text-sm"
       data-testid="empty-state"
     >
-      <p>Geen ongemapte doelvelden.</p>
+      <p v-if="scopeHasNothingToSuggest">Geen ongemapte doelvelden binnen het geselecteerde bereik.</p>
+      <p v-else>Geen ongemapte doelvelden.</p>
     </div>
 
     <!-- Suggestions list -->
@@ -202,12 +289,13 @@ async function changeKey() {
     >
       <!-- Generate again button when only low-confidence suggestions remain -->
       <div
-        v-if="aiStore.suggestions.length === 0 && zaakUnmappedTargetFields.length > 0"
+        v-if="aiStore.suggestions.length === 0 && unmappedTargetFields.length > 0"
         class="flex justify-center mb-1"
       >
         <button
-          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:bg-slate-300 disabled:cursor-not-allowed"
           data-testid="generate-button"
+          :disabled="!canGenerate"
           @click="generate"
         >
           Genereer suggesties
@@ -285,14 +373,22 @@ async function changeKey() {
     </div>
 
     <!-- Default: generate button (no error, no suggestions, unmapped fields exist, key present) -->
-    <div v-else-if="!aiStore.error" class="flex-1 flex items-center justify-center py-10">
+    <div v-else-if="!aiStore.error" class="flex-1 flex flex-col items-center justify-center gap-2 py-10">
       <button
-        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
+        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:bg-slate-300 disabled:cursor-not-allowed"
         data-testid="generate-button"
+        :disabled="!canGenerate"
         @click="generate"
       >
         Genereer suggesties
       </button>
+      <p
+        v-if="scopeRequired && !scopeStore.hasSelection"
+        class="text-xs text-slate-400"
+        data-testid="scope-required-hint"
+      >
+        Selecteer minstens één bron-container om suggesties te genereren.
+      </p>
     </div>
 
     <!-- API key affordance — visible when a key is stored -->

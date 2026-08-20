@@ -996,7 +996,10 @@ describe('useAISuggestions', () => {
       await store.generateSuggestions(sourceFields, unmappedTargetFields)
 
       const requestBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string)
-      const systemPrompt: string = requestBody.messages[0].content
+      const systemContent = requestBody.messages[0].content
+      const systemPrompt: string = Array.isArray(systemContent)
+        ? systemContent[0].text
+        : systemContent
 
       expect(systemPrompt).toContain('reasoning')
       expect(systemPrompt.toLowerCase()).toContain('dutch')
