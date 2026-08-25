@@ -66,9 +66,6 @@ const resolvedSuggestions = computed(() =>
 const showStatsDialog = ref(false)
 const showLowConfidence = ref(false)
 
-const TEST_RUN_LIMIT = 10
-const limitTestRun = ref(true)
-
 const resolvedLowConfidence = computed(() =>
   aiStore.lowConfidenceSuggestions.map((s) => ({
     id: s.id,
@@ -79,14 +76,17 @@ const resolvedLowConfidence = computed(() =>
   })),
 )
 
+// The suggestion run always sends every scoped/unmapped field on both sides.
+// A "testrun" cap that capped this to the first N fields was tried and
+// removed: with a broad scope (e.g. select-all) the first N source/target
+// fields landed in unrelated schema areas by array order, so the AI
+// correctly returned no confident matches — but the panel gave no feedback
+// distinguishing that from a broken generate call, making the cap look like
+// a bug rather than a cost-saving measure. In practice sending the full
+// scoped schema on both sides is neither slow nor expensive enough to
+// justify that confusion, so there's no cap to opt into anymore.
 async function generate() {
-  const src = limitTestRun.value
-    ? scopedSourceFields.value.slice(0, TEST_RUN_LIMIT)
-    : scopedSourceFields.value
-  const tgt = limitTestRun.value
-    ? scopedTargetFields.value.slice(0, TEST_RUN_LIMIT)
-    : scopedTargetFields.value
-  await aiStore.generateSuggestions(src, tgt)
+  await aiStore.generateSuggestions(scopedSourceFields.value, scopedTargetFields.value)
 }
 
 async function changeKey() {
@@ -191,20 +191,15 @@ async function changeKey() {
         data-testid="error-state"
       >
         <p>AI-service niet beschikbaar. U kunt handmatig koppelen of opnieuw proberen.</p>
-        <div v-if="scopedTargetFields.length > 0" class="flex flex-col gap-1.5">
-          <button
-            class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded disabled:bg-slate-300 disabled:cursor-not-allowed"
-            data-testid="generate-button"
-            :disabled="!canGenerate"
-            @click="generate"
-          >
-            Opnieuw genereren
-          </button>
-          <label class="flex items-center gap-2 text-xs text-red-700 cursor-pointer">
-            <input v-model="limitTestRun" type="checkbox" data-testid="limit-test-run" />
-            <span>Beperk tot eerste 10 velden (testrun)</span>
-          </label>
-        </div>
+        <button
+          v-if="scopedTargetFields.length > 0"
+          class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded disabled:bg-slate-300 disabled:cursor-not-allowed"
+          data-testid="generate-button"
+          :disabled="!canGenerate"
+          @click="generate"
+        >
+          Opnieuw genereren
+        </button>
       </div>
 
       <!-- Empty: no unmapped target fields within the selected scope (or overall) -->
@@ -227,7 +222,7 @@ async function changeKey() {
         <!-- Generate again button when only low-confidence suggestions remain -->
         <div
           v-if="aiStore.suggestions.length === 0 && scopedTargetFields.length > 0"
-          class="flex flex-col items-center gap-2 mb-1"
+          class="flex justify-center mb-1"
         >
           <button
             class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:bg-slate-300 disabled:cursor-not-allowed"
@@ -237,10 +232,6 @@ async function changeKey() {
           >
             Genereer suggesties
           </button>
-          <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
-            <input v-model="limitTestRun" type="checkbox" data-testid="limit-test-run" />
-            <span>Beperk tot eerste 10 velden (testrun)</span>
-          </label>
         </div>
 
         <AISuggestionCard
@@ -326,10 +317,6 @@ async function changeKey() {
         >
           Genereer suggesties
         </button>
-        <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
-          <input v-model="limitTestRun" type="checkbox" data-testid="limit-test-run" />
-          <span>Beperk tot eerste 10 velden (testrun)</span>
-        </label>
         <p
           v-if="!scopeStore.hasSourceSelection"
           class="text-xs text-red-600 max-w-xs px-6 text-center"

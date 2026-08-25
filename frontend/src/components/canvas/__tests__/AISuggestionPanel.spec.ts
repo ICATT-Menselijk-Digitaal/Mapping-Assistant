@@ -941,69 +941,6 @@ describe('AISuggestionPanel', () => {
       )
     })
 
-    it('limits generateSuggestions to the first 10 fields per side when the test-run toggle is on (default)', async () => {
-      const manyRoots = Array.from({ length: 25 }, (_, i) => ({
-        id: `s-${i}`,
-        name: `s${i}`,
-        path: `s${i}`,
-        dataType: 'string' as const,
-        required: false,
-      }))
-      const manyTargets = Array.from({ length: 25 }, (_, i) => ({
-        id: `t-${i}`,
-        name: `t${i}`,
-        path: `t${i}`,
-        dataType: 'string' as const,
-        required: false,
-      }))
-      const bigSource = buildSchema('', manyRoots)
-      const bigTarget = buildSchema('', manyTargets)
-      const wrapper = mountPanel({ sourceSchema: bigSource, targetSchema: bigTarget })
-      const scopeStore = useSuggestionScope()
-      for (const r of manyRoots) scopeStore.toggle('source', r.id)
-      for (const r of manyTargets) scopeStore.toggle('target', r.id)
-      await wrapper.vm.$nextTick()
-
-      const aiStore = useAISuggestions()
-      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
-      await wrapper.find('[data-testid="generate-button"]').trigger('click')
-      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
-      expect(sourceArgs).toHaveLength(10)
-      expect(targetArgs).toHaveLength(10)
-    })
-
-    it('sends all fields when the test-run toggle is off', async () => {
-      const manyRoots = Array.from({ length: 15 }, (_, i) => ({
-        id: `s-${i}`,
-        name: `s${i}`,
-        path: `s${i}`,
-        dataType: 'string' as const,
-        required: false,
-      }))
-      const manyTargets = Array.from({ length: 15 }, (_, i) => ({
-        id: `t-${i}`,
-        name: `t${i}`,
-        path: `t${i}`,
-        dataType: 'string' as const,
-        required: false,
-      }))
-      const bigSource = buildSchema('', manyRoots)
-      const bigTarget = buildSchema('', manyTargets)
-      const wrapper = mountPanel({ sourceSchema: bigSource, targetSchema: bigTarget })
-      const scopeStore = useSuggestionScope()
-      for (const r of manyRoots) scopeStore.toggle('source', r.id)
-      for (const r of manyTargets) scopeStore.toggle('target', r.id)
-      await wrapper.vm.$nextTick()
-      await wrapper.find('[data-testid="limit-test-run"]').setValue(false)
-
-      const aiStore = useAISuggestions()
-      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
-      await wrapper.find('[data-testid="generate-button"]').trigger('click')
-      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
-      expect(sourceArgs).toHaveLength(15)
-      expect(targetArgs).toHaveLength(15)
-    })
-
     it('shows the "no scope" hint when either side has no selection', async () => {
       const wrapper = mountPanel(scopedProps)
       await wrapper.vm.$nextTick()
