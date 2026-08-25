@@ -112,6 +112,11 @@ function mountPanel(props = { sourceSchema, targetSchema }) {
 beforeEach(() => {
   setActivePinia(createPinia())
   resetApiKeyState()
+  // Explicitly blank the env key and re-sync its reactive mirror rather than
+  // relying on it being ambiently absent — a local .env.local with a real key
+  // would otherwise leak in, since envKeyRef is only captured at module load.
+  vi.stubEnv('VITE_OPENROUTER_API_KEY', '')
+  syncEnvKey()
   useApiKey().provideKey('test-key')
   try {
     localStorage.removeItem('ma_suggestion_scope_source_root_ids')
@@ -123,6 +128,8 @@ beforeEach(() => {
 
 afterEach(() => {
   resetApiKeyState()
+  vi.unstubAllEnvs()
+  syncEnvKey()
 })
 
 describe('AISuggestionPanel', () => {

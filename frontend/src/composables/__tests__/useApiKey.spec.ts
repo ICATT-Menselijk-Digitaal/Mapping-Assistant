@@ -5,6 +5,9 @@ beforeEach(() => {
   resetApiKeyState()
   localStorage.removeItem('ma_openrouter_api_key')
   vi.unstubAllEnvs()
+  // Explicitly blank the env key rather than relying on it being ambiently
+  // absent — a local .env.local with a real key would otherwise leak in.
+  vi.stubEnv('VITE_OPENROUTER_API_KEY', '')
 })
 
 afterEach(() => {
