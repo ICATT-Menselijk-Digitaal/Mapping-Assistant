@@ -4,6 +4,8 @@
 
 Custom skills live in `.agents/skills/`. Invoke them with the Skill tool using the filename as the skill name (e.g. `wtf.implement-task`).
 
+Two namespaces: `wtf.*` is the generic, reusable Epic→Feature→Task workflow — treat it as framework code, not a place for Mapping Assistant-specific process decisions. `map.*` (MAP = this project's own abbreviation) holds our own skills that layer on top of `wtf.*` for project-specific overrides (e.g. `map.single-task-feature`). When a process decision only applies to this repo, add or extend a `map.*` skill rather than baking it into `CLAUDE.md` prose or editing a `wtf.*` skill directly.
+
 ## PowerShell UTF-8 encoding guard (Windows)
 
 Before any `gh` command that reads or writes issue/PR bodies, MUST set UTF-8 encoding:
