@@ -18,7 +18,8 @@ const emit = defineEmits<{
   'field-click': [fieldId: string]
 }>()
 
-const { mappings } = storeToRefs(useMappings())
+const mappingsStore = useMappings()
+const { mappings, hoveredFieldId } = storeToRefs(mappingsStore)
 const scopeStore = useSuggestionScope()
 
 const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
@@ -72,6 +73,37 @@ const mappedFieldIds = computed(() => {
   }
   return ids
 })
+
+// A field row is highlighted when it is directly hovered, or it is the
+// mapped counterpart of the field currently hovered (in either panel —
+// hoveredFieldId is shared store state).
+const highlightedFieldIds = computed(() => {
+  const ids = new Set<string>()
+  const hovered = hoveredFieldId.value
+  if (!hovered) return ids
+  ids.add(hovered)
+  for (const m of mappings.value) {
+    if (m.sourceFieldId === hovered) ids.add(m.targetFieldId)
+    if (m.targetFieldId === hovered) ids.add(m.sourceFieldId)
+  }
+  return ids
+})
+
+function isFieldHighlighted(fieldId: string): boolean {
+  return highlightedFieldIds.value.has(fieldId)
+}
+
+// Data-only recursive check for the collapse-to-dot indicator: does this
+// object contain a mapped field at any depth? The tree UI itself only ever
+// renders 2 levels (root + direct children) — this walk still finds mapped
+// fields deeper than that without changing how many levels are rendered.
+function hasMappedDescendant(fieldId: string): boolean {
+  for (const child of props.schema.childrenOf(fieldId)) {
+    if (mappedFieldIds.value.has(child.id)) return true
+    if (hasMappedDescendant(child.id)) return true
+  }
+  return false
+}
 
 function fieldMatchesName(field: SchemaField): boolean {
   if (!searchQuery.value) return true
@@ -224,16 +256,21 @@ function tc(dataType: string) {
 }
 
 async function scrollToField(fieldId: string): Promise<void> {
-  const parent = props.schema.parentOf(fieldId)
-  const topLevel = parent ?? props.schema.byId(fieldId)
+  const path = props.schema.pathOf(fieldId)
+  const topLevel = path[0]
   if (!topLevel) return
 
   const dot = topLevel.path.indexOf('.')
   const groupName = dot >= 0 ? topLevel.path.slice(0, dot) : ''
   groupCollapsed.value = { ...groupCollapsed.value, [groupName]: false }
 
-  if (parent) {
-    fieldCollapsed.value = { ...fieldCollapsed.value, [parent.id]: false }
+  // Expand every ancestor along the full root→field chain, not just the
+  // immediate parent — a no-op beyond one level at today's 2-level render
+  // cap, but correct if the tree ever renders deeper.
+  const ancestors = path.slice(0, -1)
+  if (ancestors.length > 0) {
+    const expanded = Object.fromEntries(ancestors.map((a) => [a.id, false]))
+    fieldCollapsed.value = { ...fieldCollapsed.value, ...expanded }
   }
 
   await nextTick()
@@ -401,6 +438,12 @@ defineExpose({ scrollToField })
                   isFieldExpanded(field.id) ? '▾' : '▸'
                 }}</span>
                 <span
+                  v-if="!isFieldExpanded(field.id) && hasMappedDescendant(field.id)"
+                  :data-testid="`mapped-dot-${field.id}`"
+                  class="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-400"
+                  aria-hidden="true"
+                />
+                <span
                   class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
                   v-html="
                     highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
@@ -436,8 +479,14 @@ defineExpose({ scrollToField })
                   :data-field-side="side"
                   :data-child-of-field="`${side}:${field.id}`"
                   :data-field-in-group="`${side}:${group.name}`"
-                  class="w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50"
+                  :data-highlighted="isFieldHighlighted(child.id)"
+                  :class="[
+                    'w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer',
+                    isFieldHighlighted(child.id) ? 'bg-indigo-50' : 'hover:bg-slate-50',
+                  ]"
                   @click="emit('field-click', child.id)"
+                  @mouseenter="mappingsStore.hoverField(child.id)"
+                  @mouseleave="mappingsStore.hoverField(null)"
                 >
                   <span
                     class="font-mono truncate flex-1 text-slate-700 text-[13px]"
@@ -475,8 +524,14 @@ defineExpose({ scrollToField })
               :data-field-id="field.id"
               :data-field-side="side"
               :data-field-in-group="`${side}:${group.name}`"
-              class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50 transition-colors"
+              :data-highlighted="isFieldHighlighted(field.id)"
+              :class="[
+                'w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer transition-colors',
+                isFieldHighlighted(field.id) ? 'bg-indigo-50' : 'hover:bg-slate-50',
+              ]"
               @click="emit('field-click', field.id)"
+              @mouseenter="mappingsStore.hoverField(field.id)"
+              @mouseleave="mappingsStore.hoverField(null)"
             >
               <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
               <span

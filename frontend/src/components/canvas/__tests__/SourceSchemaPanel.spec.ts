@@ -231,6 +231,141 @@ describe('SourceSchemaPanel', () => {
     })
   })
 
+  // Task #135: collapse-to-dot indicator for mapped fields inside a collapsed object
+  describe('mapped-dot indicator', () => {
+    const nestedMappedNodes: SchemaFieldNode[] = [
+      node({
+        name: 'adres',
+        path: 'adres',
+        id: 'adres',
+        dataType: 'object',
+        children: [
+          node({ name: 'straat', path: 'adres.straat', id: 'adres.straat', dataType: 'string' }),
+        ],
+      }),
+    ]
+
+    // Scenario: Collapsing an object replaces its mapped fields' connection lines with a single dot
+    it('shows a single dot next to a collapsed object that has a mapped field', () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'adres.straat', targetFieldId: 'tgt-x' })
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedMappedNodes) } })
+
+      expect(wrapper.find('[data-testid="mapped-dot-adres"]').exists()).toBe(true)
+    })
+
+    it('shows no dot next to a collapsed object that has no mapped field', () => {
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedMappedNodes) } })
+      expect(wrapper.find('[data-testid="mapped-dot-adres"]').exists()).toBe(false)
+    })
+
+    // Scenario: Expanding a collapsed object restores its mapped fields' connection lines
+    it('hides the dot once the object is expanded', async () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'adres.straat', targetFieldId: 'tgt-x' })
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nestedMappedNodes) } })
+
+      expect(wrapper.find('[data-testid="mapped-dot-adres"]').exists()).toBe(true)
+      await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
+      expect(wrapper.find('[data-testid="mapped-dot-adres"]').exists()).toBe(false)
+    })
+
+    // Scenario: Collapsing a top-level object with deeply nested mapped fields shows exactly one dot
+    it('shows exactly one dot for a top-level object with a mapped field several levels deep', () => {
+      const deeplyNestedNodes: SchemaFieldNode[] = [
+        node({
+          name: 'adres',
+          path: 'adres',
+          id: 'adres',
+          dataType: 'object',
+          children: [
+            node({
+              name: 'contact',
+              path: 'adres.contact',
+              id: 'adres.contact',
+              dataType: 'object',
+              children: [
+                node({
+                  name: 'straat',
+                  path: 'adres.contact.straat',
+                  id: 'adres.contact.straat',
+                  dataType: 'string',
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'adres.contact.straat', targetFieldId: 'tgt-x' })
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(deeplyNestedNodes) } })
+
+      expect(wrapper.findAll('[data-testid^="mapped-dot-"]')).toHaveLength(1)
+      expect(wrapper.find('[data-testid="mapped-dot-adres"]').exists()).toBe(true)
+    })
+  })
+
+  // Task #135: field-hover highlighting
+  describe('field hover', () => {
+    const flatMappedNodes: SchemaFieldNode[] = [
+      node({ name: 'cityName', path: 'cityName', id: 'cityName' }),
+      node({ name: 'countryCode', path: 'countryCode', id: 'countryCode' }),
+    ]
+
+    // Scenario: Hovering a mapped field highlights its connection line and its mapped counterpart
+    it('marks a field row highlighted when the store reports it as hovered', async () => {
+      const store = useMappings()
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(flatMappedNodes) } })
+
+      store.hoverField('cityName')
+      await wrapper.vm.$nextTick()
+
+      expect(
+        wrapper.find('[data-field-id="cityName"]').attributes('data-highlighted'),
+      ).toBe('true')
+      expect(
+        wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
+      ).toBe('false')
+    })
+
+    it("marks a field's mapped counterpart highlighted even though only the other field is hovered", async () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'countryCode' })
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(flatMappedNodes) } })
+
+      store.hoverField('cityName')
+      await wrapper.vm.$nextTick()
+
+      expect(
+        wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
+      ).toBe('true')
+    })
+
+    // Scenario: Hovering an unmapped field shows no highlight
+    it('highlights nothing when the hovered field has no mapping', async () => {
+      const store = useMappings()
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(flatMappedNodes) } })
+
+      store.hoverField('cityName')
+      await wrapper.vm.$nextTick()
+
+      expect(
+        wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
+      ).toBe('false')
+    })
+
+    it('setting hoveredFieldId on mouseenter and clearing on mouseleave', async () => {
+      const store = useMappings()
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(flatMappedNodes) } })
+
+      await wrapper.find('[data-field-id="cityName"]').trigger('mouseenter')
+      expect(store.hoveredFieldId).toBe('cityName')
+
+      await wrapper.find('[data-field-id="cityName"]').trigger('mouseleave')
+      expect(store.hoveredFieldId).toBeNull()
+    })
+  })
+
   // Task #129: source-side suggestion scope selection
   describe('suggestion scope selection', () => {
     afterEach(() => {
