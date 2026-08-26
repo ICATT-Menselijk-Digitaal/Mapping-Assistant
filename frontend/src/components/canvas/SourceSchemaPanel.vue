@@ -93,25 +93,6 @@ function isFieldHighlighted(fieldId: string): boolean {
   return highlightedFieldIds.value.has(fieldId)
 }
 
-// Data-only recursive check for the collapse-to-dot indicator: does this
-// object contain a mapped field at any depth? The tree UI itself only ever
-// renders 2 levels (root + direct children) — this walk still finds mapped
-// fields deeper than that without changing how many levels are rendered.
-function hasMappedDescendant(fieldId: string): boolean {
-  for (const child of props.schema.childrenOf(fieldId)) {
-    if (mappedFieldIds.value.has(child.id)) return true
-    if (hasMappedDescendant(child.id)) return true
-  }
-  return false
-}
-
-// Same data-only recursive check, applied across every root field in a
-// top-level named group — a group (e.g. "Zaak") is the more common "object"
-// a schema panel collapses in practice.
-function hasMappedFieldInGroup(fields: readonly SchemaField[]): boolean {
-  return fields.some((f) => mappedFieldIds.value.has(f.id) || hasMappedDescendant(f.id))
-}
-
 function fieldMatchesName(field: SchemaField): boolean {
   if (!searchQuery.value) return true
   return field.name.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -410,12 +391,6 @@ defineExpose({ scrollToField })
                 )
               "
             />
-            <span
-              v-if="!isGroupExpanded(group.name) && hasMappedFieldInGroup(group.fields)"
-              :data-testid="`mapped-dot-group-${group.name}`"
-              class="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-400"
-              aria-hidden="true"
-            />
           </button>
           <label
             v-if="scopeEnabled"
@@ -450,12 +425,6 @@ defineExpose({ scrollToField })
                 <span class="shrink-0 text-slate-400 text-xs">{{
                   isFieldExpanded(field.id) ? '▾' : '▸'
                 }}</span>
-                <span
-                  v-if="!isFieldExpanded(field.id) && hasMappedDescendant(field.id)"
-                  :data-testid="`mapped-dot-${field.id}`"
-                  class="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-400"
-                  aria-hidden="true"
-                />
                 <span
                   class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
                   v-html="

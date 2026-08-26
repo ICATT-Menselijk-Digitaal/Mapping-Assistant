@@ -248,7 +248,16 @@ describe('ConnectionLines', () => {
   })
 
   // Scenario: A mapping between a collapsed object and an expanded object keeps its line visible
-  it('keeps a line visible via anchor fallback when its field is inside a collapsed object', async () => {
+  it('keeps a line visible, anchored at the schema panel edge, when its field is inside a collapsed object but the other side is open', async () => {
+    // The panel container (SourceSchemaPanel's root carries data-scroll-container) —
+    // the anchor x-coordinate must come from THIS element's edge, not from any
+    // individual row/button inside it.
+    const panelEl = document.createElement('div')
+    panelEl.setAttribute('data-scroll-container', '')
+    panelEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 300, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(panelEl)
+
     // Hidden field: inside a collapsed object, so it reports zero height —
     // exactly what SourceSchemaPanel's real markup produces for a field
     // hidden under `v-show="isFieldExpanded(...)"` when jsdom's layout is
@@ -258,14 +267,17 @@ describe('ConnectionLines', () => {
     hiddenFieldEl.setAttribute('data-field-side', 'source')
     hiddenFieldEl.setAttribute('data-field-in-group', 'source:')
     hiddenFieldEl.setAttribute('data-child-of-field', 'source:adres')
-    document.body.appendChild(hiddenFieldEl)
+    panelEl.appendChild(hiddenFieldEl)
 
     // The collapsed object's own toggle button — visible, so it's a valid
-    // anchor for the hidden field above.
+    // anchor for the hidden field above. Deliberately narrower than the
+    // panel (mimics the real bug: a scope checkbox sibling shrinks the
+    // flex-1 toggle button short of the panel's true right edge).
     const anchorEl = document.createElement('div')
     anchorEl.setAttribute('data-anchor-field', 'source:adres')
-    anchorEl.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 20 }) as DOMRect
-    document.body.appendChild(anchorEl)
+    anchorEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 10, right: 200, width: 200, height: 20 }) as DOMRect
+    panelEl.appendChild(anchorEl)
 
     // Target field on an expanded, non-collapsible panel.
     const tgtEl = document.createElement('div')
@@ -280,9 +292,71 @@ describe('ConnectionLines', () => {
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
+    const paths = wrapper.findAll('[data-testid="connection-path"]')
+    expect(paths).toHaveLength(1)
+    // Anchored at the panel's right edge (300), not the narrower button's
+    // own right edge (200) — that was the "line overlaps the checkbox" bug.
+    expect(paths[0]!.attributes('d')).toMatch(/^M 300 20 /)
 
-    anchorEl.remove()
+    panelEl.remove()
+  })
+
+  // Scenario: Collapsing an object replaces its mapped fields' connection lines with a single dot
+  it('draws no line but a dot on each side when both endpoints are inside collapsed objects', async () => {
+    const sourcePanelEl = document.createElement('div')
+    sourcePanelEl.setAttribute('data-scroll-container', '')
+    sourcePanelEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 300, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(sourcePanelEl)
+
+    const hiddenSourceEl = document.createElement('div')
+    hiddenSourceEl.setAttribute('data-field-id', 'adres.straat')
+    hiddenSourceEl.setAttribute('data-field-side', 'source')
+    hiddenSourceEl.setAttribute('data-field-in-group', 'source:')
+    hiddenSourceEl.setAttribute('data-child-of-field', 'source:adres')
+    sourcePanelEl.appendChild(hiddenSourceEl)
+
+    const sourceAnchorEl = document.createElement('div')
+    sourceAnchorEl.setAttribute('data-anchor-field', 'source:adres')
+    sourceAnchorEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 10, right: 200, width: 200, height: 20 }) as DOMRect
+    sourcePanelEl.appendChild(sourceAnchorEl)
+
+    const targetPanelEl = document.createElement('div')
+    targetPanelEl.setAttribute('data-scroll-container', '')
+    targetPanelEl.getBoundingClientRect = () =>
+      ({ left: 400, top: 0, right: 700, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(targetPanelEl)
+
+    const hiddenTargetEl = document.createElement('div')
+    hiddenTargetEl.setAttribute('data-field-id', 'contact.email')
+    hiddenTargetEl.setAttribute('data-field-side', 'target')
+    hiddenTargetEl.setAttribute('data-field-in-group', 'target:')
+    hiddenTargetEl.setAttribute('data-child-of-field', 'target:contact')
+    targetPanelEl.appendChild(hiddenTargetEl)
+
+    const targetAnchorEl = document.createElement('div')
+    targetAnchorEl.setAttribute('data-anchor-field', 'target:contact')
+    targetAnchorEl.getBoundingClientRect = () =>
+      ({ left: 450, top: 40, right: 650, width: 200, height: 20 }) as DOMRect
+    targetPanelEl.appendChild(targetAnchorEl)
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'adres.straat', targetFieldId: 'contact.email' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(0)
+    const dots = wrapper.findAll('[data-testid="collapsed-mapping-dot"]')
+    expect(dots).toHaveLength(2)
+    // Both dots anchored at their respective panel edges.
+    expect(dots.some((d) => d.attributes('cx') === '300')).toBe(true)
+    expect(dots.some((d) => d.attributes('cx') === '400')).toBe(true)
+
+    sourcePanelEl.remove()
+    targetPanelEl.remove()
   })
 
   it('attaches a capture scroll listener on the parent and removes it on unmount', () => {
