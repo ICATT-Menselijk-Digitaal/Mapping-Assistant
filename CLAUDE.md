@@ -4,13 +4,6 @@
 
 Custom skills live in `.agents/skills/`. Invoke them with the Skill tool using the filename as the skill name (e.g. `wtf.implement-task`).
 
-## Task and branch granularity
-
-This overrides the default wtf skill behavior:
-
-- Plan at most 1 Task per Feature. Only use 2 Tasks when a Feature genuinely cannot be implemented as one vertical slice — do not default to splitting.
-- Never create a separate `task/<n>-<slug>` branch. Implement every Task for a Feature directly on that Feature's `feature/<n>-<slug>` branch, regardless of how many Tasks the Feature has. One PR per Feature closes both the Task issue(s) and the Feature issue.
-
 ## PowerShell UTF-8 encoding guard (Windows)
 
 Before any `gh` command that reads or writes issue/PR bodies, MUST set UTF-8 encoding:
