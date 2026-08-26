@@ -19,6 +19,12 @@ export const useMappings = defineStore('mappings', () => {
   const mappings = mappingsResource.state
   const remoteAhead = mappingsResource.remoteAhead
   const selectedMappingId = ref<string | null>(null)
+  const hoveredMappingId = ref<string | null>(null)
+  const hoveredFieldId = ref<string | null>(null)
+  // Bumped on every selectMapping() call, including reselecting the same
+  // mapping — watchers that must fire on reselect watch this instead of
+  // selectedMappingId, whose value-based watch no-ops on an unchanged id.
+  const selectionNonce = ref(0)
 
   /** Hydrate from the remote backend for the active workspace. */
   function load(): Promise<unknown> {
@@ -32,6 +38,15 @@ export const useMappings = defineStore('mappings', () => {
 
   function selectMapping(id: string | null): void {
     selectedMappingId.value = id
+    selectionNonce.value++
+  }
+
+  function hoverMapping(id: string | null): void {
+    hoveredMappingId.value = id
+  }
+
+  function hoverField(id: string | null): void {
+    hoveredFieldId.value = id
   }
 
   function hasMapping(sourceFieldId: string): boolean {
@@ -59,6 +74,7 @@ export const useMappings = defineStore('mappings', () => {
   function removeMapping(id: string): void {
     commit(ops.removeMapping(mappings.value, id))
     if (selectedMappingId.value === id) selectedMappingId.value = null
+    if (hoveredMappingId.value === id) hoveredMappingId.value = null
   }
 
   function addTransformationRule(mappingId: string, rule: Omit<TransformationRule, 'id'>): void {
@@ -87,6 +103,8 @@ export const useMappings = defineStore('mappings', () => {
     targetSchema: Schema,
   ): void {
     selectedMappingId.value = null
+    hoveredMappingId.value = null
+    hoveredFieldId.value = null
     mappingsResource.write(ops.restoreMappings(exported, sourceSchema, targetSchema))
   }
 
@@ -104,12 +122,17 @@ export const useMappings = defineStore('mappings', () => {
     mappings,
     remoteAhead,
     selectedMappingId,
+    hoveredMappingId,
+    hoveredFieldId,
+    selectionNonce,
     load,
     acceptRemoteUpdate,
     hasMapping,
     createMapping,
     removeMapping,
     selectMapping,
+    hoverMapping,
+    hoverField,
     addTransformationRule,
     removeTransformationRule,
     updateTransformationRule,
