@@ -4,7 +4,7 @@ import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 
 const mappingsStore = useMappings()
-const { mappings, selectedMappingId } = storeToRefs(mappingsStore)
+const { mappings, selectedMappingId, hoveredMappingId, hoveredFieldId } = storeToRefs(mappingsStore)
 
 interface LineCoords {
   id: string
@@ -16,20 +16,41 @@ interface LineCoords {
 
 const lines = ref<LineCoords[]>([])
 const svgRef = ref<SVGSVGElement | null>(null)
-const hoveredLineId = ref<string | null>(null)
 
 function bezierPath(line: LineCoords): string {
   const dx = (line.x2 - line.x1) * 0.4
   return `M ${line.x1} ${line.y1} C ${line.x1 + dx} ${line.y1}, ${line.x2 - dx} ${line.y2}, ${line.x2} ${line.y2}`
 }
 
+// A mapping is "focused" when it is selected, hovered directly, or one of
+// its own fields is hovered in the schema panel — any of these should make
+// its line stand out and dim every other line.
+const focusedMappingIds = computed(() => {
+  const ids = new Set<string>()
+  if (selectedMappingId.value) ids.add(selectedMappingId.value)
+  if (hoveredMappingId.value) ids.add(hoveredMappingId.value)
+  if (hoveredFieldId.value) {
+    for (const m of mappings.value) {
+      if (m.sourceFieldId === hoveredFieldId.value || m.targetFieldId === hoveredFieldId.value) {
+        ids.add(m.id)
+      }
+    }
+  }
+  return ids
+})
+
 const linesWithMeta = computed(() =>
-  lines.value.map((line) => ({
-    ...line,
-    path: bezierPath(line),
-    hovered: line.id === hoveredLineId.value,
-    selected: line.id === selectedMappingId.value,
-  })),
+  lines.value.map((line) => {
+    const focused = focusedMappingIds.value.has(line.id)
+    const dimmed = focusedMappingIds.value.size > 0 && !focused
+    return {
+      ...line,
+      path: bezierPath(line),
+      focused,
+      dimmed,
+      selected: line.id === selectedMappingId.value,
+    }
+  }),
 )
 
 function midPoint(
@@ -124,8 +145,9 @@ onUnmounted(() => {
       :key="line.id"
       style="pointer-events: auto; cursor: pointer"
       data-testid="connection-line-group"
-      @mouseenter="hoveredLineId = line.id"
-      @mouseleave="hoveredLineId = null"
+      :data-dimmed="line.dimmed"
+      @mouseenter="mappingsStore.hoverMapping(line.id)"
+      @mouseleave="mappingsStore.hoverMapping(null)"
       @click.stop="mappingsStore.selectMapping(line.id)"
     >
       <!-- Wider invisible hit area so thin lines are easy to hover and click -->
@@ -135,9 +157,9 @@ onUnmounted(() => {
       <path
         :d="line.path"
         fill="none"
-        :stroke="line.selected ? '#4f46e5' : line.hovered ? '#4f46e5' : '#6366f1'"
-        :stroke-width="line.selected || line.hovered ? 3 : 2"
-        :stroke-opacity="line.selected || line.hovered ? 1 : 0.7"
+        :stroke="line.focused ? '#4f46e5' : '#6366f1'"
+        :stroke-width="line.focused ? 3 : 2"
+        :stroke-opacity="line.focused ? 1 : line.dimmed ? 0.15 : 0.7"
         data-testid="connection-path"
       />
 
@@ -146,15 +168,15 @@ onUnmounted(() => {
         :cx="line.x1"
         :cy="line.y1"
         r="4"
-        :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'"
-        :fill-opacity="line.selected || line.hovered ? 1 : 0.7"
+        :fill="line.focused ? '#4f46e5' : '#6366f1'"
+        :fill-opacity="line.focused ? 1 : line.dimmed ? 0.15 : 0.7"
       />
       <circle
         :cx="line.x2"
         :cy="line.y2"
         r="4"
-        :fill="line.selected || line.hovered ? '#4f46e5' : '#6366f1'"
-        :fill-opacity="line.selected || line.hovered ? 1 : 0.7"
+        :fill="line.focused ? '#4f46e5' : '#6366f1'"
+        :fill-opacity="line.focused ? 1 : line.dimmed ? 0.15 : 0.7"
       />
     </g>
   </svg>

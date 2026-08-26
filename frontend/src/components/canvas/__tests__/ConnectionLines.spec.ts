@@ -106,6 +106,95 @@ describe('ConnectionLines', () => {
     expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
   })
 
+  // Scenario: Hovering a mapping dims all other connection lines
+  it('dims all other lines when one mapping line is hovered', async () => {
+    for (const [id, side] of [
+      ['src-1', 'source'],
+      ['tgt-1', 'target'],
+      ['src-2', 'source'],
+      ['tgt-2', 'target'],
+    ] as const) {
+      const el = document.createElement('div')
+      el.setAttribute('data-field-id', id)
+      el.setAttribute('data-field-side', side)
+      document.body.appendChild(el)
+    }
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+    expect(groups).toHaveLength(2)
+
+    await groups[0]!.trigger('mouseenter')
+
+    expect(groups[0]!.attributes('data-dimmed')).toBe('false')
+    expect(groups[1]!.attributes('data-dimmed')).toBe('true')
+  })
+
+  // Scenario: Selecting a mapping dims all other connection lines
+  it('dims all other lines when one mapping is selected', async () => {
+    for (const [id, side] of [
+      ['src-1', 'source'],
+      ['tgt-1', 'target'],
+      ['src-2', 'source'],
+      ['tgt-2', 'target'],
+    ] as const) {
+      const el = document.createElement('div')
+      el.setAttribute('data-field-id', id)
+      el.setAttribute('data-field-side', side)
+      document.body.appendChild(el)
+    }
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+    store.selectMapping(store.mappings[0]!.id)
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+    expect(groups[0]!.attributes('data-dimmed')).toBe('false')
+    expect(groups[1]!.attributes('data-dimmed')).toBe('true')
+  })
+
+  // Scenario: Hovering a mapped field highlights its connection line and its mapped counterpart
+  it('highlights a line when its source field is hovered via the store', async () => {
+    for (const [id, side] of [
+      ['src-1', 'source'],
+      ['tgt-1', 'target'],
+      ['src-2', 'source'],
+      ['tgt-2', 'target'],
+    ] as const) {
+      const el = document.createElement('div')
+      el.setAttribute('data-field-id', id)
+      el.setAttribute('data-field-side', side)
+      document.body.appendChild(el)
+    }
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    store.hoverField('src-1')
+    await wrapper.vm.$nextTick()
+
+    const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+    expect(groups[0]!.attributes('data-dimmed')).toBe('false')
+    expect(groups[1]!.attributes('data-dimmed')).toBe('true')
+  })
+
   it('attaches a capture scroll listener on the parent and removes it on unmount', () => {
     const addSpy = vi.spyOn(EventTarget.prototype, 'addEventListener')
     const removeSpy = vi.spyOn(EventTarget.prototype, 'removeEventListener')
