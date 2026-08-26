@@ -1,17 +1,13 @@
 ---
-name: map.single-task-feature
-description: This skill should be used when a Feature should be implemented as exactly one Task, directly on the Feature's own branch, instead of the standard wtf decomposition into multiple Tasks each on their own task/* branch — for example "do this feature as one task", "skip the task branch for this feature", "implement feature #X as a single task", "no separate task branch for this one". This is a deliberate, per-Feature choice, not a standing default — invoke it explicitly for each Feature it applies to, when the Feature's Acceptance Criteria form one tightly-coupled vertical slice that doesn't benefit from being split.
+name: map.implement-feature-with-single-task
+description: This is the Mapping Assistant's default way to plan and implement a Feature — use it whenever a Feature is ready to move from planning into implementation, in place of wtf.write-task's standard multi-task decomposition or wtf.feature-to-tasks. Triggers on anything that would normally reach for those wtf skills in this repo — "plan feature #X", "write the task for this feature", "break this feature down", "implement feature #X", "what's next for this feature". Always collapses a Feature into exactly one Task on the Feature's own branch, regardless of feature size.
 ---
 
 # Single-Task Feature
 
-Mapping Assistant-specific override of the standard wtf Feature → many Tasks → separate `task/*` branches decomposition. Core value: keeps this an explicit, per-Feature choice made in the conversation each time, instead of a silent, standing change to how every Feature in the repo gets planned.
+Mapping Assistant's standard replacement for the generic wtf Feature → many Tasks → separate `task/*` branches decomposition. In practice, splitting a Feature into several Task issues and branches added coordination overhead without improving how well the implementation turned out — the Feature's own Acceptance Criteria and Gherkin already carry enough structure. So this repo always plans a Feature as exactly one Task, worked directly on the Feature's branch, no matter how large or multi-part the Feature is.
 
-## When to use vs. when not to use
-
-**Use when:** the Feature's Acceptance Criteria describe one tightly-coupled vertical slice where splitting it into multiple Tasks would only separate parts of the same change (no meaningful earlier release point between the ACs), and coordinating multiple small Task branches/PRs would add more review friction than value at this scale.
-
-**Do not use when:** the Feature has ACs that are genuinely independent and could ship on different timelines, or is large enough that the Task-level split signals in `../references/scope-gates.md` would fire even on a single combined Task — use the standard `wtf.write-task` / `wtf.feature-to-tasks` flow instead.
+This lives as its own `map.*` skill — not as `CLAUDE.md` prose — so the override stays visible and traceable in the skill system rather than silently reshaping every `wtf.*` skill run from outside it.
 
 ## Process
 
