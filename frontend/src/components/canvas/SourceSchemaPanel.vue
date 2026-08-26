@@ -105,6 +105,13 @@ function hasMappedDescendant(fieldId: string): boolean {
   return false
 }
 
+// Same data-only recursive check, applied across every root field in a
+// top-level named group — a group (e.g. "Zaak") is the more common "object"
+// a schema panel collapses in practice.
+function hasMappedFieldInGroup(fields: readonly SchemaField[]): boolean {
+  return fields.some((f) => mappedFieldIds.value.has(f.id) || hasMappedDescendant(f.id))
+}
+
 function fieldMatchesName(field: SchemaField): boolean {
   if (!searchQuery.value) return true
   return field.name.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -402,6 +409,12 @@ defineExpose({ scrollToField })
                   'bg-yellow-200 text-inherit rounded font-semibold',
                 )
               "
+            />
+            <span
+              v-if="!isGroupExpanded(group.name) && hasMappedFieldInGroup(group.fields)"
+              :data-testid="`mapped-dot-group-${group.name}`"
+              class="shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-400"
+              aria-hidden="true"
             />
           </button>
           <label

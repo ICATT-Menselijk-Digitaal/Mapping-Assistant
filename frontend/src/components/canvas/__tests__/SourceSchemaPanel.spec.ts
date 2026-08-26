@@ -270,6 +270,22 @@ describe('SourceSchemaPanel', () => {
       expect(wrapper.find('[data-testid="mapped-dot-adres"]').exists()).toBe(false)
     })
 
+    // Scenario: Collapsing an object replaces its mapped fields' connection lines with a single dot
+    // "Object" also covers a top-level named group (e.g. "Zaak") collapsed via its group toggle —
+    // not just a nested dataType:'object' field.
+    it('shows a single dot next to a collapsed named group that has a mapped field', async () => {
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'Zaak.zaakId', targetFieldId: 'tgt-x' })
+      const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(multiSchemaNodes) } })
+
+      // Groups start collapsed by default already.
+      expect(wrapper.find('[data-testid="mapped-dot-group-Zaak"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="mapped-dot-group-Status"]').exists()).toBe(false)
+
+      await wrapper.find('[data-testid="schema-group-toggle-Zaak"]').trigger('click')
+      expect(wrapper.find('[data-testid="mapped-dot-group-Zaak"]').exists()).toBe(false)
+    })
+
     // Scenario: Collapsing a top-level object with deeply nested mapped fields shows exactly one dot
     it('shows exactly one dot for a top-level object with a mapped field several levels deep', () => {
       const deeplyNestedNodes: SchemaFieldNode[] = [
@@ -320,12 +336,10 @@ describe('SourceSchemaPanel', () => {
       store.hoverField('cityName')
       await wrapper.vm.$nextTick()
 
-      expect(
-        wrapper.find('[data-field-id="cityName"]').attributes('data-highlighted'),
-      ).toBe('true')
-      expect(
-        wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
-      ).toBe('false')
+      expect(wrapper.find('[data-field-id="cityName"]').attributes('data-highlighted')).toBe('true')
+      expect(wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted')).toBe(
+        'false',
+      )
     })
 
     it("marks a field's mapped counterpart highlighted even though only the other field is hovered", async () => {
@@ -336,9 +350,9 @@ describe('SourceSchemaPanel', () => {
       store.hoverField('cityName')
       await wrapper.vm.$nextTick()
 
-      expect(
-        wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
-      ).toBe('true')
+      expect(wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted')).toBe(
+        'true',
+      )
     })
 
     // Scenario: Hovering an unmapped field shows no highlight
@@ -349,9 +363,9 @@ describe('SourceSchemaPanel', () => {
       store.hoverField('cityName')
       await wrapper.vm.$nextTick()
 
-      expect(
-        wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
-      ).toBe('false')
+      expect(wrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted')).toBe(
+        'false',
+      )
     })
 
     it('setting hoveredFieldId on mouseenter and clearing on mouseleave', async () => {
