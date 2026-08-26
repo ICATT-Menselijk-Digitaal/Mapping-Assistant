@@ -195,6 +195,96 @@ describe('ConnectionLines', () => {
     expect(groups[1]!.attributes('data-dimmed')).toBe('true')
   })
 
+  // Scenario: Clicking one of two closely overlapping connection lines selects exactly one mapping
+  it('selects exactly one mapping when one of two overlapping lines is clicked', async () => {
+    for (const [id, side] of [
+      ['src-1', 'source'],
+      ['tgt-1', 'target'],
+      ['src-2', 'source'],
+      ['tgt-2', 'target'],
+    ] as const) {
+      const el = document.createElement('div')
+      el.setAttribute('data-field-id', id)
+      el.setAttribute('data-field-side', side)
+      document.body.appendChild(el)
+    }
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+    await groups[1]!.trigger('click')
+
+    expect(store.selectedMappingId).toBe(store.mappings[1]!.id)
+    expect(store.selectedMappingId).not.toBe(store.mappings[0]!.id)
+  })
+
+  // Scenario: No active mapping shows the normal empty state
+  it('dims and highlights nothing when no mapping is selected or hovered', async () => {
+    const srcEl = document.createElement('div')
+    srcEl.setAttribute('data-field-id', 'src-1')
+    srcEl.setAttribute('data-field-side', 'source')
+    document.body.appendChild(srcEl)
+
+    const tgtEl = document.createElement('div')
+    tgtEl.setAttribute('data-field-id', 'tgt-1')
+    tgtEl.setAttribute('data-field-side', 'target')
+    document.body.appendChild(tgtEl)
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const group = wrapper.find('[data-testid="connection-line-group"]')
+    expect(group.attributes('data-dimmed')).toBe('false')
+  })
+
+  // Scenario: A mapping between a collapsed object and an expanded object keeps its line visible
+  it('keeps a line visible via anchor fallback when its field is inside a collapsed object', async () => {
+    // Hidden field: inside a collapsed object, so it reports zero height —
+    // exactly what SourceSchemaPanel's real markup produces for a field
+    // hidden under `v-show="isFieldExpanded(...)"` when jsdom's layout is
+    // (as always) zero anyway.
+    const hiddenFieldEl = document.createElement('div')
+    hiddenFieldEl.setAttribute('data-field-id', 'adres.straat')
+    hiddenFieldEl.setAttribute('data-field-side', 'source')
+    hiddenFieldEl.setAttribute('data-field-in-group', 'source:')
+    hiddenFieldEl.setAttribute('data-child-of-field', 'source:adres')
+    document.body.appendChild(hiddenFieldEl)
+
+    // The collapsed object's own toggle button — visible, so it's a valid
+    // anchor for the hidden field above.
+    const anchorEl = document.createElement('div')
+    anchorEl.setAttribute('data-anchor-field', 'source:adres')
+    anchorEl.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 20 }) as DOMRect
+    document.body.appendChild(anchorEl)
+
+    // Target field on an expanded, non-collapsible panel.
+    const tgtEl = document.createElement('div')
+    tgtEl.setAttribute('data-field-id', 'tgt-1')
+    tgtEl.setAttribute('data-field-side', 'target')
+    document.body.appendChild(tgtEl)
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'adres.straat', targetFieldId: 'tgt-1' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
+
+    anchorEl.remove()
+  })
+
   it('attaches a capture scroll listener on the parent and removes it on unmount', () => {
     const addSpy = vi.spyOn(EventTarget.prototype, 'addEventListener')
     const removeSpy = vi.spyOn(EventTarget.prototype, 'removeEventListener')
