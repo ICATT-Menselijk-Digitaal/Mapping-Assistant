@@ -240,6 +240,42 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     wrapper.unmount()
   })
 
+  // Scenario: Reselecting the currently selected mapping still scrolls both panels
+  it('scrolls both panels again when the already-selected mapping is reselected', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    store.selectMapping(mapping.id)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+  })
+
+  // Scenario: Manual scrolling still works after selecting a mapping
+  it('manually scrolling a panel after selection does not trigger another field scroll', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    await wrapper.find('[data-scroll-container]').trigger('scroll')
+    await flushPromises()
+
+    expect(scrollIntoViewMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
   it('uses block: center to scroll the field to the middle of the viewport', async () => {
     const wrapper = mountCanvas()
     const store = useMappings()
