@@ -19,7 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const mappingsStore = useMappings()
-const { mappings, hoveredFieldId } = storeToRefs(mappingsStore)
+const { mappings, hoveredFieldId, hoveredFieldSide } = storeToRefs(mappingsStore)
 const scopeStore = useSuggestionScope()
 
 const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
@@ -76,15 +76,27 @@ const mappedFieldIds = computed(() => {
 
 // A field row is highlighted when it is directly hovered, or it is the
 // mapped counterpart of the field currently hovered (in either panel —
-// hoveredFieldId is shared store state).
+// hoveredFieldId/hoveredFieldSide are shared store state). Source and
+// target schemas are parsed independently and can share raw field ids, so
+// every comparison must also check the hovered field's side — otherwise an
+// unrelated same-named field on the other schema lights up too.
 const highlightedFieldIds = computed(() => {
   const ids = new Set<string>()
   const hovered = hoveredFieldId.value
-  if (!hovered) return ids
-  ids.add(hovered)
+  const hoveredSide = hoveredFieldSide.value
+  if (!hovered || !hoveredSide) return ids
+
+  if (hoveredSide === scopeSide.value) {
+    ids.add(hovered)
+    return ids
+  }
+
   for (const m of mappings.value) {
-    if (m.sourceFieldId === hovered) ids.add(m.targetFieldId)
-    if (m.targetFieldId === hovered) ids.add(m.sourceFieldId)
+    const hoveredMatches =
+      hoveredSide === 'source' ? m.sourceFieldId === hovered : m.targetFieldId === hovered
+    if (hoveredMatches) {
+      ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+    }
   }
   return ids
 })
@@ -467,7 +479,7 @@ defineExpose({ scrollToField })
                     isFieldHighlighted(child.id) ? 'bg-indigo-50' : 'hover:bg-slate-50',
                   ]"
                   @click="emit('field-click', child.id)"
-                  @mouseenter="mappingsStore.hoverField(child.id)"
+                  @mouseenter="mappingsStore.hoverField(child.id, scopeSide)"
                   @mouseleave="mappingsStore.hoverField(null)"
                 >
                   <span
@@ -512,7 +524,7 @@ defineExpose({ scrollToField })
                 isFieldHighlighted(field.id) ? 'bg-indigo-50' : 'hover:bg-slate-50',
               ]"
               @click="emit('field-click', field.id)"
-              @mouseenter="mappingsStore.hoverField(field.id)"
+              @mouseenter="mappingsStore.hoverField(field.id, scopeSide)"
               @mouseleave="mappingsStore.hoverField(null)"
             >
               <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />

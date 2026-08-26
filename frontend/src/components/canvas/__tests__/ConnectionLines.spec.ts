@@ -187,12 +187,53 @@ describe('ConnectionLines', () => {
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    store.hoverField('src-1')
+    store.hoverField('src-1', 'source')
     await wrapper.vm.$nextTick()
 
     const groups = wrapper.findAll('[data-testid="connection-line-group"]')
     expect(groups[0]!.attributes('data-dimmed')).toBe('false')
     expect(groups[1]!.attributes('data-dimmed')).toBe('true')
+  })
+
+  // Regression: source and target schemas are parsed independently, so an
+  // unrelated source field can share a raw id with the target field being
+  // hovered. Found live by Kim — hovering one of two target fields mapped
+  // from the same source sometimes also highlighted the *other* mapping's
+  // line, whenever that other mapping's source field happened to share an
+  // id with the hovered target field.
+  it('does not focus an unrelated mapping whose source field id collides with the hovered target field id', async () => {
+    for (const [id, side] of [
+      ['shared-id', 'source'],
+      ['shared-id', 'target'],
+      ['shared-id', 'source'],
+      ['other-target', 'target'],
+    ] as const) {
+      const el = document.createElement('div')
+      el.setAttribute('data-field-id', id)
+      el.setAttribute('data-field-side', side)
+      document.body.appendChild(el)
+    }
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    // mapping1: source 'shared-id' -> target 'shared-id' (id collision by design)
+    store.createMapping({ sourceFieldId: 'shared-id', targetFieldId: 'shared-id' })
+    // mapping2: same source 'shared-id' -> a different, unrelated target
+    store.createMapping({ sourceFieldId: 'shared-id', targetFieldId: 'other-target' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    // Hover the TARGET field 'shared-id' (mapping1's target).
+    store.hoverField('shared-id', 'target')
+    await wrapper.vm.$nextTick()
+
+    // lines.value preserves mappings.value order, so groups[0]/[1] match
+    // mapping1/mapping2 respectively.
+    const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+    expect(groups).toHaveLength(2)
+    expect(groups[0]!.attributes('data-dimmed')).toBe('false') // mapping1: hovered target itself
+    expect(groups[1]!.attributes('data-dimmed')).toBe('true') // mapping2: must stay dimmed
   })
 
   // Scenario: Clicking one of two closely overlapping connection lines selects exactly one mapping

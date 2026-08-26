@@ -21,6 +21,11 @@ export const useMappings = defineStore('mappings', () => {
   const selectedMappingId = ref<string | null>(null)
   const hoveredMappingId = ref<string | null>(null)
   const hoveredFieldId = ref<string | null>(null)
+  // Source and target schemas are parsed independently, so a source field
+  // and an unrelated target field can share the same id. Every comparison
+  // against hoveredFieldId must also check hoveredFieldSide to avoid
+  // matching the wrong side's field.
+  const hoveredFieldSide = ref<'source' | 'target' | null>(null)
   // Bumped on every selectMapping() call, including reselecting the same
   // mapping — watchers that must fire on reselect watch this instead of
   // selectedMappingId, whose value-based watch no-ops on an unchanged id.
@@ -45,8 +50,9 @@ export const useMappings = defineStore('mappings', () => {
     hoveredMappingId.value = id
   }
 
-  function hoverField(id: string | null): void {
+  function hoverField(id: string | null, side: 'source' | 'target' | null = null): void {
     hoveredFieldId.value = id
+    hoveredFieldSide.value = id ? side : null
   }
 
   function hasMapping(sourceFieldId: string): boolean {
@@ -105,6 +111,7 @@ export const useMappings = defineStore('mappings', () => {
     selectedMappingId.value = null
     hoveredMappingId.value = null
     hoveredFieldId.value = null
+    hoveredFieldSide.value = null
     mappingsResource.write(ops.restoreMappings(exported, sourceSchema, targetSchema))
   }
 
@@ -124,6 +131,7 @@ export const useMappings = defineStore('mappings', () => {
     selectedMappingId,
     hoveredMappingId,
     hoveredFieldId,
+    hoveredFieldSide,
     selectionNonce,
     load,
     acceptRemoteUpdate,

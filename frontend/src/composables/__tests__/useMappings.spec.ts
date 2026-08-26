@@ -124,12 +124,14 @@ describe('useMappings', () => {
       expect(store.hoveredMappingId).toBeNull()
     })
 
-    it('hoverField sets and clears hoveredFieldId', () => {
+    it('hoverField sets and clears hoveredFieldId and hoveredFieldSide together', () => {
       const store = useMappings()
-      store.hoverField('field-1')
+      store.hoverField('field-1', 'source')
       expect(store.hoveredFieldId).toBe('field-1')
+      expect(store.hoveredFieldSide).toBe('source')
       store.hoverField(null)
       expect(store.hoveredFieldId).toBeNull()
+      expect(store.hoveredFieldSide).toBeNull()
     })
 
     it('clears hoveredMappingId when the hovered mapping is removed', () => {

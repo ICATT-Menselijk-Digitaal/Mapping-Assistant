@@ -4,7 +4,8 @@ import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 
 const mappingsStore = useMappings()
-const { mappings, selectedMappingId, hoveredMappingId, hoveredFieldId } = storeToRefs(mappingsStore)
+const { mappings, selectedMappingId, hoveredMappingId, hoveredFieldId, hoveredFieldSide } =
+  storeToRefs(mappingsStore)
 
 interface LineCoords {
   id: string
@@ -36,11 +37,13 @@ const focusedMappingIds = computed(() => {
   const ids = new Set<string>()
   if (selectedMappingId.value) ids.add(selectedMappingId.value)
   if (hoveredMappingId.value) ids.add(hoveredMappingId.value)
-  if (hoveredFieldId.value) {
+  if (hoveredFieldId.value && hoveredFieldSide.value) {
     for (const m of mappings.value) {
-      if (m.sourceFieldId === hoveredFieldId.value || m.targetFieldId === hoveredFieldId.value) {
-        ids.add(m.id)
-      }
+      const matches =
+        hoveredFieldSide.value === 'source'
+          ? m.sourceFieldId === hoveredFieldId.value
+          : m.targetFieldId === hoveredFieldId.value
+      if (matches) ids.add(m.id)
     }
   }
   return ids
