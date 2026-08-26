@@ -7,7 +7,7 @@ import { useApiKey } from '@/composables/useApiKey'
 import { aiStatsResource } from '@/api/resources'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 
-export const CONFIDENCE_THRESHOLD = 0.7
+export const CONFIDENCE_THRESHOLD_FOR_SPLIT = 0.7
 export const MIN_CONFIDENCE_THRESHOLD = 0.3
 export const MAX_SUGGESTIONS_PER_SOURCE = 2
 export const MIN_REASONING_LENGTH = 5
@@ -158,14 +158,18 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       return []
     }
 
-    const sourceEntries = sourceFields.map((f) => ({ path: f.path, description: f.description }))
-    const targetEntries = unmappedTargetFields.map((f) => ({
+    const toFieldEntry = (f: SchemaField) => ({
       path: f.path,
       description: f.description,
-    }))
+      dataType: f.dataType,
+      required: f.required,
+      maxLength: f.maxLength,
+    })
+    const sourceEntries = sourceFields.map(toFieldEntry)
+    const targetEntries = unmappedTargetFields.map(toFieldEntry)
 
     const systemPrompt =
-      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), "confidenceScore" (number 0.0-1.0), and "reasoning" (a single concise sentence, written in Dutch, explaining why these two specific fields were paired — this text is shown directly to the administrator). Only return valid JSON, no markdown.'
+      'You are a field mapping assistant. Given source and target schema fields (each with a path, optional description, data type, required flag, and optional max length), suggest the best one-to-one mappings. Take each field\'s data type, required flag, and max length into account: when a candidate pair has a type or constraint mismatch (for example different data types, a stricter max length, or a required/optional difference), score it lower than an equivalent same-type match with no mismatch. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), "confidenceScore" (number 0.0-1.0), and "reasoning" (concise Dutch text explaining why these two specific fields were paired, shown directly to the administrator. Structure: one short sentence stating the similarity, and, only when there is a type or constraint mismatch, a second sentence starting with "Let op:" naming the source field\'s type and constraint and the target field\'s type and constraint, for example "Let op: bronveld van type string zonder maximale lengte, doelveld is zelfde type maar heeft maximale lengte 80."). Only return valid JSON, no markdown.'
 
     const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
 
@@ -285,10 +289,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       )
 
       suggestions.value = topSuggestions
-        .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+        .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD_FOR_SPLIT)
         .sort((a, b) => b.confidenceScore - a.confidenceScore)
       lowConfidenceSuggestions.value = topSuggestions
-        .filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
+        .filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD_FOR_SPLIT)
         .sort((a, b) => b.confidenceScore - a.confidenceScore)
 
       return topSuggestions
