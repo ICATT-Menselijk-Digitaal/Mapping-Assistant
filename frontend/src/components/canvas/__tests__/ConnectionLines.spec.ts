@@ -359,6 +359,65 @@ describe('ConnectionLines', () => {
     targetPanelEl.remove()
   })
 
+  // Scenario: Collapsing a top-level object with deeply nested mapped fields shows exactly one dot
+  it('shows exactly one dot for a collapsed object even when several of its fields are mapped', async () => {
+    const panelEl = document.createElement('div')
+    panelEl.setAttribute('data-scroll-container', '')
+    panelEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 300, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(panelEl)
+
+    const anchorEl = document.createElement('div')
+    anchorEl.setAttribute('data-anchor-field', 'source:adres')
+    anchorEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 10, right: 200, width: 200, height: 20 }) as DOMRect
+    panelEl.appendChild(anchorEl)
+
+    for (const id of ['adres.straat', 'adres.postcode']) {
+      const hiddenEl = document.createElement('div')
+      hiddenEl.setAttribute('data-field-id', id)
+      hiddenEl.setAttribute('data-field-side', 'source')
+      hiddenEl.setAttribute('data-field-in-group', 'source:')
+      hiddenEl.setAttribute('data-child-of-field', 'source:adres')
+      panelEl.appendChild(hiddenEl)
+    }
+
+    const targetPanelEl = document.createElement('div')
+    targetPanelEl.setAttribute('data-scroll-container', '')
+    targetPanelEl.getBoundingClientRect = () =>
+      ({ left: 400, top: 0, right: 700, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(targetPanelEl)
+
+    const targetAnchorEl = document.createElement('div')
+    targetAnchorEl.setAttribute('data-anchor-field', 'target:contact')
+    targetAnchorEl.getBoundingClientRect = () =>
+      ({ left: 450, top: 40, right: 650, width: 200, height: 20 }) as DOMRect
+    targetPanelEl.appendChild(targetAnchorEl)
+
+    for (const id of ['contact.email', 'contact.phone']) {
+      const hiddenEl = document.createElement('div')
+      hiddenEl.setAttribute('data-field-id', id)
+      hiddenEl.setAttribute('data-field-side', 'target')
+      hiddenEl.setAttribute('data-field-in-group', 'target:')
+      hiddenEl.setAttribute('data-child-of-field', 'target:contact')
+      targetPanelEl.appendChild(hiddenEl)
+    }
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'adres.straat', targetFieldId: 'contact.email' })
+    store.createMapping({ sourceFieldId: 'adres.postcode', targetFieldId: 'contact.phone' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-testid="collapsed-mapping-dot"]')).toHaveLength(2)
+
+    panelEl.remove()
+    targetPanelEl.remove()
+  })
+
   it('attaches a capture scroll listener on the parent and removes it on unmount', () => {
     const addSpy = vi.spyOn(EventTarget.prototype, 'addEventListener')
     const removeSpy = vi.spyOn(EventTarget.prototype, 'removeEventListener')
