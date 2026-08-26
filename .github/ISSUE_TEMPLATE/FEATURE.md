@@ -8,15 +8,22 @@ assignees: ""
 
 # 🚀 Feature: {{title}}
 
-## Bounded Context
+## Summary
+
+<!-- Always start with "This feature is needed to ..." (or "... to ensure ...") — one or two plain-language
+     sentences on why this feature exists and what it actually lets someone do. Add the Bounded
+     Context it lives in (and the seam it crosses, if any) only if that's not already obvious. -->
+
+This feature is needed to ...
 
 ---
 
-## User Stories
+## Acceptance Criteria
 
-<!-- Written by Product Owner -->
+<!-- What a domain actor can do, and how we know it works, combined into one item.
+     These directly feed into Gherkin scenarios in child Tasks. One item → one or more scenarios. -->
 
-- As a **_, I want _** so that \_\_\_
+- [ ]
 
 ## Design Handoff
 
@@ -28,22 +35,9 @@ assignees: ""
 
 ---
 
-## Acceptance Criteria
-
-<!-- These directly feed into Gherkin scenarios in child Tasks. One AC → one or more scenarios. -->
-
-- [ ]
-
 ## Edge Cases
 
-## <!-- Explicitly name them here so Tasks can cover them in Gherkin. Use domain language. -->
-
-## Domain Events
-
-<!-- Events this feature emits or consumes. Use past-tense domain names (e.g. OrderPlaced, PaymentSettled). -->
-
-- Emits:
-- Consumes:
+<!-- Explicitly name them here so Tasks can cover them in Gherkin. Use domain language. -->
 
 ---
 
@@ -51,9 +45,8 @@ assignees: ""
 
 <!-- This feature is ready to be broken into Tasks when: -->
 
-- [ ] User stories agreed by PO
+- [ ] Acceptance criteria agreed by PO and reviewed
 - [ ] Design handoff complete
-- [ ] Acceptance criteria written and reviewed
 - [ ] Edge cases identified
 
 ---

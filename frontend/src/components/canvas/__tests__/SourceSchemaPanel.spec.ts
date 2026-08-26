@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { useSuggestionScope } from '@/composables/useSuggestionScope'
 
 function node(overrides: Partial<SchemaFieldNode> & { name: string }): SchemaFieldNode {
   return {
@@ -227,6 +228,86 @@ describe('SourceSchemaPanel', () => {
 
       wrapper.unmount()
       div.remove()
+    })
+  })
+
+  // Task #129: source-side suggestion scope selection
+  describe('suggestion scope selection', () => {
+    afterEach(() => {
+      localStorage.removeItem('ma_suggestion_scope_source_root_ids')
+      localStorage.removeItem('ma_suggestion_scope_target_root_ids')
+    })
+
+    it('reflects group selection state in the scope checkbox', async () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(multiSchemaNodes), side: 'source' },
+      })
+      const checkbox = () =>
+        wrapper.find<HTMLInputElement>('[data-testid="scope-checkbox-source-Zaak"]')
+      expect(checkbox().element.checked).toBe(false)
+      await checkbox().trigger('change')
+      expect(checkbox().element.checked).toBe(true)
+    })
+
+    it('toggling a group checkbox selects every root field in that group only', async () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(multiSchemaNodes), side: 'source' },
+      })
+      const scopeStore = useSuggestionScope()
+      await wrapper.find('[data-testid="scope-checkbox-source-Zaak"]').trigger('change')
+      expect(scopeStore.isSelected('source', 'Zaak.zaakId')).toBe(true)
+      expect(scopeStore.isSelected('source', 'Zaak.omschrijving')).toBe(true)
+      expect(scopeStore.isSelected('source', 'Status.statusCode')).toBe(false)
+    })
+
+    it('toggling a fully-selected group checkbox again deselects every root field in that group', async () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(multiSchemaNodes), side: 'source' },
+      })
+      const scopeStore = useSuggestionScope()
+      await wrapper.find('[data-testid="scope-checkbox-source-Zaak"]').trigger('change')
+      await wrapper.find('[data-testid="scope-checkbox-source-Zaak"]').trigger('change')
+      expect(scopeStore.isSelected('source', 'Zaak.zaakId')).toBe(false)
+      expect(scopeStore.isSelected('source', 'Zaak.omschrijving')).toBe(false)
+    })
+
+    // Scenario: Select all picks every source container
+    it('select-all picks every root field across every group', async () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(multiSchemaNodes), side: 'source' },
+      })
+      const scopeStore = useSuggestionScope()
+      await wrapper.find('[data-testid="scope-select-all-source"]').trigger('click')
+      expect(scopeStore.isSelected('source', 'Zaak.zaakId')).toBe(true)
+      expect(scopeStore.isSelected('source', 'Zaak.omschrijving')).toBe(true)
+      expect(scopeStore.isSelected('source', 'Status.statusCode')).toBe(true)
+      expect(wrapper.find('[data-testid="scope-select-all-source"]').text()).toBe(
+        'Deselecteer alles (bereik)',
+      )
+    })
+
+    // Scenario: Deselect all clears the scope
+    it('deselect-all clears every selected root field', async () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(multiSchemaNodes), side: 'source' },
+      })
+      const scopeStore = useSuggestionScope()
+      await wrapper.find('[data-testid="scope-select-all-source"]').trigger('click')
+      await wrapper.find('[data-testid="scope-select-all-source"]').trigger('click')
+      expect(scopeStore.isSelected('source', 'Zaak.zaakId')).toBe(false)
+      expect(scopeStore.isSelected('source', 'Status.statusCode')).toBe(false)
+      expect(wrapper.find('[data-testid="scope-select-all-source"]').text()).toBe(
+        'Selecteer alles (bereik)',
+      )
+    })
+
+    // Per Feature #89 AC: target side is never scope-gated, so no scope UI renders there
+    it('does not render scope selection UI on the target side', () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(multiSchemaNodes), side: 'target' },
+      })
+      expect(wrapper.find('[data-testid="scope-select-all-target"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="scope-checkbox-target-Zaak"]').exists()).toBe(false)
     })
   })
 })
