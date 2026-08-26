@@ -111,7 +111,7 @@ function onTargetUrlSubmit() {
 <template>
   <div class="w-full h-full flex flex-col bg-slate-100">
     <!-- Two-panel layout -->
-    <div class="relative flex-1 flex overflow-hidden gap-8">
+    <div class="relative flex-1 flex overflow-hidden gap-12">
       <!-- Source column -->
       <div
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
