@@ -12,6 +12,7 @@ const rootEl = ref<HTMLElement | null>(null)
 const props = defineProps<{
   schema: Schema
   side?: 'source' | 'target'
+  selectedFieldId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -103,6 +104,19 @@ const highlightedFieldIds = computed(() => {
 
 function isFieldHighlighted(fieldId: string): boolean {
   return highlightedFieldIds.value.has(fieldId)
+}
+
+// The field currently used to start a manual mapping (source-first
+// click-to-map). Distinct from isFieldHighlighted (hover) — a field can be
+// selected and highlighted at the same time, so selected wins visually.
+function isFieldSelected(fieldId: string): boolean {
+  return fieldId === props.selectedFieldId
+}
+
+function fieldRowClass(fieldId: string): string {
+  if (isFieldSelected(fieldId)) return 'bg-blue-50 ring-1 ring-blue-300 ring-inset'
+  if (isFieldHighlighted(fieldId)) return 'bg-indigo-50'
+  return 'hover:bg-slate-50'
 }
 
 function fieldMatchesName(field: SchemaField): boolean {
@@ -474,9 +488,11 @@ defineExpose({ scrollToField })
                   :data-child-of-field="`${side}:${field.id}`"
                   :data-field-in-group="`${side}:${group.name}`"
                   :data-highlighted="isFieldHighlighted(child.id)"
+                  :data-selected="isFieldSelected(child.id)"
+                  :aria-selected="isFieldSelected(child.id) || undefined"
                   :class="[
                     'w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer',
-                    isFieldHighlighted(child.id) ? 'bg-indigo-50' : 'hover:bg-slate-50',
+                    fieldRowClass(child.id),
                   ]"
                   @click="emit('field-click', child.id)"
                   @mouseenter="mappingsStore.hoverField(child.id, scopeSide)"
@@ -519,9 +535,11 @@ defineExpose({ scrollToField })
               :data-field-side="side"
               :data-field-in-group="`${side}:${group.name}`"
               :data-highlighted="isFieldHighlighted(field.id)"
+              :data-selected="isFieldSelected(field.id)"
+              :aria-selected="isFieldSelected(field.id) || undefined"
               :class="[
                 'w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer transition-colors',
-                isFieldHighlighted(field.id) ? 'bg-indigo-50' : 'hover:bg-slate-50',
+                fieldRowClass(field.id),
               ]"
               @click="emit('field-click', field.id)"
               @mouseenter="mappingsStore.hoverField(field.id, scopeSide)"
