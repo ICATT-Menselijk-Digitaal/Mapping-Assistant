@@ -19,7 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useMappings()
-const { selectedMappingId } = storeToRefs(store)
+const { selectedMappingId, selectionNonce } = storeToRefs(store)
 const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
 const searchQuery = ref('')
@@ -31,7 +31,10 @@ function setRowRef(id: string, el: HTMLElement | null) {
   else rowRefs.value.delete(id)
 }
 
-watch(selectedMappingId, async (id) => {
+// Watches selectionNonce rather than selectedMappingId directly, so
+// reselecting the currently selected mapping still scrolls the row into view.
+watch(selectionNonce, async () => {
+  const id = selectedMappingId.value
   if (!id) return
   await nextTick()
   rowRefs.value.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })

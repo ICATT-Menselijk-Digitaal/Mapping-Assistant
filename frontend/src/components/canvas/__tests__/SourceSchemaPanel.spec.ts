@@ -231,6 +231,108 @@ describe('SourceSchemaPanel', () => {
     })
   })
 
+  // Task #135: field-hover highlighting. Uses two real panel instances
+  // (source + target) sharing one pinia, matching how MappingCanvas.vue
+  // actually mounts SourceSchemaPanel — a single-panel setup can't exercise
+  // side-aware hover matching at all.
+  describe('field hover', () => {
+    const sourceNodes: SchemaFieldNode[] = [
+      node({ name: 'cityName', path: 'cityName', id: 'cityName' }),
+    ]
+    const targetNodes: SchemaFieldNode[] = [
+      node({ name: 'countryCode', path: 'countryCode', id: 'countryCode' }),
+    ]
+
+    function mountBothPanels() {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const sourceWrapper = mount(SourceSchemaPanel, {
+        global: { plugins: [pinia] },
+        props: { schema: schemaOf(sourceNodes), side: 'source' },
+      })
+      const targetWrapper = mount(SourceSchemaPanel, {
+        global: { plugins: [pinia] },
+        props: { schema: schemaOf(targetNodes), side: 'target' },
+      })
+      return { sourceWrapper, targetWrapper, store: useMappings() }
+    }
+
+    // Scenario: Hovering a mapped field highlights its connection line and its mapped counterpart
+    it('marks the hovered field row highlighted in its own panel', async () => {
+      const { sourceWrapper, store } = mountBothPanels()
+
+      store.hoverField('cityName', 'source')
+      await sourceWrapper.vm.$nextTick()
+
+      expect(sourceWrapper.find('[data-field-id="cityName"]').attributes('data-highlighted')).toBe(
+        'true',
+      )
+    })
+
+    it("marks a field's mapped counterpart highlighted in the OTHER panel, even though only this field is hovered", async () => {
+      const { targetWrapper, store } = mountBothPanels()
+      store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'countryCode' })
+
+      store.hoverField('cityName', 'source')
+      await targetWrapper.vm.$nextTick()
+
+      expect(
+        targetWrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
+      ).toBe('true')
+    })
+
+    // Scenario: Hovering an unmapped field shows no highlight
+    it('highlights nothing in the other panel when the hovered field has no mapping', async () => {
+      const { targetWrapper, store } = mountBothPanels()
+
+      store.hoverField('cityName', 'source')
+      await targetWrapper.vm.$nextTick()
+
+      expect(
+        targetWrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
+      ).toBe('false')
+    })
+
+    // Regression: source and target schemas are parsed independently, so an
+    // unrelated field on the other side can share a raw id with the hovered
+    // field. A field row must only highlight for a same-id match on the
+    // SAME side as the currently hovered field.
+    it('does not highlight an unrelated same-id field on its own side when the hovered field is on the other side', async () => {
+      const collidingSourceNodes: SchemaFieldNode[] = [
+        node({ name: 'shared', path: 'shared', id: 'shared-id' }),
+      ]
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const sourceWrapper = mount(SourceSchemaPanel, {
+        global: { plugins: [pinia] },
+        props: { schema: schemaOf(collidingSourceNodes), side: 'source' },
+      })
+      const store = useMappings()
+
+      // Hover the TARGET field with the colliding id — the source panel's
+      // own field with the same raw id must NOT light up, since it belongs
+      // to a different side.
+      store.hoverField('shared-id', 'target')
+      await sourceWrapper.vm.$nextTick()
+
+      expect(sourceWrapper.find('[data-field-id="shared-id"]').attributes('data-highlighted')).toBe(
+        'false',
+      )
+    })
+
+    it('setting hoveredFieldId and hoveredFieldSide on mouseenter and clearing on mouseleave', async () => {
+      const { sourceWrapper, store } = mountBothPanels()
+
+      await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseenter')
+      expect(store.hoveredFieldId).toBe('cityName')
+      expect(store.hoveredFieldSide).toBe('source')
+
+      await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseleave')
+      expect(store.hoveredFieldId).toBeNull()
+      expect(store.hoveredFieldSide).toBeNull()
+    })
+  })
+
   // Task #129: source-side suggestion scope selection
   describe('suggestion scope selection', () => {
     afterEach(() => {

@@ -24,13 +24,17 @@ const emit = defineEmits<{
 }>()
 
 const mappingsStore = useMappings()
-const { selectedMappingId, mappings } = storeToRefs(mappingsStore)
+const { selectedMappingId, selectionNonce, mappings } = storeToRefs(mappingsStore)
 const selectedSourceId = ref<string | null>(null)
 
 const sourcePanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
 const targetPanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
 
-watch(selectedMappingId, async (id) => {
+// Watches selectionNonce (bumped on every selectMapping() call) rather than
+// selectedMappingId directly, so reselecting the currently selected mapping
+// still scrolls — a value-based watch on selectedMappingId would no-op.
+watch(selectionNonce, async () => {
+  const id = selectedMappingId.value
   if (!id) return
   const mapping = mappings.value.find((m) => m.id === id)
   if (!mapping) return
@@ -107,7 +111,7 @@ function onTargetUrlSubmit() {
 <template>
   <div class="w-full h-full flex flex-col bg-slate-100">
     <!-- Two-panel layout -->
-    <div class="relative flex-1 flex overflow-hidden gap-8">
+    <div class="relative flex-1 flex overflow-hidden gap-12">
       <!-- Source column -->
       <div
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"

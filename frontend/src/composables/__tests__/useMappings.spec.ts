@@ -103,6 +103,48 @@ describe('useMappings', () => {
     expect(mapping!.transformations).toEqual([])
   })
 
+  // Task #135: hover/select interaction state for tracing a specific mapping
+  describe('hover and reselect state', () => {
+    it('selectMapping bumps selectionNonce even when reselecting the same mapping', () => {
+      const store = useMappings()
+      const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+
+      store.selectMapping(mapping!.id)
+      const nonceAfterFirstSelect = store.selectionNonce
+      store.selectMapping(mapping!.id)
+
+      expect(store.selectionNonce).toBeGreaterThan(nonceAfterFirstSelect)
+    })
+
+    it('hoverMapping sets and clears hoveredMappingId', () => {
+      const store = useMappings()
+      store.hoverMapping('map-1')
+      expect(store.hoveredMappingId).toBe('map-1')
+      store.hoverMapping(null)
+      expect(store.hoveredMappingId).toBeNull()
+    })
+
+    it('hoverField sets and clears hoveredFieldId and hoveredFieldSide together', () => {
+      const store = useMappings()
+      store.hoverField('field-1', 'source')
+      expect(store.hoveredFieldId).toBe('field-1')
+      expect(store.hoveredFieldSide).toBe('source')
+      store.hoverField(null)
+      expect(store.hoveredFieldId).toBeNull()
+      expect(store.hoveredFieldSide).toBeNull()
+    })
+
+    it('clears hoveredMappingId when the hovered mapping is removed', () => {
+      const store = useMappings()
+      const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      store.hoverMapping(mapping!.id)
+
+      store.removeMapping(mapping!.id)
+
+      expect(store.hoveredMappingId).toBeNull()
+    })
+  })
+
   // Scenario: Adding a rule appends it with a unique id
   describe('addTransformationRule', () => {
     it('appends a rule with a unique id', () => {
