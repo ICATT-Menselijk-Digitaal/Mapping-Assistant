@@ -11,10 +11,14 @@ assignees: ""
 ## Summary
 
 <!-- Always start with "This feature is needed to ..." (or "... to ensure ...") — one or two plain-language
-     sentences on why this feature exists and what it actually lets someone do. Add the Bounded
-     Context it lives in (and the seam it crosses, if any) only if that's not already obvious. -->
+     sentences on why this feature exists and what it actually lets someone do. -->
 
 This feature is needed to ...
+
+### Bounded Context
+
+<!-- Which bounded context does this feature live in? Name the seam it crosses, if any.
+     Keep this as concise as possible. -->
 
 ---
 
