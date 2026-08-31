@@ -162,6 +162,26 @@ describe('Selected field while mapping manually', () => {
     expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
   })
 
+  // Scenario: The selected-state remains visible while choosing a match
+  it('keeps the selected-state visible while searching the target panel for a match', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    await wrapper.find('[data-testid="target-column"] [data-testid="search-input"]').setValue('u')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: The selected-state survives scrolling the originating field out of view and back
+  it('keeps the selected-state after a scroll event on the source panel', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    await wrapper.find('[data-testid="source-column"]').trigger('scroll')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+  })
+
   // Scenario: Selecting the matching field completes the mapping and clears the selected-state
   it('clears the selected-state once the matching target field completes the mapping', async () => {
     const wrapper = mountCanvas()
