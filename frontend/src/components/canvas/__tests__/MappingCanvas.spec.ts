@@ -19,10 +19,11 @@ const targetNodes: SchemaFieldNode[] = [
 const sourceSchema = buildSchema('', sourceNodes)
 const targetSchema = buildSchema('', targetNodes)
 
-function mountCanvas() {
+function mountCanvas(overrides: { attachTo?: Element } = {}) {
   return mount(MappingCanvas, {
     global: { plugins: [createPinia()] },
     props: { sourceSchema, targetSchema },
+    ...overrides,
   })
 }
 
@@ -148,6 +149,73 @@ describe('MappingCanvas', () => {
     await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
 
     expect(store.mappings).toHaveLength(1)
+  })
+})
+
+// Task #138: visible selected-state while forming a manual mapping
+describe('Selected field while mapping manually', () => {
+  // Scenario: Clicking a field to start a mapping shows a selected-state
+  it('marks the clicked source field selected in the source panel', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: Selecting the matching field completes the mapping and clears the selected-state
+  it('clears the selected-state once the matching target field completes the mapping', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('false')
+  })
+
+  // Scenario: Selecting a different field on the same side moves the selection
+  it('moves the selected-state to a newly clicked source field, clearing the previous one', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    await wrapper.find('[data-field-id="src-2"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('false')
+    expect(wrapper.find('[data-field-id="src-2"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: Clicking outside both schema panels cancels the selection
+  it('clears the selected-state when clicking outside both schema panels', async () => {
+    const wrapper = mountCanvas({ attachTo: document.body })
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('false')
+
+    wrapper.unmount()
+  })
+
+  // A click that lands on the field itself must not be immediately undone by
+  // the outside-click listener (event-order regression guard).
+  it('does not clear the selection from the very click that set it', async () => {
+    const wrapper = mountCanvas({ attachTo: document.body })
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+
+    wrapper.unmount()
+  })
+
+  it('does not clear the selection when clicking elsewhere inside the source or target column', async () => {
+    const wrapper = mountCanvas({ attachTo: document.body })
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    await wrapper.find('[data-testid="target-column"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+
+    wrapper.unmount()
   })
 })
 

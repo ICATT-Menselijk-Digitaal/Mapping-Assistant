@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { Schema } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
@@ -29,6 +29,29 @@ const selectedSourceId = ref<string | null>(null)
 
 const sourcePanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
 const targetPanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
+const sourceColumnRef = ref<HTMLElement | null>(null)
+const targetColumnRef = ref<HTMLElement | null>(null)
+
+// Clicking anywhere outside both schema panels cancels an in-progress manual
+// mapping selection. A click inside either column is handled by that
+// column's own field-click handler first (component listeners fire before a
+// document-level bubble listener), so this never undoes the very click that
+// just set the selection.
+function clearSelectionIfOutsidePanels(event: MouseEvent) {
+  const target = event.target as Node | null
+  if (!target) return
+  if (sourceColumnRef.value?.contains(target)) return
+  if (targetColumnRef.value?.contains(target)) return
+  selectedSourceId.value = null
+}
+
+onMounted(() => {
+  document.addEventListener('click', clearSelectionIfOutsidePanels)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', clearSelectionIfOutsidePanels)
+})
 
 // Watches selectionNonce (bumped on every selectMapping() call) rather than
 // selectedMappingId directly, so reselecting the currently selected mapping
@@ -114,6 +137,7 @@ function onTargetUrlSubmit() {
     <div class="relative flex-1 flex overflow-hidden gap-12">
       <!-- Source column -->
       <div
+        ref="sourceColumnRef"
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="source-column"
       >
@@ -174,12 +198,14 @@ function onTargetUrlSubmit() {
           data-scroll-container
           :schema="sourceSchema"
           side="source"
+          :selected-field-id="selectedSourceId"
           @field-click="onSourceFieldClick"
         />
       </div>
 
       <!-- Target column -->
       <div
+        ref="targetColumnRef"
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="target-column"
       >
