@@ -12,6 +12,7 @@ import { useApiKey, resetApiKeyState, syncEnvKey } from '@/composables/useApiKey
 import { useSuggestionScope } from '@/composables/useSuggestionScope'
 import type { AiSuggestion } from '@/types'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
 
 const sourceNodes: SchemaFieldNode[] = [
   {
@@ -103,6 +104,10 @@ const sourceSchemaWithContainers = buildSchema('', sourceNodesWithContainer)
 const targetSchemaWithContainers = buildSchema('', targetNodesWithContainer)
 
 function mountPanel(props = { sourceSchema, targetSchema }) {
+  // The scope store derives leaves from the schema resources, not from props,
+  // so tests must seed the resources with the same schemas the panel renders.
+  sourceSchemaResource.write({ schema: props.sourceSchema, sourceUrl: null })
+  targetSchemaResource.write({ schema: props.targetSchema, sourceUrl: null })
   return mount(AISuggestionPanel, {
     global: { plugins: [createPinia()], stubs: { Teleport: true } },
     props,

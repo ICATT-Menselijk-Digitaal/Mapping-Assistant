@@ -29,14 +29,6 @@ const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
 // always fully included in AI calls, so no scope UI is rendered on it.
 const scopeEnabled = computed(() => scopeSide.value === 'source')
 
-watch(
-  () => props.schema,
-  (s) => {
-    if (scopeEnabled.value) scopeStore.pruneAgainst(scopeSide.value, s)
-  },
-  { immediate: true },
-)
-
 const allRootsSelected = computed(() => {
   const roots = props.schema.roots
   return roots.length > 0 && roots.every((r) => scopeStore.isSelected(scopeSide.value, r.id))

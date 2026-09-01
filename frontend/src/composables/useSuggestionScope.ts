@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { Schema } from '@/domain/schema'
 import type { MappingSide } from '@/domain/mappingSide'
 import type { SchemaField } from '@/types'
+import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
 
 const STORAGE_KEYS: Record<MappingSide, string> = {
   source: 'ma_suggestion_scope_source_root_ids',
@@ -78,6 +79,11 @@ export const useSuggestionScope = defineStore('suggestionScope', () => {
     ref_(side).value = new Set()
   }
 
+  // Auto-prune: whenever a side's schema changes, drop any stored root IDs
+  // that no longer reference a valid root. Callers used to have to invoke
+  // pruneAgainst manually from a schema watcher; the store now owns the
+  // invariant, so scopedSourceLeaves / scopedTargetLeaves can never point at
+  // removed roots.
   function pruneAgainst(side: MappingSide, schema: Schema): void {
     const valid = new Set(schema.roots.map((f) => f.id))
     const target = ref_(side)
@@ -87,9 +93,23 @@ export const useSuggestionScope = defineStore('suggestionScope', () => {
     }
   }
 
-  function scopedLeaves(side: MappingSide, schema: Schema): SchemaField[] {
-    return leavesUnder(schema, ref_(side).value)
-  }
+  watch(
+    () => sourceSchemaResource.state.value.schema,
+    (schema) => pruneAgainst('source', schema),
+    { immediate: true, flush: 'sync' },
+  )
+  watch(
+    () => targetSchemaResource.state.value.schema,
+    (schema) => pruneAgainst('target', schema),
+    { immediate: true, flush: 'sync' },
+  )
+
+  const scopedSourceLeaves = computed<SchemaField[]>(() =>
+    leavesUnder(sourceSchemaResource.state.value.schema, selectedSourceRootIds.value),
+  )
+  const scopedTargetLeaves = computed<SchemaField[]>(() =>
+    leavesUnder(targetSchemaResource.state.value.schema, selectedTargetRootIds.value),
+  )
 
   return {
     selectedSourceRootIds,
@@ -99,7 +119,7 @@ export const useSuggestionScope = defineStore('suggestionScope', () => {
     isSelected,
     toggle,
     clear,
-    pruneAgainst,
-    scopedLeaves,
+    scopedSourceLeaves,
+    scopedTargetLeaves,
   }
 })

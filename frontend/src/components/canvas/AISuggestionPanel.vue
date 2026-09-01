@@ -27,9 +27,7 @@ const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) =>
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
 const scopedSourceFields = computed(() =>
-  scopeStore
-    .scopedLeaves('source', props.sourceSchema)
-    .filter((f) => !mappedSourceIds.value.has(f.id)),
+  scopeStore.scopedSourceLeaves.filter((f) => !mappedSourceIds.value.has(f.id)),
 )
 
 // Per Feature #89 AC: the target side is always fully included in the

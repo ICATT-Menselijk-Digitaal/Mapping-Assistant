@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { buildSchema, EMPTY_SCHEMA, type SchemaFieldNode } from '@/domain/schema'
 import { useSuggestionScope, leavesUnder } from '@/composables/useSuggestionScope'
+import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
 
 const nodes: SchemaFieldNode[] = [
   {
@@ -46,6 +47,11 @@ const schema = buildSchema('Test', nodes)
 const SOURCE_KEY = 'ma_suggestion_scope_source_root_ids'
 const TARGET_KEY = 'ma_suggestion_scope_target_root_ids'
 
+function seedSchemas(sourceSchema = schema, targetSchema = schema): void {
+  sourceSchemaResource.write({ schema: sourceSchema, sourceUrl: null })
+  targetSchemaResource.write({ schema: targetSchema, sourceUrl: null })
+}
+
 describe('leavesUnder', () => {
   it('collects every leaf descendant of the given roots', () => {
     const ids = leavesUnder(schema, ['root'])
@@ -68,6 +74,7 @@ describe('useSuggestionScope store', () => {
     setActivePinia(createPinia())
     localStorage.removeItem(SOURCE_KEY)
     localStorage.removeItem(TARGET_KEY)
+    seedSchemas()
   })
 
   it('starts with empty selections when localStorage is empty', () => {
@@ -114,29 +121,57 @@ describe('useSuggestionScope store', () => {
     localStorage.setItem(SOURCE_KEY, JSON.stringify(['root']))
     localStorage.setItem(TARGET_KEY, JSON.stringify(['root-2']))
     setActivePinia(createPinia())
+    seedSchemas()
     const store = useSuggestionScope()
     expect(store.isSelected('source', 'root')).toBe(true)
     expect(store.isSelected('target', 'root-2')).toBe(true)
   })
 
-  it('pruneAgainst drops ids that no longer match a schema root', () => {
+  it('auto-prunes stored ids that no longer match a schema root on init', () => {
     localStorage.setItem(SOURCE_KEY, JSON.stringify(['root', 'ghost-id']))
     setActivePinia(createPinia())
+    seedSchemas()
     const store = useSuggestionScope()
-    store.pruneAgainst('source', schema)
     expect(store.isSelected('source', 'root')).toBe(true)
     expect(store.isSelected('source', 'ghost-id')).toBe(false)
   })
 
-  it('scopedLeaves returns leaf descendants of selected roots for the given side', () => {
+  it('auto-prunes stale ids when the source schema is replaced', () => {
+    const store = useSuggestionScope()
+    store.toggle('source', 'root')
+    store.toggle('source', 'root-2')
+
+    // Replace the source schema with one that only has 'root-2' as a root.
+    const partial = buildSchema('Partial', [nodes[1]!])
+    sourceSchemaResource.write({ schema: partial, sourceUrl: null })
+
+    expect(store.isSelected('source', 'root')).toBe(false)
+    expect(store.isSelected('source', 'root-2')).toBe(true)
+  })
+
+  it('auto-prunes target side independently from source', () => {
+    const store = useSuggestionScope()
+    store.toggle('target', 'root')
+    store.toggle('target', 'root-2')
+
+    targetSchemaResource.write({ schema: EMPTY_SCHEMA, sourceUrl: null })
+
+    expect(store.hasTargetSelection).toBe(false)
+    // Source selection is untouched.
+    store.toggle('source', 'root')
+    expect(store.isSelected('source', 'root')).toBe(true)
+  })
+
+  it('scopedSourceLeaves reflects selected source roots against the source schema', () => {
     const store = useSuggestionScope()
     store.toggle('source', 'root-2')
+    expect(store.scopedSourceLeaves.map((f) => f.id)).toEqual(['leaf-3'])
+  })
+
+  it('scopedTargetLeaves reflects selected target roots against the target schema', () => {
+    const store = useSuggestionScope()
     store.toggle('target', 'root')
-    expect(store.scopedLeaves('source', schema).map((f) => f.id)).toEqual(['leaf-3'])
-    const targetIds = store
-      .scopedLeaves('target', schema)
-      .map((f) => f.id)
-      .sort()
-    expect(targetIds).toEqual(['leaf-1', 'leaf-2'])
+    const ids = store.scopedTargetLeaves.map((f) => f.id).sort()
+    expect(ids).toEqual(['leaf-1', 'leaf-2'])
   })
 })
