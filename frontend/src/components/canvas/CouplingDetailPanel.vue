@@ -3,8 +3,7 @@ import { computed, ref } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useTransformationSuggestions } from '@/composables/useTransformationSuggestions'
-import { getValidationStatus, getIncompatibilityReason } from '@/utils/validationStatus'
-import { getMismatchTypes, isMismatchResolved } from '@/utils/transformationCompletion'
+import { analyze, isMismatchResolved } from '@/domain/coupling'
 import type { MismatchType } from '@/types/mapping'
 import TransformationRuleList from './TransformationRuleList.vue'
 import MismatchCard from './MismatchCard.vue'
@@ -54,23 +53,21 @@ const targetField = computed(() =>
     : null,
 )
 
-const validationStatus = computed(() =>
+const analysis = computed(() =>
   sourceField.value && targetField.value
-    ? getValidationStatus(sourceField.value, targetField.value)
+    ? analyze(sourceField.value, targetField.value)
     : null,
 )
+
+const validationStatus = computed(() => analysis.value?.status ?? null)
 
 const incompatibilityReason = computed(() =>
-  sourceField.value && targetField.value && validationStatus.value === 'incompatible'
-    ? getIncompatibilityReason(sourceField.value, targetField.value)
+  sourceField.value && targetField.value && analysis.value?.status === 'incompatible'
+    ? `${sourceField.value.dataType} kan niet worden omgezet naar ${targetField.value.dataType}`
     : null,
 )
 
-const detectedMismatches = computed((): MismatchType[] =>
-  sourceField.value && targetField.value
-    ? getMismatchTypes(sourceField.value, targetField.value)
-    : [],
-)
+const detectedMismatches = computed((): MismatchType[] => analysis.value?.mismatches ?? [])
 
 function mismatchLabel(type: MismatchType): string {
   switch (type) {

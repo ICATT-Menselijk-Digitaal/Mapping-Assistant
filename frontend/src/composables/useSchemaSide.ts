@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import * as yaml from 'js-yaml'
 import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
-import type { MappingSide } from '@/domain/mappingSide'
+import type { MappingSide } from '@/domain/coupling'
 import { parseOpenApiSchema } from '@/utils/openApiParser'
 import { buildSchemaFromFields } from '@/utils/schemaFromFields'
 import type { ExportedSchema } from '@/utils/exportSerializer'

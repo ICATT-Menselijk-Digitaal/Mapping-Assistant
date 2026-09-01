@@ -5,7 +5,7 @@ import { useApiKey } from '@/composables/useApiKey'
 import type { SchemaField } from '@/types'
 import type { MismatchType, TransformationRule } from '@/types/mapping'
 import { useMappings } from '@/composables/useMappings'
-import { getMismatchTypes } from '@/utils/transformationCompletion'
+import { analyze } from '@/domain/coupling'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
@@ -30,7 +30,7 @@ function buildPrompt(
   targetField: SchemaField,
   existingRules: TransformationRule[],
 ): string {
-  const mismatches = getMismatchTypes(sourceField, targetField)
+  const mismatches = analyze(sourceField, targetField).mismatches
   const mismatchLines =
     mismatches.length > 0
       ? mismatches.map((m) => `- ${MISMATCH_LABELS[m]}`).join('\n')

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type { Schema } from '@/domain/schema'
-import type { MappingSide } from '@/domain/mappingSide'
+import type { MappingSide } from '@/domain/coupling'
 import type { SchemaField } from '@/types'
 import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
 

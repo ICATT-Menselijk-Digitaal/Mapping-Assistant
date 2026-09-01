@@ -5,7 +5,7 @@ import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
-import { isMappingComplete } from '@/utils/transformationCompletion'
+import { analyze, isResolved } from '@/domain/coupling'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -70,7 +70,7 @@ const rows = computed(() =>
       missingTarget: orphaned && !target,
       source,
       target,
-      isComplete: source && target ? isMappingComplete(m, source, target) : false,
+      isComplete: source && target ? isResolved(analyze(source, target), m) : false,
     }
   }),
 )

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { FieldMapping, MismatchType, TransformationRule, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
-import { getValidationStatus } from '@/utils/validationStatus'
+import { analyze } from '@/domain/coupling'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 import { mappingsResource } from '@/api/resources'
 import * as ops from '@/domain/mappingOps'
@@ -120,7 +120,7 @@ export const useMappings = defineStore('mappings', () => {
       const sourceField = sourceSchema.byId(m.sourceFieldId)
       const targetField = targetSchema.byId(m.targetFieldId)
       const validationStatus =
-        sourceField && targetField ? getValidationStatus(sourceField, targetField) : 'constrained'
+        sourceField && targetField ? analyze(sourceField, targetField).status : 'constrained'
       return { ...m, validationStatus }
     })
   }

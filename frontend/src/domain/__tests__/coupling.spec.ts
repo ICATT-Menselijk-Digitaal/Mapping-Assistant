@@ -1,15 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import {
-  getMismatchTypes,
-  isMismatchResolved,
-  isMappingComplete,
-} from '../transformationCompletion'
+import { analyze, isMismatchResolved, isResolved } from '../coupling'
 import type { SchemaField } from '@/types'
 import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 
 function field(overrides: Partial<SchemaField> = {}): SchemaField {
   return {
-    id: 'f',
+    id: 'f1',
     name: 'field',
     path: 'field',
     dataType: 'string',
@@ -32,61 +28,135 @@ function mapping(transformations: TransformationRule[] = []): FieldMapping {
   }
 }
 
-describe('getMismatchTypes', () => {
-  it('returns empty list for compatible same-type fields', () => {
-    expect(getMismatchTypes(field(), field())).toEqual([])
+describe('analyze — status', () => {
+  it('returns compatible for same-type fields with no constraint mismatch', () => {
+    expect(analyze(field({ dataType: 'string' }), field({ dataType: 'string' })).status).toBe(
+      'compatible',
+    )
+  })
+
+  it('returns compatible for a castable pair (number → string)', () => {
+    expect(analyze(field({ dataType: 'number' }), field({ dataType: 'string' })).status).toBe(
+      'compatible',
+    )
+  })
+
+  it('returns constrained when source maxLength exceeds target maxLength', () => {
+    const result = analyze(
+      field({ dataType: 'string', maxLength: 100 }),
+      field({ dataType: 'string', maxLength: 50 }),
+    )
+    expect(result.status).toBe('constrained')
+  })
+
+  it('returns compatible when target maxLength is undefined', () => {
+    const result = analyze(
+      field({ dataType: 'string', maxLength: 100 }),
+      field({ dataType: 'string' }),
+    )
+    expect(result.status).toBe('compatible')
+  })
+
+  it('returns constrained when source type is unknown', () => {
+    expect(analyze(field({ dataType: 'unknown' }), field({ dataType: 'string' })).status).toBe(
+      'constrained',
+    )
+  })
+
+  it('returns constrained when target type is unknown', () => {
+    expect(analyze(field({ dataType: 'string' }), field({ dataType: 'unknown' })).status).toBe(
+      'constrained',
+    )
+  })
+
+  it('returns incompatible for object → string', () => {
+    expect(analyze(field({ dataType: 'object' }), field({ dataType: 'string' })).status).toBe(
+      'incompatible',
+    )
+  })
+
+  it('returns incompatible for array → number', () => {
+    expect(analyze(field({ dataType: 'array' }), field({ dataType: 'number' })).status).toBe(
+      'incompatible',
+    )
+  })
+
+  it('returns incompatible for boolean → date', () => {
+    expect(analyze(field({ dataType: 'boolean' }), field({ dataType: 'date' })).status).toBe(
+      'incompatible',
+    )
+  })
+
+  // Behaviour change from the old validationStatus / transformationCompletion
+  // split: date → date used to report status='compatible' AND a 'date-format'
+  // mismatch — a contradiction. It now correctly reports 'constrained'
+  // because there's an unresolved mismatch.
+  it('returns constrained for date → date (a date-format rule is required)', () => {
+    expect(analyze(field({ dataType: 'date' }), field({ dataType: 'date' })).status).toBe(
+      'constrained',
+    )
+  })
+})
+
+describe('analyze — mismatches', () => {
+  it('returns no mismatches for compatible same-type fields', () => {
+    expect(analyze(field(), field()).mismatches).toEqual([])
   })
 
   it('detects truncate when source maxLength exceeds target maxLength', () => {
     const src = field({ dataType: 'string', maxLength: 200 })
     const tgt = field({ dataType: 'string', maxLength: 50 })
-    expect(getMismatchTypes(src, tgt)).toContain('truncate')
+    expect(analyze(src, tgt).mismatches).toContain('truncate')
   })
 
   it('detects truncate when target has maxLength and source has none', () => {
     const src = field({ dataType: 'string' })
     const tgt = field({ dataType: 'string', maxLength: 50 })
-    expect(getMismatchTypes(src, tgt)).toContain('truncate')
+    expect(analyze(src, tgt).mismatches).toContain('truncate')
   })
 
   it('does not detect truncate when source fits within target maxLength', () => {
     const src = field({ dataType: 'string', maxLength: 30 })
     const tgt = field({ dataType: 'string', maxLength: 50 })
-    expect(getMismatchTypes(src, tgt)).not.toContain('truncate')
+    expect(analyze(src, tgt).mismatches).not.toContain('truncate')
   })
 
   it('detects default when source is optional and target is required', () => {
     const src = field({ required: false })
     const tgt = field({ required: true })
-    expect(getMismatchTypes(src, tgt)).toContain('default')
+    expect(analyze(src, tgt).mismatches).toContain('default')
   })
 
   it('does not detect default when both are required', () => {
     const src = field({ required: true })
     const tgt = field({ required: true })
-    expect(getMismatchTypes(src, tgt)).not.toContain('default')
+    expect(analyze(src, tgt).mismatches).not.toContain('default')
   })
 
-  it('detects cast for number → string', () => {
+  it('does not detect cast for a castable pair (number → string is silent)', () => {
     const src = field({ dataType: 'number' })
     const tgt = field({ dataType: 'string' })
-    expect(getMismatchTypes(src, tgt)).toContain('cast')
+    expect(analyze(src, tgt).mismatches).not.toContain('cast')
   })
 
-  it('does not include direct in the result', () => {
-    expect(getMismatchTypes(field(), field())).not.toContain('direct')
-  })
-
-  it('detects date-format for date-to-date', () => {
+  it('detects date-format for date → date', () => {
     const src = field({ dataType: 'date' })
     const tgt = field({ dataType: 'date' })
-    expect(getMismatchTypes(src, tgt)).toContain('date-format')
+    expect(analyze(src, tgt).mismatches).toContain('date-format')
+  })
+
+  it('returns no mismatches for an incompatible pair', () => {
+    // Nothing the administrator can add resolves a fundamental type clash —
+    // status='incompatible' carries the outcome, mismatches stays empty.
+    expect(analyze(field({ dataType: 'object' }), field({ dataType: 'string' })).mismatches).toEqual(
+      [],
+    )
   })
 
   it('detects both truncate and default for optional long string → required short string', () => {
     const src = field({ dataType: 'string', maxLength: 100, required: false })
     const tgt = field({ dataType: 'string', maxLength: 50, required: true })
-    const result = getMismatchTypes(src, tgt)
+    const result = analyze(src, tgt).mismatches
     expect(result).toContain('truncate')
     expect(result).toContain('default')
   })
@@ -129,30 +199,30 @@ describe('isMismatchResolved', () => {
     expect(isMismatchResolved('truncate', rules)).toBe(true)
   })
 
-  // Scenario: Manually resolving last mismatch turns indicator green
-  it('returns true when type is in manuallyResolvedMismatches', () => {
+  it('returns true when type is in manuallyResolved', () => {
     expect(isMismatchResolved('truncate', [], ['truncate'])).toBe(true)
   })
 
-  it('returns false when type is not in manuallyResolvedMismatches', () => {
+  it('returns false when type is not in manuallyResolved', () => {
     expect(isMismatchResolved('truncate', [], ['default'])).toBe(false)
   })
 
-  it('returns true when resolved by rule even with empty manuallyResolvedMismatches', () => {
+  it('returns true when resolved by rule even with empty manuallyResolved', () => {
     const rules = [rule({ resolvesMismatch: 'truncate', expression: '$substring($, 0, 47)' })]
     expect(isMismatchResolved('truncate', rules, [])).toBe(true)
   })
 })
 
-describe('isMappingComplete', () => {
+describe('isResolved', () => {
   it('returns true for compatible fields with no rules', () => {
-    expect(isMappingComplete(mapping([]), field(), field())).toBe(true)
+    const analysis = analyze(field(), field())
+    expect(isResolved(analysis, mapping([]))).toBe(true)
   })
 
   it('returns false when a mismatch has no resolving rule', () => {
     const src = field({ dataType: 'string', maxLength: 100 })
     const tgt = field({ dataType: 'string', maxLength: 50 })
-    expect(isMappingComplete(mapping([]), src, tgt)).toBe(false)
+    expect(isResolved(analyze(src, tgt), mapping([]))).toBe(false)
   })
 
   it('returns true when all detected mismatches are resolved', () => {
@@ -164,7 +234,7 @@ describe('isMappingComplete', () => {
         expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
       }),
     ]
-    expect(isMappingComplete(mapping(rules), src, tgt)).toBe(true)
+    expect(isResolved(analyze(src, tgt), mapping(rules))).toBe(true)
   })
 
   it('returns false when at least one mismatch is unresolved', () => {
@@ -176,22 +246,29 @@ describe('isMappingComplete', () => {
         expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
       }),
     ]
-    // truncate is resolved but default is not
-    expect(isMappingComplete(mapping(rules), src, tgt)).toBe(false)
+    expect(isResolved(analyze(src, tgt), mapping(rules))).toBe(false)
   })
 
-  // Scenario: Manually resolving last mismatch turns indicator green
   it('returns true when all mismatches are manually resolved', () => {
     const src = field({ dataType: 'string', maxLength: 100 })
     const tgt = field({ dataType: 'string', maxLength: 50 })
     const m = { ...mapping([]), manuallyResolvedMismatches: ['truncate' as MismatchType] }
-    expect(isMappingComplete(m, src, tgt)).toBe(true)
+    expect(isResolved(analyze(src, tgt), m)).toBe(true)
   })
 
   it('returns false when only some mismatches are manually resolved', () => {
     const src = field({ dataType: 'string', maxLength: 100, required: false })
     const tgt = field({ dataType: 'string', maxLength: 50, required: true })
     const m = { ...mapping([]), manuallyResolvedMismatches: ['truncate' as MismatchType] }
-    expect(isMappingComplete(m, src, tgt)).toBe(false)
+    expect(isResolved(analyze(src, tgt), m)).toBe(false)
+  })
+
+  it('returns false for an incompatible pair regardless of rules', () => {
+    // Old isMappingComplete returned true here (mismatches was empty and
+    // .every returns true); the UI hid the bug by keying off validationStatus
+    // instead of isComplete. The new isResolved is honest.
+    const src = field({ dataType: 'object' })
+    const tgt = field({ dataType: 'string' })
+    expect(isResolved(analyze(src, tgt), mapping([]))).toBe(false)
   })
 })
