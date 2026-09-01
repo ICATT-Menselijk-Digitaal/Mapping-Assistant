@@ -412,6 +412,72 @@ describe('SourceSchemaPanel', () => {
       expect(wrapper.find('[data-testid="scope-checkbox-target-Zaak"]').exists()).toBe(false)
     })
   })
+
+  // Task #138: selected-state for the field currently being used to start a manual mapping
+  describe('selectedFieldId', () => {
+    const flatNodes: SchemaFieldNode[] = [
+      node({ name: 'cityName', path: 'cityName', id: 'cityName' }),
+      node({ name: 'countryCode', path: 'countryCode', id: 'countryCode' }),
+    ]
+
+    // Scenario: Clicking a field to start a mapping shows a selected-state
+    it('marks a leaf field row selected when its id matches selectedFieldId', () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(flatNodes), selectedFieldId: 'cityName' },
+      })
+      expect(wrapper.find('[data-field-id="cityName"]').attributes('data-selected')).toBe('true')
+      expect(wrapper.find('[data-field-id="countryCode"]').attributes('data-selected')).toBe(
+        'false',
+      )
+    })
+
+    it('marks no field selected when selectedFieldId is null', () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(flatNodes), selectedFieldId: null },
+      })
+      expect(wrapper.find('[data-field-id="cityName"]').attributes('data-selected')).toBe('false')
+      expect(wrapper.find('[data-field-id="countryCode"]').attributes('data-selected')).toBe(
+        'false',
+      )
+    })
+
+    // Scenario: The selected-state remains visible while choosing a match /
+    // survives scrolling out of view and back — selectedFieldId is a plain
+    // prop comparison, unaffected by DOM visibility or scroll position.
+    it('keeps the selected-state after the schema re-renders (e.g. following a scroll-triggered update)', async () => {
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(flatNodes), selectedFieldId: 'cityName' },
+      })
+      await wrapper.setProps({ schema: schemaOf(flatNodes) })
+      expect(wrapper.find('[data-field-id="cityName"]').attributes('data-selected')).toBe('true')
+    })
+
+    it('marks a child-of-expandable field row selected when its id matches selectedFieldId', async () => {
+      const nestedNodes: SchemaFieldNode[] = [
+        node({
+          name: 'adres',
+          path: 'adres',
+          id: 'adres',
+          dataType: 'object',
+          children: [
+            node({ name: 'straat', path: 'adres.straat', id: 'adres.straat', dataType: 'string' }),
+          ],
+        }),
+      ]
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(nestedNodes), selectedFieldId: 'adres.straat' },
+        attachTo: div,
+      })
+      await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
+      expect(wrapper.find('[data-field-id="adres.straat"]').attributes('data-selected')).toBe(
+        'true',
+      )
+      wrapper.unmount()
+      div.remove()
+    })
+  })
 })
 
 describe('Search and status filter', () => {
