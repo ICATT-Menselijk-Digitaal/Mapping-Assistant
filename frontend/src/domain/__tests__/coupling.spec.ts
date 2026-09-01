@@ -153,9 +153,9 @@ describe('analyze — mismatches', () => {
   it('returns no mismatches for an incompatible pair', () => {
     // Nothing the administrator can add resolves a fundamental type clash —
     // status='incompatible' carries the outcome, mismatches stays empty.
-    expect(analyze(field({ dataType: 'object' }), field({ dataType: 'string' })).mismatches).toEqual(
-      [],
-    )
+    expect(
+      analyze(field({ dataType: 'object' }), field({ dataType: 'string' })).mismatches,
+    ).toEqual([])
   })
 
   it('detects both truncate and default for optional long string → required short string', () => {

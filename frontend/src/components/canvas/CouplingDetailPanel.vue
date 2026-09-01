@@ -41,9 +41,7 @@ const targetField = computed(() =>
 )
 
 const analysis = computed(() =>
-  sourceField.value && targetField.value
-    ? analyze(sourceField.value, targetField.value)
-    : null,
+  sourceField.value && targetField.value ? analyze(sourceField.value, targetField.value) : null,
 )
 
 const validationStatus = computed(() => analysis.value?.status ?? null)

@@ -108,9 +108,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         messages: [
           {
             role: 'system',
-            content: [
-              { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
-            ],
+            content: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
           },
           { role: 'user', content: userMessage },
         ],
