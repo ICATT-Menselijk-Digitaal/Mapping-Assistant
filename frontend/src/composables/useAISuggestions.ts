@@ -7,6 +7,11 @@ import { useApiKey } from '@/composables/useApiKey'
 import { aiStatsResource } from '@/api/resources'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 import { extractSuggestions } from '@/utils/suggestionResponseParser'
+import { AIKeyRejectedError, AIServiceError, callOpenRouter } from '@/utils/openRouter'
+
+// Re-exported so callers that historically imported these from this module
+// keep working — the shared implementation now lives in @/utils/openRouter.
+export { AIKeyRejectedError, AIServiceError }
 
 export const CONFIDENCE_THRESHOLD_FOR_SPLIT = 0.7
 export const MIN_CONFIDENCE_THRESHOLD = 0.3
@@ -30,26 +35,6 @@ function isValidReasoning(reasoning: unknown): reasoning is string {
   const lower = trimmed.toLowerCase()
   return !GENERIC_FILLER_PHRASES.some((phrase) => lower.includes(phrase))
 }
-
-export class AIServiceError extends Error {
-  constructor(
-    message: string,
-    public readonly cause?: unknown,
-  ) {
-    super(message)
-    this.name = 'AIServiceError'
-  }
-}
-
-export class AIKeyRejectedError extends AIServiceError {
-  constructor() {
-    super('API key rejected by the AI provider')
-    this.name = 'AIKeyRejectedError'
-  }
-}
-
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
 export const useAISuggestions = defineStore('aiSuggestions', () => {
   const suggestions = ref<AiSuggestion[]>([])
@@ -115,56 +100,29 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     console.log('[AI] System prompt:\n' + systemPrompt)
     console.log('[AI] User message:\n' + userMessage)
 
-    let responseData: unknown
+    let raw: string
     try {
-      const response = await fetch(OPENROUTER_API_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: CLAUDE_MODEL,
-          max_tokens: 16000,
-          messages: [
-            {
-              role: 'system',
-              content: [
-                {
-                  type: 'text',
-                  text: systemPrompt,
-                  cache_control: { type: 'ephemeral' },
-                },
-              ],
-            },
-            { role: 'user', content: userMessage },
-          ],
-        }),
+      raw = await callOpenRouter({
+        apiKey,
+        maxTokens: 16000,
+        messages: [
+          {
+            role: 'system',
+            content: [
+              { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+            ],
+          },
+          { role: 'user', content: userMessage },
+        ],
       })
-
-      if (response.status === 401 || response.status === 403) {
-        throw new AIKeyRejectedError()
-      }
-      if (!response.ok) {
-        throw new AIServiceError(`OpenRouter API returned ${response.status}`)
-      }
-
-      responseData = await response.json()
     } catch (e) {
       isLoading.value = false
-      if (e instanceof AIServiceError) {
-        error.value = e
-        throw e
-      }
-      const err = new AIServiceError('AI service unreachable', e)
+      const err = e instanceof AIServiceError ? e : new AIServiceError('AI service unreachable', e)
       error.value = err
       throw err
     }
 
     try {
-      const raw =
-        (responseData as { choices: Array<{ message: { content: string } }> }).choices[0]?.message
-          ?.content ?? ''
       const start = raw.indexOf('{')
       const end = raw.lastIndexOf('}')
       const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
