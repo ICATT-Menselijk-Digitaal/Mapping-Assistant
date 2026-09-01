@@ -1,25 +1,33 @@
 import { computed, ref } from 'vue'
 import * as yaml from 'js-yaml'
 import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
+import type { MappingSide } from '@/domain/mappingSide'
 import { parseOpenApiSchema } from '@/utils/openApiParser'
 import { buildSchemaFromFields } from '@/utils/schemaFromFields'
 import type { ExportedSchema } from '@/utils/exportSerializer'
-import { sourceSchemaResource } from '@/api/resources'
+import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
+
+const RESOURCES = {
+  source: sourceSchemaResource,
+  target: targetSchemaResource,
+} as const
 
 /**
- * Source-schema state. `schema`/`sourceUrl` are reactive projections of the
- * shared source-schema resource (cache + remote backend); file/URL parsing and
- * transient error/loading flags stay local. Loading a schema writes through the
- * resource, so it persists and follows the workspace across devices.
+ * Schema state for one side (source or target) of a coupling. `schema` /
+ * `sourceUrl` are reactive projections of that side's schema resource (cache +
+ * remote backend); file/URL parsing and transient error/loading flags stay
+ * local. Loading a schema writes through the resource, so it persists and
+ * follows the workspace across devices.
  */
-export function useSourceSchema() {
-  const schema = computed<Schema>(() => sourceSchemaResource.state.value.schema)
-  const sourceUrl = computed<string | null>(() => sourceSchemaResource.state.value.sourceUrl)
+export function useSchemaSide(side: MappingSide) {
+  const resource = RESOURCES[side]
+  const schema = computed<Schema>(() => resource.state.value.schema)
+  const sourceUrl = computed<string | null>(() => resource.state.value.sourceUrl)
   const error = ref<string | null>(null)
   const isLoading = ref(false)
 
   function applySchema(nextSchema: Schema, nextSourceUrl: string | null): void {
-    sourceSchemaResource.write({ schema: nextSchema, sourceUrl: nextSourceUrl })
+    resource.write({ schema: nextSchema, sourceUrl: nextSourceUrl })
   }
 
   function parseContent(content: string): Schema {
@@ -73,7 +81,7 @@ export function useSourceSchema() {
 
   /** Hydrate the persisted schema for the active workspace. */
   function load(): Promise<unknown> {
-    return sourceSchemaResource.load()
+    return resource.load()
   }
 
   return { schema, sourceUrl, error, isLoading, load, loadFromFile, loadFromUrl, restoreFromExport }

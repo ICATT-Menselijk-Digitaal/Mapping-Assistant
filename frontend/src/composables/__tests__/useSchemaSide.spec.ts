@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { useSourceSchema } from '../useSourceSchema'
+import { useSchemaSide } from '../useSchemaSide'
 
 const validYaml = `
 openapi: "3.0.0"
@@ -48,10 +48,10 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('useSourceSchema', () => {
+describe('useSchemaSide (source)', () => {
   // Scenario: Load valid YAML spec via file
   it('loads and parses a valid YAML file', async () => {
-    const { schema, error, loadFromFile } = useSourceSchema()
+    const { schema, error, loadFromFile } = useSchemaSide('source')
     await loadFromFile(makeFile(validYaml, 'spec.yaml'))
 
     expect(error.value).toBeNull()
@@ -61,7 +61,7 @@ describe('useSourceSchema', () => {
 
   // Scenario: Load valid JSON spec via file
   it('loads and parses a valid JSON file', async () => {
-    const { schema, error, loadFromFile } = useSourceSchema()
+    const { schema, error, loadFromFile } = useSchemaSide('source')
     await loadFromFile(makeFile(validJson, 'spec.json'))
 
     expect(error.value).toBeNull()
@@ -70,7 +70,7 @@ describe('useSourceSchema', () => {
 
   // Scenario: Invalid spec selected
   it('sets error when file content is not a valid OpenAPI spec', async () => {
-    const { schema, error, loadFromFile } = useSourceSchema()
+    const { schema, error, loadFromFile } = useSchemaSide('source')
     await loadFromFile(makeFile('not: valid: yaml: {{{', 'bad.yaml'))
 
     expect(error.value).not.toBeNull()
@@ -80,7 +80,7 @@ describe('useSourceSchema', () => {
   // Scenario: Empty spec without schema objects
   it('sets empty fields (no error) when spec has no schema objects', async () => {
     const emptySpec = JSON.stringify({ openapi: '3.0.0', components: { schemas: {} } })
-    const { schema, error, loadFromFile } = useSourceSchema()
+    const { schema, error, loadFromFile } = useSchemaSide('source')
     await loadFromFile(makeFile(emptySpec, 'empty.json'))
 
     expect(error.value).toBeNull()
@@ -97,7 +97,7 @@ describe('useSourceSchema', () => {
       }),
     )
 
-    const { schema, error, loadFromUrl } = useSourceSchema()
+    const { schema, error, loadFromUrl } = useSchemaSide('source')
     await loadFromUrl('https://example.com/api-docs.json')
 
     expect(error.value).toBeNull()
@@ -114,7 +114,7 @@ describe('useSourceSchema', () => {
       }),
     )
 
-    const { schema, error, loadFromUrl } = useSourceSchema()
+    const { schema, error, loadFromUrl } = useSchemaSide('source')
     await loadFromUrl('https://example.com/not-found.json')
 
     expect(error.value).not.toBeNull()
@@ -124,7 +124,7 @@ describe('useSourceSchema', () => {
   it('sets error when fetch throws (network unreachable)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
 
-    const { schema, error, loadFromUrl } = useSourceSchema()
+    const { schema, error, loadFromUrl } = useSchemaSide('source')
     await loadFromUrl('https://unreachable.example.com/')
 
     expect(error.value).not.toBeNull()
@@ -132,7 +132,7 @@ describe('useSourceSchema', () => {
   })
 
   it('exposes the schema name from the spec title', async () => {
-    const { schema, loadFromFile } = useSourceSchema()
+    const { schema, loadFromFile } = useSchemaSide('source')
     await loadFromFile(makeFile(validJson, 'spec.json'))
 
     expect(schema.value.name).toBe('Test')
@@ -147,7 +147,7 @@ describe('useSourceSchema', () => {
       }),
     )
 
-    const { sourceUrl, loadFromUrl } = useSourceSchema()
+    const { sourceUrl, loadFromUrl } = useSchemaSide('source')
     await loadFromUrl('https://example.com/api-docs.json')
 
     expect(sourceUrl.value).toBe('https://example.com/api-docs.json')
@@ -162,7 +162,7 @@ describe('useSourceSchema', () => {
       }),
     )
 
-    const { sourceUrl, loadFromUrl, loadFromFile } = useSourceSchema()
+    const { sourceUrl, loadFromUrl, loadFromFile } = useSchemaSide('source')
     await loadFromUrl('https://example.com/api-docs.json')
     expect(sourceUrl.value).toBe('https://example.com/api-docs.json')
 
@@ -173,9 +173,24 @@ describe('useSourceSchema', () => {
   it('clears the source URL when URL load fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
 
-    const { sourceUrl, loadFromUrl } = useSourceSchema()
+    const { sourceUrl, loadFromUrl } = useSchemaSide('source')
     await loadFromUrl('https://example.com/missing.json')
 
     expect(sourceUrl.value).toBeNull()
+  })
+})
+
+describe('useSchemaSide (target)', () => {
+  // Smoke test for the target side — the composable is fully parameterised
+  // over MappingSide, so one exhaustive suite plus one smoke test on the other
+  // side is enough to catch a wrong-resource wiring bug.
+  it('writes to the target schema resource, not the source resource', async () => {
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
+
+    await tgt.loadFromFile(makeFile(validJson, 'spec.json'))
+
+    expect(tgt.schema.value.all().length).toBeGreaterThan(0)
+    expect(src.schema.value.all()).toHaveLength(0)
   })
 })

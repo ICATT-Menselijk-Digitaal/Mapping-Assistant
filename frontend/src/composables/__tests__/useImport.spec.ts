@@ -3,8 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useImport } from '../useImport'
 import { useMappings } from '../useMappings'
 import { useAISuggestions } from '../useAISuggestions'
-import { useSourceSchema } from '../useSourceSchema'
-import { useTargetSchema } from '../useTargetSchema'
+import { useSchemaSide } from '../useSchemaSide'
 import type { MappingSetExport } from '@/utils/exportSerializer'
 
 const exportPayload: MappingSetExport = {
@@ -62,8 +61,8 @@ beforeEach(() => {
 
 describe('useImport', () => {
   it('restores source schema, target schema, and field mappings from a valid file', async () => {
-    const src = useSourceSchema()
-    const tgt = useTargetSchema()
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
     const mappings = useMappings()
     const importer = useImport()
 
@@ -95,8 +94,8 @@ describe('useImport', () => {
   })
 
   it('emits a MappingSetImported event with the restored payload', async () => {
-    const src = useSourceSchema()
-    const tgt = useTargetSchema()
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
     const importer = useImport()
 
     await importer.importMappingSet(jsonFile(exportPayload), src, tgt)
@@ -108,8 +107,8 @@ describe('useImport', () => {
   })
 
   it('preserves resolvesMismatch on transformation rules so the mismatch stays resolved', async () => {
-    const src = useSourceSchema()
-    const tgt = useTargetSchema()
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
     const mappings = useMappings()
     const importer = useImport()
 
@@ -136,8 +135,8 @@ describe('useImport', () => {
   })
 
   it('restores schemas only when fieldMappings is empty', async () => {
-    const src = useSourceSchema()
-    const tgt = useTargetSchema()
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
     const mappings = useMappings()
     const importer = useImport()
 
@@ -150,8 +149,8 @@ describe('useImport', () => {
   })
 
   it('restores AI statistics from the export payload', async () => {
-    const src = useSourceSchema()
-    const tgt = useTargetSchema()
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
     const ai = useAISuggestions()
     const importer = useImport()
 
@@ -170,8 +169,8 @@ describe('useImport', () => {
   })
 
   it('replaces existing state on import (does not merge)', async () => {
-    const src = useSourceSchema()
-    const tgt = useTargetSchema()
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
     const mappings = useMappings()
     mappings.createMapping({ sourceFieldId: 'existing-src', targetFieldId: 'existing-tgt' })
 
@@ -193,8 +192,8 @@ describe('useImport', () => {
     }
 
     it('sets error and returns null when the file is not valid JSON', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const importer = useImport()
 
       const result = await importer.importMappingSet(invalidJsonFile(), src, tgt)
@@ -205,8 +204,8 @@ describe('useImport', () => {
     })
 
     it('sets error and returns null when the payload shape is invalid', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const importer = useImport()
 
       const result = await importer.importMappingSet(invalidShapeFile(), src, tgt)
@@ -216,8 +215,8 @@ describe('useImport', () => {
     })
 
     it('preserves existing app state when import fails on invalid format', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const mappings = useMappings()
       const ai = useAISuggestions()
 
@@ -238,8 +237,8 @@ describe('useImport', () => {
     })
 
     it('clears the previous error on a successful import', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const importer = useImport()
 
       await importer.importMappingSet(invalidShapeFile(), src, tgt)
@@ -250,8 +249,8 @@ describe('useImport', () => {
     })
 
     it('clearError() resets the error ref', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const importer = useImport()
 
       await importer.importMappingSet(invalidShapeFile(), src, tgt)
@@ -262,8 +261,8 @@ describe('useImport', () => {
     })
 
     it('clearWarnings() resets the warnings ref', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const importer = useImport()
 
       const payload = { ...exportPayload, version: '2.0' }
@@ -275,8 +274,8 @@ describe('useImport', () => {
     })
 
     it('surfaces deserializer warnings (unknown version)', async () => {
-      const src = useSourceSchema()
-      const tgt = useTargetSchema()
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
       const importer = useImport()
 
       const payload = { ...exportPayload, version: '2.0' }

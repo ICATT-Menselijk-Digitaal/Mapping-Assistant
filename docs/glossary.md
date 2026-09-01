@@ -18,6 +18,10 @@ Domain terms used across the Mapping Assistant's specs and issues. See `docs/ste
 
 - **Container field** — a schema field that only groups other fields (e.g. "Zaak" or "initiator") and has no mappable value of its own. Never mappable directly, and never eligible as an AI suggestion candidate — only its leaf fields are. Introduced in [#87](../../issues/87).
 
+## Coupling
+
+- **Mapping side** — either endpoint of a coupling: the *source* (fields being mapped from) or the *target* (fields being mapped to). Encoded in code as `MappingSide = 'source' | 'target'`. Introduced during the schema-side composable refactor (no issue).
+
 ## Trial environment
 
 - **Trial visitor** — someone trying out the Mapping Assistant on the public test environment, typically a dev-team contact rather than the general public. Distinct from the product's primary actor, the Technical administrator. Provides their own AI provider API key rather than using a team-managed one. Introduced in [#84](../../issues/84).
