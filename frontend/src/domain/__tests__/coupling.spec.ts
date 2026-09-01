@@ -87,13 +87,14 @@ describe('analyze — status', () => {
     )
   })
 
-  // Behaviour change from the old validationStatus / transformationCompletion
-  // split: date → date used to report status='compatible' AND a 'date-format'
-  // mismatch — a contradiction. It now correctly reports 'constrained'
-  // because there's an unresolved mismatch.
-  it('returns constrained for date → date (a date-format rule is required)', () => {
+  it('returns compatible for date → date (both are ISO by construction)', () => {
+    // The old split conflated "both are dates" with "formats differ" and
+    // unconditionally raised a date-format mismatch. SchemaField only knows
+    // the type is a date (derived from OpenAPI `format: date` / `date-time`),
+    // not the concrete format string — so with no evidence of a mismatch,
+    // the pair is compatible.
     expect(analyze(field({ dataType: 'date' }), field({ dataType: 'date' })).status).toBe(
-      'constrained',
+      'compatible',
     )
   })
 })
@@ -139,10 +140,14 @@ describe('analyze — mismatches', () => {
     expect(analyze(src, tgt).mismatches).not.toContain('cast')
   })
 
-  it('detects date-format for date → date', () => {
+  it('does not raise a date-format mismatch for date → date', () => {
+    // SchemaField carries no explicit format info; there's nothing to
+    // detect. If format metadata is introduced later, reinstate the check
+    // (and the corresponding mismatch card + DateFormatDialog will become
+    // reachable again).
     const src = field({ dataType: 'date' })
     const tgt = field({ dataType: 'date' })
-    expect(analyze(src, tgt).mismatches).toContain('date-format')
+    expect(analyze(src, tgt).mismatches).not.toContain('date-format')
   })
 
   it('returns no mismatches for an incompatible pair', () => {

@@ -64,9 +64,12 @@ function detectMismatches(source: SchemaField, target: SchemaField): MismatchTyp
     mismatches.push('cast')
   }
 
-  if (source.dataType === 'date' && target.dataType === 'date') {
-    mismatches.push('date-format')
-  }
+  // Note: no `date-format` mismatch is emitted for date → date. SchemaField
+  // only knows a field is a date (OpenAPI `format: date` / `date-time`, both
+  // ISO 8601) — it doesn't carry the concrete format string. Two ISO-shaped
+  // dates need no conversion by default. Bring this back when SchemaField
+  // starts carrying explicit format metadata that lets us detect a genuine
+  // format mismatch.
 
   return mismatches
 }
