@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useMappings } from '@/composables/useMappings'
 import { buildDefaultExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
+import MismatchDialogShell from './MismatchDialogShell.vue'
 
 const props = defineProps<{ mappingId: string; sourcePath: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -23,15 +24,15 @@ function save() {
   })
   emit('close')
 }
-
-function cancel() {
-  emit('close')
-}
 </script>
 
 <template>
-  <div class="p-4 space-y-3">
-    <h3 class="font-medium text-sm">Standaardwaarde instellen</h3>
+  <MismatchDialogShell
+    title="Standaardwaarde instellen"
+    :can-save="canSave"
+    @close="emit('close')"
+    @save="save"
+  >
     <label class="block text-sm">
       Standaardwaarde
       <input
@@ -44,18 +45,5 @@ function cancel() {
     <div v-if="canSave" class="text-xs text-gray-500 font-mono break-all">
       {{ buildDefaultExpression(value, sourcePath) }}
     </div>
-    <div class="flex gap-2 justify-end">
-      <button data-testid="cancel-button" class="px-3 py-1 text-sm border rounded" @click="cancel">
-        Annuleren
-      </button>
-      <button
-        data-testid="save-button"
-        class="px-3 py-1 text-sm bg-blue-600 text-white rounded disabled:opacity-40"
-        :disabled="!canSave"
-        @click="save"
-      >
-        Opslaan
-      </button>
-    </div>
-  </div>
+  </MismatchDialogShell>
 </template>
