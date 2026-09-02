@@ -5,7 +5,8 @@ import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
-import { isMappingComplete } from '@/utils/transformationCompletion'
+import { analyze, isResolved } from '@/domain/coupling'
+import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -40,21 +41,6 @@ watch(selectionNonce, async () => {
   rowRefs.value.get(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
 })
 
-const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
-const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
-  string: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'str' },
-  number: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'num' },
-  boolean: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'bool' },
-  date: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'date' },
-  object: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'obj' },
-  array: { bg: 'bg-cyan-50', text: 'text-cyan-600', label: 'arr' },
-  unknown: FALLBACK_TYPE,
-}
-
-function typeOf(dataType: string) {
-  return typeConfig[dataType] ?? FALLBACK_TYPE
-}
-
 const rows = computed(() =>
   store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => {
     const source = props.sourceSchema.byId(m.sourceFieldId)
@@ -70,7 +56,7 @@ const rows = computed(() =>
       missingTarget: orphaned && !target,
       source,
       target,
-      isComplete: source && target ? isMappingComplete(m, source, target) : false,
+      isComplete: source && target ? isResolved(analyze(source, target), m) : false,
     }
   }),
 )
@@ -242,10 +228,10 @@ function cancelDelete() {
               v-if="row.source"
               :class="[
                 'shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
-                typeOf(row.source.dataType).bg,
-                typeOf(row.source.dataType).text,
+                fieldTypeBadge(row.source.dataType).bg,
+                fieldTypeBadge(row.source.dataType).text,
               ]"
-              >{{ typeOf(row.source.dataType).label }}</span
+              >{{ fieldTypeBadge(row.source.dataType).label }}</span
             >
           </div>
 
@@ -261,10 +247,10 @@ function cancelDelete() {
               v-if="row.target"
               :class="[
                 'shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
-                typeOf(row.target.dataType).bg,
-                typeOf(row.target.dataType).text,
+                fieldTypeBadge(row.target.dataType).bg,
+                fieldTypeBadge(row.target.dataType).text,
               ]"
-              >{{ typeOf(row.target.dataType).label }}</span
+              >{{ fieldTypeBadge(row.target.dataType).label }}</span
             >
           </div>
 

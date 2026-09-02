@@ -5,6 +5,7 @@ import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useSuggestionScope } from '@/composables/useSuggestionScope'
+import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { highlightHtml } from '@/utils/highlightSegments'
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -28,14 +29,6 @@ const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
 // Per Feature #89: only the source side is scope-selectable. Target is
 // always fully included in AI calls, so no scope UI is rendered on it.
 const scopeEnabled = computed(() => scopeSide.value === 'source')
-
-watch(
-  () => props.schema,
-  (s) => {
-    if (scopeEnabled.value) scopeStore.pruneAgainst(scopeSide.value, s)
-  },
-  { immediate: true },
-)
 
 const allRootsSelected = computed(() => {
   const roots = props.schema.roots
@@ -254,21 +247,6 @@ function isFieldExpanded(fieldId: string) {
   return !fieldCollapsed.value[fieldId]
 }
 
-const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
-const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
-  string: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'str' },
-  number: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'num' },
-  boolean: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'bool' },
-  date: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'date' },
-  object: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'obj' },
-  array: { bg: 'bg-cyan-50', text: 'text-cyan-600', label: 'arr' },
-  unknown: FALLBACK_TYPE,
-}
-
-function tc(dataType: string) {
-  return typeConfig[dataType] ?? FALLBACK_TYPE
-}
-
 async function scrollToField(fieldId: string): Promise<void> {
   const path = props.schema.pathOf(fieldId)
   const topLevel = path[0]
@@ -460,11 +438,11 @@ defineExpose({ scrollToField })
                 <span
                   :class="[
                     'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                    tc(field.dataType).bg,
-                    tc(field.dataType).text,
+                    fieldTypeBadge(field.dataType).bg,
+                    fieldTypeBadge(field.dataType).text,
                   ]"
                 >
-                  {{ tc(field.dataType).label }}
+                  {{ fieldTypeBadge(field.dataType).label }}
                 </span>
                 <span
                   v-if="field.required"
@@ -507,11 +485,11 @@ defineExpose({ scrollToField })
                   <span
                     :class="[
                       'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                      tc(child.dataType).bg,
-                      tc(child.dataType).text,
+                      fieldTypeBadge(child.dataType).bg,
+                      fieldTypeBadge(child.dataType).text,
                     ]"
                   >
-                    {{ tc(child.dataType).label }}
+                    {{ fieldTypeBadge(child.dataType).label }}
                   </span>
                   <span
                     v-if="child.required"
@@ -560,11 +538,11 @@ defineExpose({ scrollToField })
               <span
                 :class="[
                   'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                  tc(field.dataType).bg,
-                  tc(field.dataType).text,
+                  fieldTypeBadge(field.dataType).bg,
+                  fieldTypeBadge(field.dataType).text,
                 ]"
               >
-                {{ tc(field.dataType).label }}
+                {{ fieldTypeBadge(field.dataType).label }}
               </span>
               <span
                 v-if="field.required"

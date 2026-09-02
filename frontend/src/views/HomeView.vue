@@ -8,14 +8,13 @@ import ImportButton from '@/components/ImportButton.vue'
 import WorkspaceCode from '@/components/WorkspaceCode.vue'
 import RemoteUpdateBanner from '@/components/RemoteUpdateBanner.vue'
 import { loadAll, startSync, stopSync } from '@/api/sync'
-import { useSourceSchema } from '@/composables/useSourceSchema'
-import { useTargetSchema } from '@/composables/useTargetSchema'
+import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { useImport } from '@/composables/useImport'
 
-const source = useSourceSchema()
-const target = useTargetSchema()
+const source = useSchemaSide('source')
+const target = useSchemaSide('target')
 const {
   schema: sourceSchema,
   sourceUrl: sourceSchemaUrl,

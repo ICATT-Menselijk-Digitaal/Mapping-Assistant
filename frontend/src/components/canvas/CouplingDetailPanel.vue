@@ -3,8 +3,8 @@ import { computed, ref } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useTransformationSuggestions } from '@/composables/useTransformationSuggestions'
-import { getValidationStatus, getIncompatibilityReason } from '@/utils/validationStatus'
-import { getMismatchTypes, isMismatchResolved } from '@/utils/transformationCompletion'
+import { analyze, isMismatchResolved } from '@/domain/coupling'
+import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import type { MismatchType } from '@/types/mapping'
 import TransformationRuleList from './TransformationRuleList.vue'
 import MismatchCard from './MismatchCard.vue'
@@ -21,20 +21,6 @@ const props = defineProps<{
 const store = useMappings()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const suggestionsStore = useTransformationSuggestions() as any
-
-const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
-const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
-  string: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'str' },
-  number: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'num' },
-  boolean: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'bool' },
-  date: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'date' },
-  object: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'obj' },
-  array: { bg: 'bg-cyan-50', text: 'text-cyan-600', label: 'arr' },
-}
-
-function typeOf(dataType: string) {
-  return typeConfig[dataType] ?? FALLBACK_TYPE
-}
 
 const selectedMapping = computed(() =>
   store.selectedMappingId
@@ -54,23 +40,19 @@ const targetField = computed(() =>
     : null,
 )
 
-const validationStatus = computed(() =>
-  sourceField.value && targetField.value
-    ? getValidationStatus(sourceField.value, targetField.value)
-    : null,
+const analysis = computed(() =>
+  sourceField.value && targetField.value ? analyze(sourceField.value, targetField.value) : null,
 )
+
+const validationStatus = computed(() => analysis.value?.status ?? null)
 
 const incompatibilityReason = computed(() =>
-  sourceField.value && targetField.value && validationStatus.value === 'incompatible'
-    ? getIncompatibilityReason(sourceField.value, targetField.value)
+  sourceField.value && targetField.value && analysis.value?.status === 'incompatible'
+    ? `${sourceField.value.dataType} kan niet worden omgezet naar ${targetField.value.dataType}`
     : null,
 )
 
-const detectedMismatches = computed((): MismatchType[] =>
-  sourceField.value && targetField.value
-    ? getMismatchTypes(sourceField.value, targetField.value)
-    : [],
-)
+const detectedMismatches = computed((): MismatchType[] => analysis.value?.mismatches ?? [])
 
 function mismatchLabel(type: MismatchType): string {
   switch (type) {
@@ -147,11 +129,11 @@ async function requestAiSuggestion() {
           <span
             :class="[
               'shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
-              typeOf(sourceField.dataType).bg,
-              typeOf(sourceField.dataType).text,
+              fieldTypeBadge(sourceField.dataType).bg,
+              fieldTypeBadge(sourceField.dataType).text,
             ]"
           >
-            {{ typeOf(sourceField.dataType).label }}
+            {{ fieldTypeBadge(sourceField.dataType).label }}
           </span>
           <span
             v-if="sourceField.required"
@@ -180,11 +162,11 @@ async function requestAiSuggestion() {
           <span
             :class="[
               'shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
-              typeOf(targetField.dataType).bg,
-              typeOf(targetField.dataType).text,
+              fieldTypeBadge(targetField.dataType).bg,
+              fieldTypeBadge(targetField.dataType).text,
             ]"
           >
-            {{ typeOf(targetField.dataType).label }}
+            {{ fieldTypeBadge(targetField.dataType).label }}
           </span>
           <span
             v-if="targetField.required"

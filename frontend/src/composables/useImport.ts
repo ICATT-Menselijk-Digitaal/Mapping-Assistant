@@ -4,11 +4,9 @@ import type { MappingSetExport } from '@/utils/exportSerializer'
 import { deserializeMappingSet, ImportFormatError } from '@/utils/importDeserializer'
 import { useMappings } from './useMappings'
 import { useAISuggestions } from './useAISuggestions'
-import type { useSourceSchema } from './useSourceSchema'
-import type { useTargetSchema } from './useTargetSchema'
+import type { useSchemaSide } from './useSchemaSide'
 
-export type SourceSchemaHandle = ReturnType<typeof useSourceSchema>
-export type TargetSchemaHandle = ReturnType<typeof useTargetSchema>
+export type SchemaSideHandle = ReturnType<typeof useSchemaSide>
 
 export function useImport() {
   const lastEvent = ref<MappingSetImported | null>(null)
@@ -17,8 +15,8 @@ export function useImport() {
 
   async function importMappingSet(
     file: File,
-    source: SourceSchemaHandle,
-    target: TargetSchemaHandle,
+    source: SchemaSideHandle,
+    target: SchemaSideHandle,
   ): Promise<MappingSetExport | null> {
     error.value = null
     warnings.value = []

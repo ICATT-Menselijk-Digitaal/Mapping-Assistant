@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useMappings } from '@/composables/useMappings'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
-import { isMappingComplete } from '@/utils/transformationCompletion'
+import { analyze, isResolved } from '@/domain/coupling'
 import CouplingDetailPanel from '../CouplingDetailPanel.vue'
 import TruncationDialog from '../TruncationDialog.vue'
 
@@ -196,7 +196,7 @@ describe('CouplingDetailPanel — manual mismatch resolution', () => {
   })
 
   // Scenario: Manually resolving the last mismatch turns the mapping indicator green
-  it('isMappingComplete returns true when last mismatch is manually resolved', () => {
+  it('isResolved returns true when last mismatch is manually resolved', () => {
     const store = useMappings()
     const m = store.createMapping({
       sourceFieldId: 'src-str-long',
@@ -206,7 +206,7 @@ describe('CouplingDetailPanel — manual mismatch resolution', () => {
     const src = sourceSchema.byId('src-str-long')!
     const tgt = targetSchema.byId('tgt-str-short')!
     const updatedMapping = store.mappings.find((m2) => m2.id === m.id)!
-    expect(isMappingComplete(updatedMapping, src, tgt)).toBe(true)
+    expect(isResolved(analyze(src, tgt), updatedMapping)).toBe(true)
   })
 })
 
