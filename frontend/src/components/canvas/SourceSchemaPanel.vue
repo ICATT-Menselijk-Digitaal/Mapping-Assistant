@@ -239,12 +239,45 @@ function isGroupExpanded(name: string) {
 }
 
 function toggleField(fieldId: string) {
-  fieldCollapsed.value = { ...fieldCollapsed.value, [fieldId]: !fieldCollapsed.value[fieldId] }
+  const willCollapse = !fieldCollapsed.value[fieldId]
+  fieldCollapsed.value = { ...fieldCollapsed.value, [fieldId]: willCollapse }
+  if (willCollapse) {
+    // Prevent a stale "open" description on a child from resurfacing when its
+    // parent is expanded again — Feature #133 edge case.
+    const next = { ...openDescriptions.value }
+    let touched = false
+    for (const child of props.schema.childrenOf(fieldId)) {
+      if (next[child.id]) {
+        delete next[child.id]
+        touched = true
+      }
+    }
+    if (touched) openDescriptions.value = next
+  }
   nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
 }
 
 function isFieldExpanded(fieldId: string) {
   return !fieldCollapsed.value[fieldId]
+}
+
+const openDescriptions = ref<Record<string, boolean>>({})
+
+function hasDescription(field: SchemaField): boolean {
+  return !!field.description && field.description.trim().length > 0
+}
+
+function isDescriptionOpen(fieldId: string): boolean {
+  return !!openDescriptions.value[fieldId]
+}
+
+function toggleDescription(field: SchemaField) {
+  if (!hasDescription(field)) return
+  openDescriptions.value = {
+    ...openDescriptions.value,
+    [field.id]: !openDescriptions.value[field.id],
+  }
+  nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
 }
 
 async function scrollToField(fieldId: string): Promise<void> {
@@ -419,22 +452,212 @@ defineExpose({ scrollToField })
           <template v-for="field in group.fields" :key="field.id">
             <!-- Field with expandable children -->
             <template v-if="schema.childrenOf(field.id).length > 0">
-              <button
-                :data-testid="`field-toggle-${field.id}`"
-                :data-anchor-field="`${side}:${field.id}`"
-                :data-field-in-group="`${side}:${group.name}`"
-                class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm text-left hover:bg-slate-50 transition-colors cursor-pointer"
-                @click="toggleField(field.id)"
+              <div
+                class="w-full flex items-center border-b border-slate-100 hover:bg-slate-50 transition-colors"
               >
-                <span class="shrink-0 text-slate-400 text-xs">{{
-                  isFieldExpanded(field.id) ? '▾' : '▸'
-                }}</span>
+                <button
+                  :data-testid="`field-toggle-${field.id}`"
+                  :data-anchor-field="`${side}:${field.id}`"
+                  :data-field-in-group="`${side}:${group.name}`"
+                  class="flex-1 flex items-center gap-2 py-2 pl-3 text-sm text-left cursor-pointer"
+                  @click="toggleField(field.id)"
+                >
+                  <span class="shrink-0 text-slate-400 text-xs">{{
+                    isFieldExpanded(field.id) ? '▾' : '▸'
+                  }}</span>
+                  <span
+                    class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
+                    v-html="
+                      highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
+                    "
+                  />
+                  <span
+                    :class="[
+                      'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
+                      fieldTypeBadge(field.dataType).bg,
+                      fieldTypeBadge(field.dataType).text,
+                    ]"
+                  >
+                    {{ fieldTypeBadge(field.dataType).label }}
+                  </span>
+                  <span
+                    v-if="field.required"
+                    data-testid="req-badge"
+                    class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
+                    >REQ</span
+                  >
+                </button>
+                <button
+                  :data-testid="`field-description-toggle-${field.id}`"
+                  :disabled="!hasDescription(field)"
+                  :title="hasDescription(field) ? undefined : 'Geen beschrijving beschikbaar.'"
+                  :aria-expanded="isDescriptionOpen(field.id)"
+                  :aria-label="
+                    !hasDescription(field)
+                      ? 'Geen beschrijving beschikbaar.'
+                      : isDescriptionOpen(field.id)
+                        ? 'Verberg beschrijving'
+                        : 'Toon beschrijving'
+                  "
+                  :class="[
+                    'shrink-0 px-2 py-2 flex items-center',
+                    hasDescription(field)
+                      ? 'text-slate-400 hover:text-slate-600 cursor-pointer'
+                      : 'text-slate-200 cursor-not-allowed',
+                    isDescriptionOpen(field.id) ? 'text-indigo-500 hover:text-indigo-600' : '',
+                  ]"
+                  @click.stop="toggleDescription(field)"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </button>
+              </div>
+              <p
+                v-if="isDescriptionOpen(field.id) && hasDescription(field)"
+                :data-testid="`field-description-${field.id}`"
+                class="text-xs text-slate-600 break-words px-3 py-1.5 border-b border-slate-100 bg-slate-50"
+              >
+                {{ field.description }}
+              </p>
+
+              <!-- Children subtree -->
+              <div
+                v-show="isFieldExpanded(field.id)"
+                :data-testid="`field-children-${field.id}`"
+                class="pl-4 border-l border-slate-100 ml-3"
+              >
+                <template v-for="child in displayedChildrenOf(field.id)" :key="child.id">
+                  <div
+                    :data-field-id="child.id"
+                    :data-field-side="side"
+                    :data-child-of-field="`${side}:${field.id}`"
+                    :data-field-in-group="`${side}:${group.name}`"
+                    :data-highlighted="isFieldHighlighted(child.id)"
+                    :data-selected="isFieldSelected(child.id)"
+                    :aria-selected="isFieldSelected(child.id) || undefined"
+                    :class="[
+                      'w-full flex items-center gap-2 py-2 pl-2 pr-1 border-b border-slate-100 text-sm cursor-pointer',
+                      fieldRowClass(child.id),
+                    ]"
+                    @click="emit('field-click', child.id)"
+                    @mouseenter="mappingsStore.hoverField(child.id, scopeSide)"
+                    @mouseleave="mappingsStore.hoverField(null)"
+                  >
+                    <span
+                      class="font-mono truncate flex-1 text-slate-700 text-[13px]"
+                      v-html="
+                        highlightHtml(child.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
+                      "
+                    />
+                    <span
+                      :class="[
+                        'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
+                        fieldTypeBadge(child.dataType).bg,
+                        fieldTypeBadge(child.dataType).text,
+                      ]"
+                    >
+                      {{ fieldTypeBadge(child.dataType).label }}
+                    </span>
+                    <span
+                      v-if="child.required"
+                      data-testid="req-badge"
+                      class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
+                      >REQ</span
+                    >
+                    <span
+                      v-if="child.dataType === 'string' && child.maxLength != null"
+                      class="text-[10px] text-slate-400 shrink-0"
+                      >max {{ child.maxLength }}</span
+                    >
+                    <button
+                      :data-testid="`field-description-toggle-${child.id}`"
+                      :disabled="!hasDescription(child)"
+                      :title="hasDescription(child) ? undefined : 'Geen beschrijving beschikbaar.'"
+                      :aria-expanded="isDescriptionOpen(child.id)"
+                      :aria-label="
+                        !hasDescription(child)
+                          ? 'Geen beschrijving beschikbaar.'
+                          : isDescriptionOpen(child.id)
+                            ? 'Verberg beschrijving'
+                            : 'Toon beschrijving'
+                      "
+                      :class="[
+                        'shrink-0 px-1.5 py-0.5 flex items-center',
+                        hasDescription(child)
+                          ? 'text-slate-400 hover:text-slate-600 cursor-pointer'
+                          : 'text-slate-200 cursor-not-allowed',
+                        isDescriptionOpen(child.id) ? 'text-indigo-500 hover:text-indigo-600' : '',
+                      ]"
+                      @click.stop="toggleDescription(child)"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="w-3.5 h-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p
+                    v-if="isDescriptionOpen(child.id) && hasDescription(child)"
+                    :data-testid="`field-description-${child.id}`"
+                    class="text-xs text-slate-600 break-words px-3 py-1.5 border-b border-slate-100 bg-slate-50"
+                  >
+                    {{ child.description }}
+                  </p>
+                </template>
+              </div>
+            </template>
+
+            <!-- Leaf field -->
+            <template v-else>
+              <div
+                :data-field-id="field.id"
+                :data-field-side="side"
+                :data-field-in-group="`${side}:${group.name}`"
+                :data-highlighted="isFieldHighlighted(field.id)"
+                :data-selected="isFieldSelected(field.id)"
+                :aria-selected="isFieldSelected(field.id) || undefined"
+                :class="[
+                  'w-full flex items-center gap-2 py-2 pl-3 pr-1 border-b border-slate-100 text-sm cursor-pointer transition-colors',
+                  fieldRowClass(field.id),
+                ]"
+                @click="emit('field-click', field.id)"
+                @mouseenter="mappingsStore.hoverField(field.id, scopeSide)"
+                @mouseleave="mappingsStore.hoverField(null)"
+              >
+                <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
                 <span
                   class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
                   v-html="
                     highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
                   "
                 />
+                <span
+                  v-if="field.dataType === 'string' && field.maxLength != null"
+                  class="text-[10px] text-slate-400 shrink-0"
+                  >max {{ field.maxLength }}</span
+                >
                 <span
                   :class="[
                     'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
@@ -450,107 +673,51 @@ defineExpose({ scrollToField })
                   class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
                   >REQ</span
                 >
-              </button>
-
-              <!-- Children subtree -->
-              <div
-                v-show="isFieldExpanded(field.id)"
-                :data-testid="`field-children-${field.id}`"
-                class="pl-4 border-l border-slate-100 ml-3"
-              >
-                <div
-                  v-for="child in displayedChildrenOf(field.id)"
-                  :key="child.id"
-                  :data-field-id="child.id"
-                  :data-field-side="side"
-                  :data-child-of-field="`${side}:${field.id}`"
-                  :data-field-in-group="`${side}:${group.name}`"
-                  :data-highlighted="isFieldHighlighted(child.id)"
-                  :data-selected="isFieldSelected(child.id)"
-                  :aria-selected="isFieldSelected(child.id) || undefined"
+                <button
+                  :data-testid="`field-description-toggle-${field.id}`"
+                  :disabled="!hasDescription(field)"
+                  :title="hasDescription(field) ? undefined : 'Geen beschrijving beschikbaar.'"
+                  :aria-expanded="isDescriptionOpen(field.id)"
+                  :aria-label="
+                    !hasDescription(field)
+                      ? 'Geen beschrijving beschikbaar.'
+                      : isDescriptionOpen(field.id)
+                        ? 'Verberg beschrijving'
+                        : 'Toon beschrijving'
+                  "
                   :class="[
-                    'w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer',
-                    fieldRowClass(child.id),
+                    'shrink-0 px-1.5 py-0.5 flex items-center',
+                    hasDescription(field)
+                      ? 'text-slate-400 hover:text-slate-600 cursor-pointer'
+                      : 'text-slate-200 cursor-not-allowed',
+                    isDescriptionOpen(field.id) ? 'text-indigo-500 hover:text-indigo-600' : '',
                   ]"
-                  @click="emit('field-click', child.id)"
-                  @mouseenter="mappingsStore.hoverField(child.id, scopeSide)"
-                  @mouseleave="mappingsStore.hoverField(null)"
+                  @click.stop="toggleDescription(field)"
                 >
-                  <span
-                    class="font-mono truncate flex-1 text-slate-700 text-[13px]"
-                    v-html="
-                      highlightHtml(child.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
-                    "
-                  />
-                  <span
-                    :class="[
-                      'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                      fieldTypeBadge(child.dataType).bg,
-                      fieldTypeBadge(child.dataType).text,
-                    ]"
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-3.5 h-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                   >
-                    {{ fieldTypeBadge(child.dataType).label }}
-                  </span>
-                  <span
-                    v-if="child.required"
-                    data-testid="req-badge"
-                    class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
-                    >REQ</span
-                  >
-                  <span
-                    v-if="child.dataType === 'string' && child.maxLength != null"
-                    class="text-[10px] text-slate-400 shrink-0"
-                    >max {{ child.maxLength }}</span
-                  >
-                </div>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </button>
               </div>
+              <p
+                v-if="isDescriptionOpen(field.id) && hasDescription(field)"
+                :data-testid="`field-description-${field.id}`"
+                class="text-xs text-slate-600 break-words px-3 py-1.5 border-b border-slate-100 bg-slate-50"
+              >
+                {{ field.description }}
+              </p>
             </template>
-
-            <!-- Leaf field -->
-            <div
-              v-else
-              :data-field-id="field.id"
-              :data-field-side="side"
-              :data-field-in-group="`${side}:${group.name}`"
-              :data-highlighted="isFieldHighlighted(field.id)"
-              :data-selected="isFieldSelected(field.id)"
-              :aria-selected="isFieldSelected(field.id) || undefined"
-              :class="[
-                'w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer transition-colors',
-                fieldRowClass(field.id),
-              ]"
-              @click="emit('field-click', field.id)"
-              @mouseenter="mappingsStore.hoverField(field.id, scopeSide)"
-              @mouseleave="mappingsStore.hoverField(null)"
-            >
-              <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
-              <span
-                class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
-                v-html="
-                  highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
-                "
-              />
-              <span
-                v-if="field.dataType === 'string' && field.maxLength != null"
-                class="text-[10px] text-slate-400 shrink-0"
-                >max {{ field.maxLength }}</span
-              >
-              <span
-                :class="[
-                  'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                  fieldTypeBadge(field.dataType).bg,
-                  fieldTypeBadge(field.dataType).text,
-                ]"
-              >
-                {{ fieldTypeBadge(field.dataType).label }}
-              </span>
-              <span
-                v-if="field.required"
-                data-testid="req-badge"
-                class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
-                >REQ</span
-              >
-            </div>
           </template>
         </div>
       </div>

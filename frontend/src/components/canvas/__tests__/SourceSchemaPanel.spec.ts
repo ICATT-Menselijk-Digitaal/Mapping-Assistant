@@ -634,6 +634,180 @@ describe('Search and status filter', () => {
   })
 })
 
+// Feature #133 — Technical administrator can view field descriptions in the schema panel
+describe('Field descriptions', () => {
+  const leafWithDescription: SchemaFieldNode[] = [
+    node({
+      name: 'cityName',
+      path: 'cityName',
+      id: 'cityName',
+      description: 'The full name of the city.',
+    }),
+  ]
+
+  const leafWithoutDescription: SchemaFieldNode[] = [
+    node({ name: 'cityName', path: 'cityName', id: 'cityName' }),
+  ]
+
+  const nestedWithDescriptions: SchemaFieldNode[] = [
+    node({
+      name: 'adres',
+      path: 'adres',
+      id: 'adres',
+      dataType: 'object',
+      description: 'The postal address of the person.',
+      children: [
+        node({
+          name: 'straat',
+          path: 'adres.straat',
+          id: 'adres.straat',
+          description: 'Street name including house number.',
+        }),
+      ],
+    }),
+  ]
+
+  // Scenario: Opening a field's description
+  it('reveals the description inline when the indicator is clicked', async () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(leafWithDescription) },
+    })
+    expect(wrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
+    const desc = wrapper.find('[data-testid="field-description-cityName"]')
+    expect(desc.exists()).toBe(true)
+    expect(desc.text()).toBe('The full name of the city.')
+  })
+
+  it('reflects the open state on the indicator button', async () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(leafWithDescription) },
+    })
+    const toggle = () => wrapper.find('[data-testid="field-description-toggle-cityName"]')
+    expect(toggle().attributes('aria-expanded')).toBe('false')
+    await toggle().trigger('click')
+    expect(toggle().attributes('aria-expanded')).toBe('true')
+  })
+
+  // Scenario: Closing an already-open description
+  it('hides the description when the indicator is clicked again', async () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(leafWithDescription) },
+    })
+    await wrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
+  })
+
+  // Scenario: Field with no description
+  it('renders a disabled indicator with fallback tooltip when the field has no description', async () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(leafWithoutDescription) },
+    })
+    const toggle = wrapper.find('[data-testid="field-description-toggle-cityName"]')
+    expect(toggle.exists()).toBe(true)
+    expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
+    expect(toggle.attributes('title')).toBe('Geen beschrijving beschikbaar.')
+    await toggle.trigger('click')
+    expect(wrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
+  })
+
+  it('shows an indicator on every row type — leaf, expandable container, and nested child', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf([...nestedWithDescriptions, ...leafWithDescription]) },
+      attachTo: div,
+    })
+    // Container
+    expect(wrapper.find('[data-testid="field-description-toggle-adres"]').exists()).toBe(true)
+    // Top-level leaf
+    expect(wrapper.find('[data-testid="field-description-toggle-cityName"]').exists()).toBe(true)
+    // Expand parent to reveal the nested child
+    await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-description-toggle-adres.straat"]').exists()).toBe(
+      true,
+    )
+    wrapper.unmount()
+    div.remove()
+  })
+
+  // Scenario: Long descriptions wrap within the row
+  it('applies break-words to the rendered description text', async () => {
+    const longDesc = [
+      node({
+        name: 'note',
+        path: 'note',
+        id: 'note',
+        description: 'x'.repeat(400),
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(longDesc) } })
+    await wrapper.find('[data-testid="field-description-toggle-note"]').trigger('click')
+    const desc = wrapper.find('[data-testid="field-description-note"]')
+    expect(desc.classes()).toContain('break-words')
+  })
+
+  // Scenario: Parent collapse auto-closes an open child description
+  it('closes an open child description when its parent container is collapsed', async () => {
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(nestedWithDescriptions) },
+      attachTo: div,
+    })
+    await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
+    await wrapper.find('[data-testid="field-description-toggle-adres.straat"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-description-adres.straat"]').exists()).toBe(true)
+    // Collapse parent
+    await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
+    // Re-expand parent — the previously-open child description must NOT resurface
+    await wrapper.find('[data-testid="field-toggle-adres"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-description-adres.straat"]').exists()).toBe(false)
+    wrapper.unmount()
+    div.remove()
+  })
+
+  // Scenario: Source and target open states are independent
+  it('tracks open descriptions independently per panel instance', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const sourceWrapper = mount(SourceSchemaPanel, {
+      global: { plugins: [pinia] },
+      props: { schema: schemaOf(leafWithDescription), side: 'source' },
+    })
+    const targetWrapper = mount(SourceSchemaPanel, {
+      global: { plugins: [pinia] },
+      props: { schema: schemaOf(leafWithDescription), side: 'target' },
+    })
+    await sourceWrapper
+      .find('[data-testid="field-description-toggle-cityName"]')
+      .trigger('click')
+    expect(sourceWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
+    expect(targetWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
+    await targetWrapper
+      .find('[data-testid="field-description-toggle-cityName"]')
+      .trigger('click')
+    // Both open, still independent — closing target does not close source.
+    expect(sourceWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
+    expect(targetWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
+    await targetWrapper
+      .find('[data-testid="field-description-toggle-cityName"]')
+      .trigger('click')
+    expect(sourceWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
+    expect(targetWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
+  })
+
+  it('does not fire field-click when clicking the description indicator on a leaf row', async () => {
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(leafWithDescription) },
+    })
+    await wrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
+    expect(wrapper.emitted('field-click')).toBeUndefined()
+  })
+})
+
 describe('Search term highlighting', () => {
   function mountPanel(nodes: SchemaFieldNode[]) {
     return mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
