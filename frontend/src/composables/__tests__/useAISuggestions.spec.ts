@@ -1479,4 +1479,97 @@ describe('useAISuggestions', () => {
       ).toBe(false)
     })
   })
+
+  // Task #145 (Feature #127) — tracing an AI suggestion on the schema panel
+  describe('traceSuggestion', () => {
+    it('sets tracedSuggestionId and bumps selectionNonce', () => {
+      const store = useAISuggestions()
+      const before = store.selectionNonce
+
+      store.traceSuggestion('sug-1')
+
+      expect(store.tracedSuggestionId).toBe('sug-1')
+      expect(store.selectionNonce).toBe(before + 1)
+    })
+
+    it('clears the trace when the same suggestion is traced again', () => {
+      const store = useAISuggestions()
+      store.traceSuggestion('sug-1')
+
+      store.traceSuggestion('sug-1')
+
+      expect(store.tracedSuggestionId).toBeNull()
+    })
+
+    it('replaces the trace when a different suggestion is traced', () => {
+      const store = useAISuggestions()
+      store.traceSuggestion('sug-1')
+
+      store.traceSuggestion('sug-2')
+
+      expect(store.tracedSuggestionId).toBe('sug-2')
+    })
+
+    it('bumps selectionNonce even when the traced id is unchanged (re-scroll)', () => {
+      const store = useAISuggestions()
+      store.traceSuggestion('sug-1')
+      // "Same suggestion re-selected" case: after a clear + set to the same
+      // id, the nonce still ticks. This is what lets the canvas re-scroll to
+      // an already-traced suggestion.
+      const beforeSecondTrace = store.selectionNonce
+
+      store.traceSuggestion('sug-1') // clears
+      store.traceSuggestion('sug-1') // sets again
+
+      expect(store.selectionNonce).toBe(beforeSecondTrace + 2)
+    })
+
+    it('clears the trace when the traced suggestion is accepted', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) }),
+      )
+      const store = useAISuggestions()
+      const [first] = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+      store.traceSuggestion(first!.id)
+
+      store.acceptSuggestion(first!.id)
+
+      expect(store.tracedSuggestionId).toBeNull()
+    })
+
+    it('clears the trace when the traced suggestion is rejected', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) }),
+      )
+      const store = useAISuggestions()
+      const [first] = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+      store.traceSuggestion(first!.id)
+
+      store.rejectSuggestion(first!.id)
+
+      expect(store.tracedSuggestionId).toBeNull()
+    })
+
+    it('leaves the trace intact when a different suggestion is accepted', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) }),
+      )
+      const store = useAISuggestions()
+      const [first, second] = await store.generateSuggestions(sourceFields, unmappedTargetFields)
+      store.traceSuggestion(first!.id)
+
+      store.acceptSuggestion(second!.id)
+
+      expect(store.tracedSuggestionId).toBe(first!.id)
+    })
+  })
 })

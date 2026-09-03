@@ -41,6 +41,22 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   const lowConfidenceSuggestions = ref<AiSuggestion[]>([])
   const isLoading = ref(false)
   const error = ref<AIServiceError | null>(null)
+  // At most one suggestion is traced on the canvas at a time. Kept next to
+  // the suggestions arrays (not in useMappings) so accept/reject can clear
+  // this locally without a cross-store hop. Mirrors the selectionNonce
+  // pattern from useMappings: watchers that need to fire on re-trace (e.g.
+  // scrolling to the same fields again) watch the nonce, not the id.
+  const tracedSuggestionId = ref<string | null>(null)
+  const selectionNonce = ref(0)
+
+  function traceSuggestion(id: string | null): void {
+    if (id === tracedSuggestionId.value) {
+      tracedSuggestionId.value = null
+    } else {
+      tracedSuggestionId.value = id
+    }
+    selectionNonce.value++
+  }
 
   // Accumulated AI statistics live in the shared aiStats resource (persisted +
   // workspace-scoped). Counters are writable projections (set seeds the resource,
@@ -218,6 +234,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     } else {
       lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
     }
+    if (tracedSuggestionId.value === id) tracedSuggestionId.value = null
     aiStatsResource.update((stats) => ({ ...stats, accepted: stats.accepted + 1 }))
   }
 
@@ -232,6 +249,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     } else {
       lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
     }
+    if (tracedSuggestionId.value === id) tracedSuggestionId.value = null
     const pairKey = `${suggestion.sourceFieldId}::${suggestion.targetFieldId}`
     aiStatsResource.update((stats) => ({
       ...stats,
@@ -245,6 +263,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   function restoreStatistics(stats: ExportedAIStatistics): void {
     suggestions.value = []
     lowConfidenceSuggestions.value = []
+    tracedSuggestionId.value = null
     aiStatsResource.write({
       totalGenerated: stats.totalGenerated,
       accepted: stats.accepted,
@@ -258,6 +277,8 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     lowConfidenceSuggestions,
     isLoading,
     error,
+    tracedSuggestionId,
+    selectionNonce,
     accepted,
     rejected,
     totalGenerated,
@@ -265,6 +286,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     generateSuggestions,
     acceptSuggestion,
     rejectSuggestion,
+    traceSuggestion,
     restoreStatistics,
   }
 })
