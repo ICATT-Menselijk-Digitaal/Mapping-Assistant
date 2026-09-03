@@ -4,6 +4,8 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MappingCanvas from '../MappingCanvas.vue'
 import { useMappings } from '@/composables/useMappings'
+import { useAISuggestions } from '@/composables/useAISuggestions'
+import type { AiSuggestion } from '@/types'
 import { buildSchema, EMPTY_SCHEMA, type SchemaFieldNode } from '@/domain/schema'
 
 const sourceNodes: SchemaFieldNode[] = [
@@ -373,6 +375,107 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     await flushPromises()
 
     expect(scrollIntoViewMock).toHaveBeenCalledWith(expect.objectContaining({ block: 'center' }))
+
+    wrapper.unmount()
+  })
+})
+
+// Task #145 (Feature #127) — scroll on traced AI suggestion
+describe('Scroll to suggested fields when a suggestion is traced', () => {
+  const scrollIntoViewMock = vi.fn<() => void>()
+
+  beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+  })
+
+  afterEach(() => {
+    scrollIntoViewMock.mockReset()
+  })
+
+  function seedSuggestion(): AiSuggestion {
+    const suggestion: AiSuggestion = {
+      id: 'sug-1',
+      sourceFieldId: 'src-1',
+      targetFieldId: 'tgt-1',
+      confidenceScore: 0.9,
+      reasoning: 'omdat de veldnamen overeenkomen',
+      status: 'pending',
+    }
+    useAISuggestions().suggestions.push(suggestion)
+    return suggestion
+  }
+
+  it('calls scrollIntoView on both source and target field elements when a suggestion is traced', async () => {
+    const wrapper = mountCanvas()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+    await wrapper.vm.$nextTick()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+  })
+
+  it('scrolls again when the same traced suggestion is clicked twice in a row (toggle off + toggle back on)', async () => {
+    const wrapper = mountCanvas()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+    await wrapper.vm.$nextTick()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    aiStore.traceSuggestion(suggestion.id) // clears
+    await flushPromises()
+    aiStore.traceSuggestion(suggestion.id) // sets again
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+  })
+
+  it('does not scroll when the trace is cleared (traceSuggestion toggles off)', async () => {
+    const wrapper = mountCanvas()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+    await wrapper.vm.$nextTick()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    aiStore.traceSuggestion(suggestion.id) // clears
+    await flushPromises()
+
+    expect(scrollIntoViewMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  it('also resolves suggestions from the low-confidence list', async () => {
+    const wrapper = mountCanvas()
+    const aiStore = useAISuggestions()
+    const suggestion: AiSuggestion = {
+      id: 'sug-low',
+      sourceFieldId: 'src-2',
+      targetFieldId: 'tgt-2',
+      confidenceScore: 0.4,
+      reasoning: 'zwakke maar plausibele match',
+      status: 'pending',
+    }
+    aiStore.lowConfidenceSuggestions.push(suggestion)
+    await wrapper.vm.$nextTick()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
 
     wrapper.unmount()
   })
