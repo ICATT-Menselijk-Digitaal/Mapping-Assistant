@@ -240,8 +240,10 @@ async function changeKey() {
           :target-name="s.targetName"
           :confidence-score="s.confidenceScore"
           :reasoning="s.reasoning"
+          :traced="aiStore.tracedSuggestionId === s.id"
           @accept="aiStore.acceptSuggestion($event, { source: sourceSchema, target: targetSchema })"
           @reject="aiStore.rejectSuggestion($event)"
+          @trace="aiStore.traceSuggestion($event)"
         />
 
         <!-- Low-confidence collapsible -->
@@ -277,10 +279,12 @@ async function changeKey() {
               :target-name="s.targetName"
               :confidence-score="s.confidenceScore"
               :reasoning="s.reasoning"
+              :traced="aiStore.tracedSuggestionId === s.id"
               @accept="
                 aiStore.acceptSuggestion($event, { source: sourceSchema, target: targetSchema })
               "
               @reject="aiStore.rejectSuggestion($event)"
+              @trace="aiStore.traceSuggestion($event)"
             />
           </div>
         </div>

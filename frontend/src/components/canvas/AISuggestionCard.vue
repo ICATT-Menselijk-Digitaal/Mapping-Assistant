@@ -9,13 +9,15 @@ withDefaults(
     confidenceScore: number
     reasoning?: string
     interactive?: boolean
+    traced?: boolean
   }>(),
-  { interactive: true },
+  { interactive: true, traced: false },
 )
 
 const emit = defineEmits<{
   accept: [id: string]
   reject: [id: string]
+  trace: [id: string]
 }>()
 
 const expanded = ref(false)
@@ -29,8 +31,15 @@ function badge(score: number) {
 
 <template>
   <div
-    class="border-l-2 border-[--color-source] bg-white border border-slate-200 rounded px-3 py-2.5 flex flex-col gap-2"
+    class="border-l-2 border-[--color-source] bg-white border border-slate-200 rounded px-3 py-2.5 flex flex-col gap-2 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-colors"
+    :class="traced ? 'ring-2 ring-indigo-400 bg-slate-50' : ''"
+    :data-traced="traced"
+    role="button"
+    tabindex="0"
     data-testid="suggestion-card"
+    @click="emit('trace', suggestionId)"
+    @keydown.enter.prevent="emit('trace', suggestionId)"
+    @keydown.space.prevent="emit('trace', suggestionId)"
   >
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <div class="flex items-center gap-1.5 text-[13px] font-mono min-w-0 flex-1">
@@ -52,7 +61,7 @@ function badge(score: number) {
       <button
         class="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600"
         data-testid="toelichting-toggle"
-        @click="expanded = !expanded"
+        @click.stop="expanded = !expanded"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -79,14 +88,14 @@ function badge(score: number) {
       <button
         class="flex-1 px-3 py-1 text-xs font-medium bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
         data-testid="accept-button"
-        @click="emit('accept', suggestionId)"
+        @click.stop="emit('accept', suggestionId)"
       >
         Accepteer
       </button>
       <button
         class="flex-1 px-3 py-1 text-xs font-medium border border-slate-300 text-slate-600 hover:bg-slate-50 rounded transition-colors"
         data-testid="reject-button"
-        @click="emit('reject', suggestionId)"
+        @click.stop="emit('reject', suggestionId)"
       >
         Afwijzen
       </button>
