@@ -713,6 +713,21 @@ describe('Field descriptions', () => {
     expect(wrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
   })
 
+  it('treats a description that only echoes the field name as absent (case-insensitive, trimmed)', async () => {
+    const echoNodes: SchemaFieldNode[] = [
+      node({
+        name: 'cityName',
+        path: 'cityName',
+        id: 'cityName',
+        description: '  CITYNAME  ',
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(echoNodes) } })
+    const toggle = wrapper.find('[data-testid="field-description-toggle-cityName"]')
+    expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
+    expect(toggle.attributes('title')).toBe('Geen beschrijving beschikbaar.')
+  })
+
   it('shows an indicator on every row type — leaf, expandable container, and nested child', async () => {
     const div = document.createElement('div')
     document.body.appendChild(div)

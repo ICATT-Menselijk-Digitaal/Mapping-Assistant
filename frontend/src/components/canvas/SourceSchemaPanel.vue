@@ -264,7 +264,11 @@ function isFieldExpanded(fieldId: string) {
 const openDescriptions = ref<Record<string, boolean>>({})
 
 function hasDescription(field: SchemaField): boolean {
-  return !!field.description && field.description.trim().length > 0
+  const desc = field.description?.trim()
+  if (!desc) return false
+  // A description that just echoes the field's own name adds no information
+  // over what the row already shows — treat it as absent.
+  return desc.toLowerCase() !== field.name.trim().toLowerCase()
 }
 
 function isDescriptionOpen(fieldId: string): boolean {
