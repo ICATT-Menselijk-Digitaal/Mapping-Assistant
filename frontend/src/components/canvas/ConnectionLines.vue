@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useMappings } from '@/composables/useMappings'
+import { useAISuggestions } from '@/composables/useAISuggestions'
 import { storeToRefs } from 'pinia'
 
 const mappingsStore = useMappings()
 const { mappings, selectedMappingId, hoveredMappingId, hoveredFieldId, hoveredFieldSide } =
   storeToRefs(mappingsStore)
+const aiStore = useAISuggestions()
+const {
+  tracedSuggestionId,
+  selectionNonce: traceSelectionNonce,
+  suggestions: aiSuggestions,
+  lowConfidenceSuggestions: aiLowConfidenceSuggestions,
+} = storeToRefs(aiStore)
 
 interface LineCoords {
   id: string
@@ -23,6 +31,7 @@ interface DotCoords {
 
 const lines = ref<LineCoords[]>([])
 const dots = ref<DotCoords[]>([])
+const traceLine = ref<LineCoords | null>(null)
 const svgRef = ref<SVGSVGElement | null>(null)
 
 function bezierPath(line: LineCoords): string {
@@ -144,6 +153,28 @@ function getFieldMidY(fieldId: string, side: 'source' | 'target'): FieldPosition
   return null
 }
 
+// Traced AI suggestion (Feature #127) — computed the same way as mapping
+// lines but rendered separately as a dashed line in a distinct colour.
+// Returns null when the traced suggestion no longer resolves (e.g. it was
+// accepted or rejected mid-render) so the temp line disappears cleanly.
+//
+// Scope-change-mid-trace is not handled here because it can't happen:
+// `useSuggestionScope` only gates future `generateSuggestions()` calls; it
+// never prunes the existing `suggestions`/`lowConfidenceSuggestions` arrays,
+// so a traced suggestion stays resolvable across scope toggles.
+function computeTraceLine(): LineCoords | null {
+  const traceId = tracedSuggestionId.value
+  if (!traceId) return null
+  const suggestion =
+    aiSuggestions.value.find((s) => s.id === traceId) ??
+    aiLowConfidenceSuggestions.value.find((s) => s.id === traceId)
+  if (!suggestion) return null
+  const start = getFieldMidY(suggestion.sourceFieldId, 'source')
+  const end = getFieldMidY(suggestion.targetFieldId, 'target')
+  if (!start || !end) return null
+  return { id: traceId, x1: start.x, y1: start.y, x2: end.x, y2: end.y }
+}
+
 function recalculate() {
   const result: LineCoords[] = []
   const dotsByKey = new Map<string, DotCoords>()
@@ -172,9 +203,14 @@ function recalculate() {
 
   lines.value = result
   dots.value = Array.from(dotsByKey.values())
+  traceLine.value = computeTraceLine()
 }
 
+const tracePath = computed(() => (traceLine.value ? bezierPath(traceLine.value) : null))
+
 watch(mappings, () => nextTick(recalculate), { deep: true })
+watch(tracedSuggestionId, () => nextTick(recalculate))
+watch(traceSelectionNonce, () => nextTick(recalculate))
 
 let scrollParent: HTMLElement | null = null
 
@@ -242,6 +278,27 @@ onUnmounted(() => {
         :fill="line.focused ? '#4f46e5' : '#6366f1'"
         :fill-opacity="line.focused ? 1 : line.dimmed ? 0.15 : 0.7"
       />
+    </g>
+
+    <!-- Temporary trace line for an AI suggestion under review (Feature #127).
+         Dashed AND a distinct colour so it cannot be mistaken for a confirmed
+         mapping. Rendered after the regular lines so it stays on top. -->
+    <g
+      v-if="traceLine && tracePath"
+      style="pointer-events: none"
+      data-testid="suggestion-trace-line"
+    >
+      <path
+        :d="tracePath"
+        fill="none"
+        stroke="#f59e0b"
+        stroke-width="2"
+        stroke-dasharray="6 4"
+        stroke-opacity="0.9"
+        data-testid="suggestion-trace-path"
+      />
+      <circle :cx="traceLine.x1" :cy="traceLine.y1" r="4" fill="#f59e0b" fill-opacity="0.9" />
+      <circle :cx="traceLine.x2" :cy="traceLine.y2" r="4" fill="#f59e0b" fill-opacity="0.9" />
     </g>
 
     <!-- One dot per collapsed object that has a mapped field whose
