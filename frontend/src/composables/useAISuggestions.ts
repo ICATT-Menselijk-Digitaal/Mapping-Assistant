@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
@@ -57,6 +57,39 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     }
     selectionNonce.value++
   }
+
+  // Keep suggestions consistent with actual mappings: if the administrator
+  // manually maps a pair that a suggestion had proposed, drop that
+  // suggestion (and clear its trace if any). Without this, the same pair
+  // would show both a confirmed mapping line and a temporary trace line —
+  // one visual for two things — and the card would stay actionable for an
+  // accept that would silently no-op (createMapping dedupes exact pairs).
+  const mappingsStore = useMappings()
+  watch(
+    () => mappingsStore.mappings,
+    (list) => {
+      if (list.length === 0) return
+      const mapped = new Set(list.map((m) => `${m.sourceFieldId}::${m.targetFieldId}`))
+      const isMapped = (s: AiSuggestion) => mapped.has(`${s.sourceFieldId}::${s.targetFieldId}`)
+
+      const prunedHigh = suggestions.value.filter((s) => !isMapped(s))
+      if (prunedHigh.length !== suggestions.value.length) suggestions.value = prunedHigh
+
+      const prunedLow = lowConfidenceSuggestions.value.filter((s) => !isMapped(s))
+      if (prunedLow.length !== lowConfidenceSuggestions.value.length) {
+        lowConfidenceSuggestions.value = prunedLow
+      }
+
+      if (
+        tracedSuggestionId.value &&
+        !prunedHigh.some((s) => s.id === tracedSuggestionId.value) &&
+        !prunedLow.some((s) => s.id === tracedSuggestionId.value)
+      ) {
+        tracedSuggestionId.value = null
+      }
+    },
+    { deep: true, flush: 'sync' },
+  )
 
   // Accumulated AI statistics live in the shared aiStats resource (persisted +
   // workspace-scoped). Counters are writable projections (set seeds the resource,
@@ -222,7 +255,6 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     const suggestion = inHigh ?? inLow
     if (!suggestion) return
 
-    const mappingsStore = useMappings()
     mappingsStore.createMapping({
       sourceFieldId: suggestion.sourceFieldId,
       targetFieldId: suggestion.targetFieldId,
