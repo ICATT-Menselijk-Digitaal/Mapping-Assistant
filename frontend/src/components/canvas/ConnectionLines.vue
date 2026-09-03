@@ -153,6 +153,28 @@ function getFieldMidY(fieldId: string, side: 'source' | 'target'): FieldPosition
   return null
 }
 
+// Traced AI suggestion (Feature #127) — computed the same way as mapping
+// lines but rendered separately as a dashed line in a distinct colour.
+// Returns null when the traced suggestion no longer resolves (e.g. it was
+// accepted or rejected mid-render) so the temp line disappears cleanly.
+//
+// Scope-change-mid-trace is not handled here because it can't happen:
+// `useSuggestionScope` only gates future `generateSuggestions()` calls; it
+// never prunes the existing `suggestions`/`lowConfidenceSuggestions` arrays,
+// so a traced suggestion stays resolvable across scope toggles.
+function computeTraceLine(): LineCoords | null {
+  const traceId = tracedSuggestionId.value
+  if (!traceId) return null
+  const suggestion =
+    aiSuggestions.value.find((s) => s.id === traceId) ??
+    aiLowConfidenceSuggestions.value.find((s) => s.id === traceId)
+  if (!suggestion) return null
+  const start = getFieldMidY(suggestion.sourceFieldId, 'source')
+  const end = getFieldMidY(suggestion.targetFieldId, 'target')
+  if (!start || !end) return null
+  return { id: traceId, x1: start.x, y1: start.y, x2: end.x, y2: end.y }
+}
+
 function recalculate() {
   const result: LineCoords[] = []
   const dotsByKey = new Map<string, DotCoords>()
@@ -181,30 +203,7 @@ function recalculate() {
 
   lines.value = result
   dots.value = Array.from(dotsByKey.values())
-
-  // Traced AI suggestion (Feature #127) — computed the same way as mapping
-  // lines but rendered separately as a dashed line in a distinct colour.
-  // Uses null when the traced suggestion no longer resolves (e.g. it was
-  // accepted or rejected mid-render) so the temp line disappears cleanly.
-  const traceId = tracedSuggestionId.value
-  if (traceId) {
-    const suggestion =
-      aiSuggestions.value.find((s) => s.id === traceId) ??
-      aiLowConfidenceSuggestions.value.find((s) => s.id === traceId)
-    if (suggestion) {
-      const start = getFieldMidY(suggestion.sourceFieldId, 'source')
-      const end = getFieldMidY(suggestion.targetFieldId, 'target')
-      if (start && end) {
-        traceLine.value = { id: traceId, x1: start.x, y1: start.y, x2: end.x, y2: end.y }
-      } else {
-        traceLine.value = null
-      }
-    } else {
-      traceLine.value = null
-    }
-  } else {
-    traceLine.value = null
-  }
+  traceLine.value = computeTraceLine()
 }
 
 const tracePath = computed(() => (traceLine.value ? bezierPath(traceLine.value) : null))

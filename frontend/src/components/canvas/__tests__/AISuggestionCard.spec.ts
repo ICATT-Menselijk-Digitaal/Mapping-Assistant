@@ -192,6 +192,25 @@ describe('AISuggestionCard', () => {
       expect(wrapper.emitted('trace')).toBeFalsy()
     })
 
+    it('emits trace when Enter is pressed on the focused card', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="suggestion-card"]').trigger('keydown', { key: 'Enter' })
+      expect(wrapper.emitted('trace')).toEqual([['sug-1']])
+    })
+
+    it('emits trace when Space is pressed on the focused card', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="suggestion-card"]').trigger('keydown', { key: ' ' })
+      expect(wrapper.emitted('trace')).toEqual([['sug-1']])
+    })
+
+    it('exposes the card as a keyboard-focusable button', () => {
+      const wrapper = mountCard()
+      const card = wrapper.find('[data-testid="suggestion-card"]')
+      expect(card.attributes('role')).toBe('button')
+      expect(card.attributes('tabindex')).toBe('0')
+    })
+
     it('marks the card as traced via data-traced when the traced prop is true', () => {
       const wrapper = mount(AISuggestionCard, {
         props: {
