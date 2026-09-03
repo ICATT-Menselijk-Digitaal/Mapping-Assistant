@@ -453,39 +453,24 @@ defineExpose({ scrollToField })
             <!-- Field with expandable children -->
             <template v-if="schema.childrenOf(field.id).length > 0">
               <div
-                class="w-full flex items-center border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm hover:bg-slate-50 transition-colors"
               >
                 <button
                   :data-testid="`field-toggle-${field.id}`"
                   :data-anchor-field="`${side}:${field.id}`"
                   :data-field-in-group="`${side}:${group.name}`"
-                  class="flex-1 flex items-center gap-2 py-2 pl-3 text-sm text-left cursor-pointer"
+                  class="min-w-0 flex items-center gap-2 text-left cursor-pointer"
                   @click="toggleField(field.id)"
                 >
                   <span class="shrink-0 text-slate-400 text-xs">{{
                     isFieldExpanded(field.id) ? '▾' : '▸'
                   }}</span>
                   <span
-                    class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
+                    class="font-mono truncate text-slate-800 font-medium text-[13px]"
                     v-html="
                       highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
                     "
                   />
-                  <span
-                    :class="[
-                      'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                      fieldTypeBadge(field.dataType).bg,
-                      fieldTypeBadge(field.dataType).text,
-                    ]"
-                  >
-                    {{ fieldTypeBadge(field.dataType).label }}
-                  </span>
-                  <span
-                    v-if="field.required"
-                    data-testid="req-badge"
-                    class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
-                    >REQ</span
-                  >
                 </button>
                 <button
                   :data-testid="`field-description-toggle-${field.id}`"
@@ -500,7 +485,7 @@ defineExpose({ scrollToField })
                         : 'Toon beschrijving'
                   "
                   :class="[
-                    'shrink-0 px-2 py-2 flex items-center',
+                    'shrink-0 flex items-center',
                     hasDescription(field)
                       ? 'text-slate-400 hover:text-slate-600 cursor-pointer'
                       : 'text-slate-200 cursor-not-allowed',
@@ -523,6 +508,22 @@ defineExpose({ scrollToField })
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </button>
+                <span class="flex-1" />
+                <span
+                  :class="[
+                    'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
+                    fieldTypeBadge(field.dataType).bg,
+                    fieldTypeBadge(field.dataType).text,
+                  ]"
+                >
+                  {{ fieldTypeBadge(field.dataType).label }}
+                </span>
+                <span
+                  v-if="field.required"
+                  data-testid="req-badge"
+                  class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
+                  >REQ</span
+                >
               </div>
               <p
                 v-if="isDescriptionOpen(field.id) && hasDescription(field)"
@@ -556,31 +557,11 @@ defineExpose({ scrollToField })
                     @mouseleave="mappingsStore.hoverField(null)"
                   >
                     <span
-                      class="font-mono truncate flex-1 text-slate-700 text-[13px]"
+                      class="font-mono truncate min-w-0 text-slate-700 text-[13px]"
                       v-html="
                         highlightHtml(child.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
                       "
                     />
-                    <span
-                      :class="[
-                        'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                        fieldTypeBadge(child.dataType).bg,
-                        fieldTypeBadge(child.dataType).text,
-                      ]"
-                    >
-                      {{ fieldTypeBadge(child.dataType).label }}
-                    </span>
-                    <span
-                      v-if="child.required"
-                      data-testid="req-badge"
-                      class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
-                      >REQ</span
-                    >
-                    <span
-                      v-if="child.dataType === 'string' && child.maxLength != null"
-                      class="text-[10px] text-slate-400 shrink-0"
-                      >max {{ child.maxLength }}</span
-                    >
                     <button
                       :data-testid="`field-description-toggle-${child.id}`"
                       :disabled="!hasDescription(child)"
@@ -594,7 +575,7 @@ defineExpose({ scrollToField })
                             : 'Toon beschrijving'
                       "
                       :class="[
-                        'shrink-0 px-1.5 py-0.5 flex items-center',
+                        'shrink-0 flex items-center',
                         hasDescription(child)
                           ? 'text-slate-400 hover:text-slate-600 cursor-pointer'
                           : 'text-slate-200 cursor-not-allowed',
@@ -617,6 +598,27 @@ defineExpose({ scrollToField })
                         <line x1="12" y1="8" x2="12.01" y2="8" />
                       </svg>
                     </button>
+                    <span class="flex-1" />
+                    <span
+                      :class="[
+                        'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
+                        fieldTypeBadge(child.dataType).bg,
+                        fieldTypeBadge(child.dataType).text,
+                      ]"
+                    >
+                      {{ fieldTypeBadge(child.dataType).label }}
+                    </span>
+                    <span
+                      v-if="child.required"
+                      data-testid="req-badge"
+                      class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
+                      >REQ</span
+                    >
+                    <span
+                      v-if="child.dataType === 'string' && child.maxLength != null"
+                      class="text-[10px] text-slate-400 shrink-0"
+                      >max {{ child.maxLength }}</span
+                    >
                   </div>
                   <p
                     v-if="isDescriptionOpen(child.id) && hasDescription(child)"
@@ -648,31 +650,11 @@ defineExpose({ scrollToField })
               >
                 <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
                 <span
-                  class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]"
+                  class="font-mono truncate min-w-0 text-slate-800 font-medium text-[13px]"
                   v-html="
                     highlightHtml(field.name, searchQuery, 'bg-yellow-200 text-inherit rounded')
                   "
                 />
-                <span
-                  v-if="field.dataType === 'string' && field.maxLength != null"
-                  class="text-[10px] text-slate-400 shrink-0"
-                  >max {{ field.maxLength }}</span
-                >
-                <span
-                  :class="[
-                    'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
-                    fieldTypeBadge(field.dataType).bg,
-                    fieldTypeBadge(field.dataType).text,
-                  ]"
-                >
-                  {{ fieldTypeBadge(field.dataType).label }}
-                </span>
-                <span
-                  v-if="field.required"
-                  data-testid="req-badge"
-                  class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
-                  >REQ</span
-                >
                 <button
                   :data-testid="`field-description-toggle-${field.id}`"
                   :disabled="!hasDescription(field)"
@@ -686,7 +668,7 @@ defineExpose({ scrollToField })
                         : 'Toon beschrijving'
                   "
                   :class="[
-                    'shrink-0 px-1.5 py-0.5 flex items-center',
+                    'shrink-0 flex items-center',
                     hasDescription(field)
                       ? 'text-slate-400 hover:text-slate-600 cursor-pointer'
                       : 'text-slate-200 cursor-not-allowed',
@@ -709,6 +691,27 @@ defineExpose({ scrollToField })
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </button>
+                <span class="flex-1" />
+                <span
+                  v-if="field.dataType === 'string' && field.maxLength != null"
+                  class="text-[10px] text-slate-400 shrink-0"
+                  >max {{ field.maxLength }}</span
+                >
+                <span
+                  :class="[
+                    'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
+                    fieldTypeBadge(field.dataType).bg,
+                    fieldTypeBadge(field.dataType).text,
+                  ]"
+                >
+                  {{ fieldTypeBadge(field.dataType).label }}
+                </span>
+                <span
+                  v-if="field.required"
+                  data-testid="req-badge"
+                  class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
+                  >REQ</span
+                >
               </div>
               <p
                 v-if="isDescriptionOpen(field.id) && hasDescription(field)"
