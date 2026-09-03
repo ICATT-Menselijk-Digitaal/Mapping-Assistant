@@ -796,20 +796,14 @@ describe('Field descriptions', () => {
       global: { plugins: [pinia] },
       props: { schema: schemaOf(leafWithDescription), side: 'target' },
     })
-    await sourceWrapper
-      .find('[data-testid="field-description-toggle-cityName"]')
-      .trigger('click')
+    await sourceWrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
     expect(sourceWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
     expect(targetWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
-    await targetWrapper
-      .find('[data-testid="field-description-toggle-cityName"]')
-      .trigger('click')
+    await targetWrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
     // Both open, still independent — closing target does not close source.
     expect(sourceWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
     expect(targetWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
-    await targetWrapper
-      .find('[data-testid="field-description-toggle-cityName"]')
-      .trigger('click')
+    await targetWrapper.find('[data-testid="field-description-toggle-cityName"]').trigger('click')
     expect(sourceWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(true)
     expect(targetWrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
   })
