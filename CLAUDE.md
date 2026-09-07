@@ -1,5 +1,12 @@
 # Mapping Assistent
 
+## GitHub repository
+
+The canonical repo is **ICATT-Menselijk-Digitaal/Mapping-Assistant**:
+https://github.com/ICATT-Menselijk-Digitaal/Mapping-Assistant/
+
+The local git remote points to a fork (`kim-icatt/mapping-assistent`), so `gh repo view` returns the wrong repo. Always pass `--repo ICATT-Menselijk-Digitaal/Mapping-Assistant` to every `gh` command that creates or reads issues/PRs.
+
 ## Skills
 
 Custom skills live in `.agents/skills/`. Invoke them with the Skill tool using the filename as the skill name (e.g. `wtf.implement-task`).
