@@ -457,14 +457,15 @@ defineExpose({ scrollToField })
             <!-- Field with expandable children -->
             <template v-if="schema.childrenOf(field.id).length > 0">
               <div
-                class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm hover:bg-slate-50 transition-colors"
+                class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                @click="toggleField(field.id)"
               >
                 <button
                   :data-testid="`field-toggle-${field.id}`"
                   :data-anchor-field="`${side}:${field.id}`"
                   :data-field-in-group="`${side}:${group.name}`"
                   class="min-w-0 flex items-center gap-2 text-left cursor-pointer"
-                  @click="toggleField(field.id)"
+                  @click.stop="toggleField(field.id)"
                 >
                   <span class="shrink-0 text-slate-400 text-xs">{{
                     isFieldExpanded(field.id) ? '▾' : '▸'
