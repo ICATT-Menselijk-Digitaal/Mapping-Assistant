@@ -24,6 +24,7 @@ const { selectedMappingId, selectionNonce } = storeToRefs(store)
 const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
 const searchQuery = ref('')
+const filterStatus = ref<'all' | 'actionRequired'>('all')
 const currentTab = computed(() => props.activeTab ?? 'koppelingen')
 const rowRefs = ref<Map<string, HTMLElement>>(new Map())
 
@@ -71,14 +72,24 @@ function statusIcon(row: { validationStatus: string; isComplete: boolean }): {
   return { text: 'text-emerald-600', symbol: '✓' }
 }
 
+function requiresAction(row: { validationStatus: string; isComplete: boolean }): boolean {
+  return (
+    row.validationStatus === 'incompatible' ||
+    (row.validationStatus === 'constrained' && !row.isComplete)
+  )
+}
+
 const filteredRows = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return rows.value
-  return rows.value.filter(
-    (r) =>
+  const status = filterStatus.value
+  return rows.value.filter((r) => {
+    if (status === 'actionRequired' && !requiresAction(r)) return false
+    if (!q) return true
+    return (
       (r.source?.name ?? r.sourceFieldId).toLowerCase().includes(q) ||
-      (r.target?.name ?? r.targetFieldId).toLowerCase().includes(q),
-  )
+      (r.target?.name ?? r.targetFieldId).toLowerCase().includes(q)
+    )
+  })
 })
 
 const pendingDeleteRow = computed(() =>
@@ -142,10 +153,10 @@ function cancelDelete() {
       </button>
     </div>
 
-    <!-- Search input (koppelingen tab only, when rows exist) -->
+    <!-- Search input + status filter (koppelingen tab only, when rows exist) -->
     <div
       v-if="currentTab === 'koppelingen' && rows.length > 0"
-      class="px-3 py-2 border-b border-slate-100"
+      class="px-3 py-2 border-b border-slate-100 flex flex-col gap-2"
     >
       <input
         v-model="searchQuery"
@@ -154,6 +165,32 @@ function cancelDelete() {
         class="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400"
         data-testid="search-input"
       />
+      <div role="group" class="flex gap-1">
+        <button
+          :class="[
+            'flex-1 text-[11px] px-2 py-1 rounded border transition-colors',
+            filterStatus === 'all'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-300'
+              : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700',
+          ]"
+          data-testid="filter-all"
+          @click="filterStatus = 'all'"
+        >
+          Alle
+        </button>
+        <button
+          :class="[
+            'flex-1 text-[11px] px-2 py-1 rounded border transition-colors',
+            filterStatus === 'actionRequired'
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-300'
+              : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700',
+          ]"
+          data-testid="filter-action-required"
+          @click="filterStatus = 'actionRequired'"
+        >
+          Actie vereist
+        </button>
+      </div>
     </div>
 
     <!-- AI Suggesties tab -->
@@ -174,13 +211,14 @@ function cancelDelete() {
       <p class="mt-1">Selecteer een bronveld en een doelveld om te beginnen.</p>
     </div>
 
-    <!-- Koppelingen tab: no-results state (query matches nothing) -->
+    <!-- Koppelingen tab: no-results state (search + filter matches nothing) -->
     <div
       v-else-if="filteredRows.length === 0"
       class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
       data-testid="no-results"
     >
-      <p>Geen koppelingen gevonden voor '{{ searchQuery }}'.</p>
+      <p v-if="searchQuery">Geen koppelingen gevonden voor '{{ searchQuery }}'.</p>
+      <p v-else>Geen koppelingen die actie vereisen.</p>
     </div>
 
     <!-- Koppelingen tab: mapping rows -->

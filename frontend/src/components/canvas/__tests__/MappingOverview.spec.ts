@@ -474,6 +474,122 @@ describe('MappingOverview', () => {
     expect(store.selectedMappingId).toBeNull()
   })
 
+  // Scenario: Filtering to "Actie vereist" hides resolved mappings
+  it('shows only action-required mappings when the "Actie vereist" filter is active', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible ✓
+    store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // constrained ! (unresolved)
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible ✕
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(3)
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(rows).toHaveLength(2)
+    const iconClasses = rows.map((r) => r.find('[data-testid="validation-status"]').classes())
+    expect(iconClasses.some((c) => c.includes('text-red-500'))).toBe(true)
+    expect(iconClasses.some((c) => c.includes('text-amber-600'))).toBe(true)
+    expect(iconClasses.every((c) => !c.includes('text-emerald-600'))).toBe(true)
+  })
+
+  // Scenario: A resolved-constrained mapping falls under "Alle", not "Actie vereist"
+  it('hides a constrained mapping once all mismatches are resolved when filtering to "Actie vereist"', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' })!
+    store.addTransformationRule(mapping.id, {
+      expression: '$length($) > 10 ? $substring($, 0, 7) & "..." : $',
+      label: 'Afkappen',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'truncate',
+    })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+
+  // Scenario: Clearing back to "Alle" restores every mapping
+  it('restores every mapping when the filter is set back to "Alle"', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="filter-all"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(2)
+  })
+
+  // Scenario: Combining "Actie vereist" with the field-name search
+  it('combines the "Actie vereist" filter with the field-name search using AND', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // constrained, beschrijving → code
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible, adres → label
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(2)
+
+    await wrapper.find('[data-testid="search-input"]').setValue('beschrijving')
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.text()).toContain('beschrijving')
+    expect(rows[0]!.text()).not.toContain('adres')
+  })
+
+  // Scenario: Combined filter and search yielding zero matches
+  it('shows the no-results state when the filter and search yield no matches', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.find('[data-testid="search-input"]').setValue('nomatchxyz')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="no-results"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+
+  // Scenario: An orphaned mapping falls under "Actie vereist"
+  it('keeps an orphaned mapping visible when filtering to "Actie vereist"', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [
+        { sourceField: 'src-num', targetField: 'tgt-str', transformations: [] }, // compatible
+        { sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] }, // orphaned
+      ],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.find('[data-testid="orphan-indicator"]').exists()).toBe(true)
+  })
+
   it('still lets the administrator remove an orphaned mapping', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
