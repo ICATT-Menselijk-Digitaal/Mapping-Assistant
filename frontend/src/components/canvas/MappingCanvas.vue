@@ -6,6 +6,7 @@ import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
 import { useMappings } from '@/composables/useMappings'
+import { useAISuggestions } from '@/composables/useAISuggestions'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -25,6 +26,13 @@ const emit = defineEmits<{
 
 const mappingsStore = useMappings()
 const { selectedMappingId, selectionNonce, mappings } = storeToRefs(mappingsStore)
+const aiStore = useAISuggestions()
+const {
+  tracedSuggestionId,
+  selectionNonce: traceSelectionNonce,
+  suggestions: aiSuggestions,
+  lowConfidenceSuggestions: aiLowConfidenceSuggestions,
+} = storeToRefs(aiStore)
 const selectedSourceId = ref<string | null>(null)
 
 const sourcePanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
@@ -64,6 +72,23 @@ watch(selectionNonce, async () => {
   await nextTick()
   sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
   targetPanelRef.value?.scrollToField(mapping.targetFieldId)
+})
+
+// Traced AI suggestion (Task #145 / Feature #127): mirrors the mapping-
+// selection watcher above so scrolling behaves identically for a suggestion
+// under review. Watches traceSelectionNonce so clicking the same suggestion
+// still re-scrolls; a value-based watch on tracedSuggestionId would no-op
+// after the toggle-off/toggle-on sequence.
+watch(traceSelectionNonce, async () => {
+  const id = tracedSuggestionId.value
+  if (!id) return
+  const suggestion =
+    aiSuggestions.value.find((s) => s.id === id) ??
+    aiLowConfidenceSuggestions.value.find((s) => s.id === id)
+  if (!suggestion) return
+  await nextTick()
+  sourcePanelRef.value?.scrollToField(suggestion.sourceFieldId)
+  targetPanelRef.value?.scrollToField(suggestion.targetFieldId)
 })
 
 const sourceCounter = computed(() => {

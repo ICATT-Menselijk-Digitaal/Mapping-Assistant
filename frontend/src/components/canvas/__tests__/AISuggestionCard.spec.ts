@@ -150,4 +150,78 @@ describe('AISuggestionCard', () => {
       expect(text.classes()).toContain('break-words')
     })
   })
+
+  // Task #145 (Feature #127) — trace-on-click
+  describe('trace interaction', () => {
+    it('emits trace with the suggestion id when the card body is clicked', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="suggestion-card"]').trigger('click')
+      expect(wrapper.emitted('trace')).toEqual([['sug-1']])
+    })
+
+    it('shows the card as clickable via cursor-pointer', () => {
+      const wrapper = mountCard()
+      expect(wrapper.find('[data-testid="suggestion-card"]').classes()).toContain('cursor-pointer')
+    })
+
+    it('does not emit trace when the Accepteer button is clicked', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="accept-button"]').trigger('click')
+      expect(wrapper.emitted('trace')).toBeFalsy()
+      expect(wrapper.emitted('accept')).toEqual([['sug-1']])
+    })
+
+    it('does not emit trace when the Afwijzen button is clicked', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="reject-button"]').trigger('click')
+      expect(wrapper.emitted('trace')).toBeFalsy()
+      expect(wrapper.emitted('reject')).toEqual([['sug-1']])
+    })
+
+    it('does not emit trace when the Toelichting toggle is clicked', async () => {
+      const wrapper = mount(AISuggestionCard, {
+        props: {
+          suggestionId: 'sug-1',
+          sourceName: 'a',
+          targetName: 'b',
+          confidenceScore: 0.9,
+          reasoning: 'omdat de veldnamen overeenkomen',
+        },
+      })
+      await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+      expect(wrapper.emitted('trace')).toBeFalsy()
+    })
+
+    it('emits trace when Enter is pressed on the focused card', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="suggestion-card"]').trigger('keydown', { key: 'Enter' })
+      expect(wrapper.emitted('trace')).toEqual([['sug-1']])
+    })
+
+    it('emits trace when Space is pressed on the focused card', async () => {
+      const wrapper = mountCard()
+      await wrapper.find('[data-testid="suggestion-card"]').trigger('keydown', { key: ' ' })
+      expect(wrapper.emitted('trace')).toEqual([['sug-1']])
+    })
+
+    it('exposes the card as a keyboard-focusable button', () => {
+      const wrapper = mountCard()
+      const card = wrapper.find('[data-testid="suggestion-card"]')
+      expect(card.attributes('role')).toBe('button')
+      expect(card.attributes('tabindex')).toBe('0')
+    })
+
+    it('marks the card as traced via data-traced when the traced prop is true', () => {
+      const wrapper = mount(AISuggestionCard, {
+        props: {
+          suggestionId: 'sug-1',
+          sourceName: 'a',
+          targetName: 'b',
+          confidenceScore: 0.9,
+          traced: true,
+        },
+      })
+      expect(wrapper.find('[data-testid="suggestion-card"]').attributes('data-traced')).toBe('true')
+    })
+  })
 })
