@@ -3,6 +3,8 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ConnectionLines from '../ConnectionLines.vue'
 import { useMappings } from '@/composables/useMappings'
+import { useAISuggestions } from '@/composables/useAISuggestions'
+import type { AiSuggestion } from '@/types'
 
 function mountWithContainers() {
   const pinia = createPinia()
@@ -479,5 +481,158 @@ describe('ConnectionLines', () => {
 
     addSpy.mockRestore()
     removeSpy.mockRestore()
+  })
+})
+
+// Task #145 (Feature #127) — temporary trace line for a traced AI suggestion
+describe('Suggestion trace line', () => {
+  function attachFields(sourceId: string, targetId: string) {
+    const srcEl = document.createElement('div')
+    srcEl.setAttribute('data-field-id', sourceId)
+    srcEl.setAttribute('data-field-side', 'source')
+    document.body.appendChild(srcEl)
+
+    const tgtEl = document.createElement('div')
+    tgtEl.setAttribute('data-field-id', targetId)
+    tgtEl.setAttribute('data-field-side', 'target')
+    document.body.appendChild(tgtEl)
+  }
+
+  function seedSuggestion(sourceId = 'src-1', targetId = 'tgt-1'): AiSuggestion {
+    const suggestion: AiSuggestion = {
+      id: 'sug-1',
+      sourceFieldId: sourceId,
+      targetFieldId: targetId,
+      confidenceScore: 0.9,
+      reasoning: 'omdat de veldnamen overeenkomen',
+      status: 'pending',
+    }
+    useAISuggestions().suggestions.push(suggestion)
+    return suggestion
+  }
+
+  it('renders no trace line when no suggestion is traced', () => {
+    attachFields('src-1', 'tgt-1')
+    const { wrapper } = mountWithContainers()
+    seedSuggestion()
+
+    expect(wrapper.find('[data-testid="suggestion-trace-line"]').exists()).toBe(false)
+  })
+
+  it('renders a trace line when a suggestion is traced', async () => {
+    attachFields('src-1', 'tgt-1')
+    const { wrapper } = mountWithContainers()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-trace-line"]').exists()).toBe(true)
+  })
+
+  it('renders the trace path as dashed and visually distinct from confirmed mappings', async () => {
+    attachFields('src-1', 'tgt-1')
+    const { wrapper } = mountWithContainers()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const path = wrapper.find('[data-testid="suggestion-trace-path"]')
+    expect(path.exists()).toBe(true)
+    expect(path.attributes('stroke-dasharray')).toBeTruthy()
+    // Confirmed mapping lines are indigo (#6366f1 / #4f46e5); the trace line
+    // must use a different hue so the two are never confused at a glance.
+    expect(path.attributes('stroke')).not.toBe('#6366f1')
+    expect(path.attributes('stroke')).not.toBe('#4f46e5')
+  })
+
+  it('removes the trace line when the trace is cleared', async () => {
+    attachFields('src-1', 'tgt-1')
+    const { wrapper } = mountWithContainers()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="suggestion-trace-line"]').exists()).toBe(true)
+
+    aiStore.traceSuggestion(suggestion.id) // toggle off
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-trace-line"]').exists()).toBe(false)
+  })
+
+  it('removes the trace line when the traced suggestion is accepted', async () => {
+    attachFields('src-1', 'tgt-1')
+    const { wrapper } = mountWithContainers()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    aiStore.acceptSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-trace-line"]').exists()).toBe(false)
+  })
+
+  it('removes the trace line when the traced suggestion is rejected', async () => {
+    attachFields('src-1', 'tgt-1')
+    const { wrapper } = mountWithContainers()
+    const aiStore = useAISuggestions()
+    const suggestion = seedSuggestion()
+
+    aiStore.traceSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    aiStore.rejectSuggestion(suggestion.id)
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="suggestion-trace-line"]').exists()).toBe(false)
+  })
+
+  it('only ever renders one trace line at a time (replaces on trace of a different suggestion)', async () => {
+    attachFields('src-1', 'tgt-1')
+    attachFields('src-2', 'tgt-2')
+    const { wrapper } = mountWithContainers()
+    const aiStore = useAISuggestions()
+    aiStore.suggestions.push({
+      id: 'sug-1',
+      sourceFieldId: 'src-1',
+      targetFieldId: 'tgt-1',
+      confidenceScore: 0.9,
+      reasoning: 'omdat de veldnamen overeenkomen',
+      status: 'pending',
+    })
+    aiStore.suggestions.push({
+      id: 'sug-2',
+      sourceFieldId: 'src-2',
+      targetFieldId: 'tgt-2',
+      confidenceScore: 0.9,
+      reasoning: 'ook een goede match',
+      status: 'pending',
+    })
+
+    aiStore.traceSuggestion('sug-1')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    aiStore.traceSuggestion('sug-2')
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="suggestion-trace-line"]')).toHaveLength(1)
   })
 })
