@@ -10,7 +10,10 @@
       "Bash(gh sub-issue *)",
       "Bash(npx vitest *)",
       "Bash(xargs grep *)",
-      "PowerShell(npm run *)"
+      "PowerShell(npm run *)",
+      "PowerShell(gh sub-issue *)",
+      "Bash(git add *)",
+      "Bash(git rebase *)"
     ]
   }
 }
