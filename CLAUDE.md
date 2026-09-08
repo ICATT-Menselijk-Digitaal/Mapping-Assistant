@@ -13,10 +13,10 @@ Two namespaces: `wtf.*` is the generic, reusable Epic→Feature→Task workflow 
 Before opening any PR (and after finishing a feature/task implementation), MUST run:
 
 ```bash
-cd frontend && npm run lint
+cd frontend && npm run lint && npm run format:ci
 ```
 
-Fix all errors before proceeding. Do not create the PR if lint fails.
+If `format:ci` fails, run `npx prettier --write src/` to auto-fix, then re-run `format:ci` to confirm. Fix all errors before creating the PR.
 
 ## PowerShell UTF-8 encoding guard (Windows)
 
