@@ -261,10 +261,7 @@ function cancelDelete() {
           <!-- Source field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
             <span class="font-mono text-slate-800 text-[13px] flex-1 min-w-0">
-              <FieldPath
-                v-if="row.source"
-                :path="row.source.path"
-              />
+              <FieldPath v-if="row.source" :path="row.source.path" />
               <template v-else>{{ row.sourceFieldId }}</template>
             </span>
             <span
@@ -284,10 +281,7 @@ function cancelDelete() {
           <!-- Target field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
             <span class="font-mono text-slate-800 text-[13px] flex-1 min-w-0">
-              <FieldPath
-                v-if="row.target"
-                :path="row.target.path"
-              />
+              <FieldPath v-if="row.target" :path="row.target.path" />
               <template v-else>{{ row.targetFieldId }}</template>
             </span>
             <span
@@ -338,20 +332,14 @@ function cancelDelete() {
         <p class="text-sm text-slate-700 mb-4">
           Verwijder koppeling van
           <span class="font-mono font-semibold text-slate-900">
-            <FieldPath
-              v-if="pendingDeleteRow.source"
-              :path="pendingDeleteRow.source.path"
-            />
+            <FieldPath v-if="pendingDeleteRow.source" :path="pendingDeleteRow.source.path" />
             <template v-else>{{ pendingDeleteRow.sourceFieldId }}</template>
           </span>
           naar
           <span class="font-mono font-semibold text-slate-900">
-            <FieldPath
-              v-if="pendingDeleteRow.target"
-              :path="pendingDeleteRow.target.path"
-            />
-            <template v-else>{{ pendingDeleteRow.targetFieldId }}</template>
-          </span>?
+            <FieldPath v-if="pendingDeleteRow.target" :path="pendingDeleteRow.target.path" />
+            <template v-else>{{ pendingDeleteRow.targetFieldId }}</template> </span
+          >?
         </p>
         <div class="flex justify-end gap-2">
           <button
