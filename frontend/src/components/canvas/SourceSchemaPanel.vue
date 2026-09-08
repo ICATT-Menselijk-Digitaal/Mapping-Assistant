@@ -481,7 +481,9 @@ defineExpose({ scrollToField })
                   :data-testid="`field-description-toggle-${field.id}`"
                   :disabled="!hasDescription(field)"
                   :aria-expanded="isDescriptionOpen(field.id)"
-                  :aria-label="isDescriptionOpen(field.id) ? 'Verberg beschrijving' : 'Toon beschrijving'"
+                  :aria-label="
+                    isDescriptionOpen(field.id) ? 'Verberg beschrijving' : 'Toon beschrijving'
+                  "
                   :class="[
                     'shrink-0 flex items-center',
                     hasDescription(field)
@@ -564,7 +566,9 @@ defineExpose({ scrollToField })
                       :data-testid="`field-description-toggle-${child.id}`"
                       :disabled="!hasDescription(child)"
                       :aria-expanded="isDescriptionOpen(child.id)"
-                      :aria-label="isDescriptionOpen(child.id) ? 'Verberg beschrijving' : 'Toon beschrijving'"
+                      :aria-label="
+                        isDescriptionOpen(child.id) ? 'Verberg beschrijving' : 'Toon beschrijving'
+                      "
                       :class="[
                         'shrink-0 flex items-center',
                         hasDescription(child)
@@ -650,7 +654,9 @@ defineExpose({ scrollToField })
                   :data-testid="`field-description-toggle-${field.id}`"
                   :disabled="!hasDescription(field)"
                   :aria-expanded="isDescriptionOpen(field.id)"
-                  :aria-label="isDescriptionOpen(field.id) ? 'Verberg beschrijving' : 'Toon beschrijving'"
+                  :aria-label="
+                    isDescriptionOpen(field.id) ? 'Verberg beschrijving' : 'Toon beschrijving'
+                  "
                   :class="[
                     'shrink-0 flex items-center',
                     hasDescription(field)
