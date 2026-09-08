@@ -9,7 +9,8 @@
       "Bash(gh pr *)",
       "Bash(gh sub-issue *)",
       "Bash(npx vitest *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "PowerShell(npm run *)"
     ]
   }
 }

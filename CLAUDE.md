@@ -15,6 +15,16 @@ Two namespaces: `wtf.*` is the generic, reusable Epic→Feature→Task workflow 
 
 **Planning a Feature's implementation:** use `map.implement-feature-with-single-task`, not `wtf.write-task` / `wtf.feature-to-tasks` directly. This repo always plans a Feature as a single Task on the Feature's own branch, regardless of Feature size.
 
+## Linter gate
+
+Before opening any PR (and after finishing a feature/task implementation), MUST run:
+
+```bash
+cd frontend && npm run lint && npm run format:ci
+```
+
+If `format:ci` fails, run `npx prettier --write src/` to auto-fix, then re-run `format:ci` to confirm. Fix all errors before creating the PR.
+
 ## PowerShell UTF-8 encoding guard (Windows)
 
 Before any `gh` command that reads or writes issue/PR bodies, MUST set UTF-8 encoding:

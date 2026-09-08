@@ -480,14 +480,9 @@ defineExpose({ scrollToField })
                 <button
                   :data-testid="`field-description-toggle-${field.id}`"
                   :disabled="!hasDescription(field)"
-                  :title="hasDescription(field) ? undefined : 'Geen beschrijving beschikbaar.'"
                   :aria-expanded="isDescriptionOpen(field.id)"
                   :aria-label="
-                    !hasDescription(field)
-                      ? 'Geen beschrijving beschikbaar.'
-                      : isDescriptionOpen(field.id)
-                        ? 'Verberg beschrijving'
-                        : 'Toon beschrijving'
+                    isDescriptionOpen(field.id) ? 'Verberg beschrijving' : 'Toon beschrijving'
                   "
                   :class="[
                     'shrink-0 flex items-center',
@@ -570,14 +565,9 @@ defineExpose({ scrollToField })
                     <button
                       :data-testid="`field-description-toggle-${child.id}`"
                       :disabled="!hasDescription(child)"
-                      :title="hasDescription(child) ? undefined : 'Geen beschrijving beschikbaar.'"
                       :aria-expanded="isDescriptionOpen(child.id)"
                       :aria-label="
-                        !hasDescription(child)
-                          ? 'Geen beschrijving beschikbaar.'
-                          : isDescriptionOpen(child.id)
-                            ? 'Verberg beschrijving'
-                            : 'Toon beschrijving'
+                        isDescriptionOpen(child.id) ? 'Verberg beschrijving' : 'Toon beschrijving'
                       "
                       :class="[
                         'shrink-0 flex items-center',
@@ -663,14 +653,9 @@ defineExpose({ scrollToField })
                 <button
                   :data-testid="`field-description-toggle-${field.id}`"
                   :disabled="!hasDescription(field)"
-                  :title="hasDescription(field) ? undefined : 'Geen beschrijving beschikbaar.'"
                   :aria-expanded="isDescriptionOpen(field.id)"
                   :aria-label="
-                    !hasDescription(field)
-                      ? 'Geen beschrijving beschikbaar.'
-                      : isDescriptionOpen(field.id)
-                        ? 'Verberg beschrijving'
-                        : 'Toon beschrijving'
+                    isDescriptionOpen(field.id) ? 'Verberg beschrijving' : 'Toon beschrijving'
                   "
                   :class="[
                     'shrink-0 flex items-center',

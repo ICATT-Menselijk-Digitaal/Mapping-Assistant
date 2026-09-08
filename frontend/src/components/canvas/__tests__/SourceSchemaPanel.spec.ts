@@ -701,14 +701,14 @@ describe('Field descriptions', () => {
   })
 
   // Scenario: Field with no description
-  it('renders a disabled indicator with fallback tooltip when the field has no description', async () => {
+  it('renders a disabled indicator with no tooltip when the field has no description', async () => {
     const wrapper = mount(SourceSchemaPanel, {
       props: { schema: schemaOf(leafWithoutDescription) },
     })
     const toggle = wrapper.find('[data-testid="field-description-toggle-cityName"]')
     expect(toggle.exists()).toBe(true)
     expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
-    expect(toggle.attributes('title')).toBe('Geen beschrijving beschikbaar.')
+    expect(toggle.attributes('title')).toBeUndefined()
     await toggle.trigger('click')
     expect(wrapper.find('[data-testid="field-description-cityName"]').exists()).toBe(false)
   })
@@ -725,7 +725,7 @@ describe('Field descriptions', () => {
     const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(echoNodes) } })
     const toggle = wrapper.find('[data-testid="field-description-toggle-cityName"]')
     expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
-    expect(toggle.attributes('title')).toBe('Geen beschrijving beschikbaar.')
+    expect(toggle.attributes('title')).toBeUndefined()
   })
 
   it('shows an indicator on every row type — leaf, expandable container, and nested child', async () => {
