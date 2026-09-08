@@ -4,6 +4,7 @@ import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
+import FieldPath from './FieldPath.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { analyze, isResolved } from '@/domain/coupling'
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
@@ -86,8 +87,8 @@ const filteredRows = computed(() => {
     if (status === 'actionRequired' && !requiresAction(r)) return false
     if (!q) return true
     return (
-      (r.source?.name ?? r.sourceFieldId).toLowerCase().includes(q) ||
-      (r.target?.name ?? r.targetFieldId).toLowerCase().includes(q)
+      (r.source?.path ?? r.sourceFieldId).toLowerCase().includes(q) ||
+      (r.target?.path ?? r.targetFieldId).toLowerCase().includes(q)
     )
   })
 })
@@ -259,8 +260,12 @@ function cancelDelete() {
 
           <!-- Source field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
-            <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
-              {{ row.source?.name ?? row.sourceFieldId }}
+            <span class="font-mono text-slate-800 text-[13px] flex-1 min-w-0">
+              <FieldPath
+                v-if="row.source"
+                :path="row.source.path"
+              />
+              <template v-else>{{ row.sourceFieldId }}</template>
             </span>
             <span
               v-if="row.source"
@@ -278,8 +283,12 @@ function cancelDelete() {
 
           <!-- Target field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
-            <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
-              {{ row.target?.name ?? row.targetFieldId }}
+            <span class="font-mono text-slate-800 text-[13px] flex-1 min-w-0">
+              <FieldPath
+                v-if="row.target"
+                :path="row.target.path"
+              />
+              <template v-else>{{ row.targetFieldId }}</template>
             </span>
             <span
               v-if="row.target"
@@ -328,14 +337,21 @@ function cancelDelete() {
       <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-xs w-full mx-4">
         <p class="text-sm text-slate-700 mb-4">
           Verwijder koppeling van
-          <span class="font-mono font-semibold text-slate-900">{{
-            pendingDeleteRow.source?.name ?? pendingDeleteRow.sourceFieldId
-          }}</span>
+          <span class="font-mono font-semibold text-slate-900">
+            <FieldPath
+              v-if="pendingDeleteRow.source"
+              :path="pendingDeleteRow.source.path"
+            />
+            <template v-else>{{ pendingDeleteRow.sourceFieldId }}</template>
+          </span>
           naar
-          <span class="font-mono font-semibold text-slate-900">{{
-            pendingDeleteRow.target?.name ?? pendingDeleteRow.targetFieldId
-          }}</span
-          >?
+          <span class="font-mono font-semibold text-slate-900">
+            <FieldPath
+              v-if="pendingDeleteRow.target"
+              :path="pendingDeleteRow.target.path"
+            />
+            <template v-else>{{ pendingDeleteRow.targetFieldId }}</template>
+          </span>?
         </p>
         <div class="flex justify-end gap-2">
           <button
