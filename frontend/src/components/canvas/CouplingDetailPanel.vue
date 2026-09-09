@@ -124,7 +124,9 @@ async function requestAiSuggestion() {
       <div class="px-4 pt-4 pb-2" data-testid="detail-source-field">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Bronveld</p>
         <div class="flex items-center gap-2">
-          <span class="font-mono text-sm text-[color:var(--color-source)] flex-1 min-w-0">
+          <span
+            class="font-mono text-sm text-[color:var(--color-source)] flex-1 min-w-0 break-words hyphens-none"
+          >
             <FieldPath :path="sourceField.path" />
           </span>
           <span
@@ -157,7 +159,9 @@ async function requestAiSuggestion() {
       <div class="px-4 pt-2 pb-4" data-testid="detail-target-field">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Doelveld</p>
         <div class="flex items-center gap-2">
-          <span class="font-mono text-sm text-[color:var(--color-destination)] flex-1 min-w-0">
+          <span
+            class="font-mono text-sm text-[color:var(--color-destination)] flex-1 min-w-0 break-words hyphens-none"
+          >
             <FieldPath :path="targetField.path" />
           </span>
           <span

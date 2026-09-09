@@ -260,7 +260,9 @@ function cancelDelete() {
 
           <!-- Source field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
-            <span class="font-mono text-slate-800 text-[13px] flex-1 min-w-0">
+            <span
+              class="font-mono text-slate-800 text-[13px] flex-1 min-w-0 break-words hyphens-none"
+            >
               <FieldPath v-if="row.source" :path="row.source.path" />
               <template v-else>{{ row.sourceFieldId }}</template>
             </span>
@@ -280,7 +282,9 @@ function cancelDelete() {
 
           <!-- Target field -->
           <div class="flex-1 min-w-0 flex items-center gap-1.5">
-            <span class="font-mono text-slate-800 text-[13px] flex-1 min-w-0">
+            <span
+              class="font-mono text-slate-800 text-[13px] flex-1 min-w-0 break-words hyphens-none"
+            >
               <FieldPath v-if="row.target" :path="row.target.path" />
               <template v-else>{{ row.targetFieldId }}</template>
             </span>
@@ -331,12 +335,12 @@ function cancelDelete() {
       <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-xs w-full mx-4">
         <p class="text-sm text-slate-700 mb-4">
           Verwijder koppeling van
-          <span class="font-mono font-semibold text-slate-900">
+          <span class="font-mono font-semibold text-slate-900 break-words hyphens-none">
             <FieldPath v-if="pendingDeleteRow.source" :path="pendingDeleteRow.source.path" />
             <template v-else>{{ pendingDeleteRow.sourceFieldId }}</template>
           </span>
           naar
-          <span class="font-mono font-semibold text-slate-900">
+          <span class="font-mono font-semibold text-slate-900 break-words hyphens-none">
             <FieldPath v-if="pendingDeleteRow.target" :path="pendingDeleteRow.target.path" />
             <template v-else>{{ pendingDeleteRow.targetFieldId }}</template> </span
           >?
