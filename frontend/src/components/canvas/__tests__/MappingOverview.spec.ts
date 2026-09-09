@@ -607,4 +607,99 @@ describe('MappingOverview', () => {
 
     expect(store.mappings).toHaveLength(0)
   })
+
+  // Scenario: Koppelingen paneel toont het volledige pad in elke rij
+  it('shows the full field path (not just the leaf name) in each mapping row', async () => {
+    const nestedNodes: SchemaFieldNode[] = [
+      {
+        id: 'n-src',
+        name: 'postcode',
+        path: 'adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+      {
+        id: 'n-tgt',
+        name: 'postcode',
+        path: 'klant.adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+    ]
+    const nestedSchema = buildSchema('', nestedNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: nestedSchema, targetSchema: nestedSchema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-src', targetFieldId: 'n-tgt' })
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    expect(row.text()).toContain('adres.postcode')
+    expect(row.text()).toContain('klant.adres.postcode')
+  })
+
+  // Scenario: Zoeken matcht een bovenliggend segment
+  it('matches a mapping when the search query is an ancestor segment of the field path', async () => {
+    const nestedNodes: SchemaFieldNode[] = [
+      {
+        id: 'n-zaak-id',
+        name: 'identificatie',
+        path: 'zaak.identificatie',
+        dataType: 'string',
+        required: false,
+      },
+      { id: 'n-flat', name: 'naam', path: 'naam', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', nestedNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-zaak-id', targetFieldId: 'n-flat' })
+    store.createMapping({ sourceFieldId: 'n-flat', targetFieldId: 'n-flat' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('zaak')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+
+  // Scenario: Verwijder-bevestigingsdialoog toont het volledige pad
+  it('shows the full field path in the delete confirmation dialog', async () => {
+    const nestedNodes: SchemaFieldNode[] = [
+      {
+        id: 'n-src',
+        name: 'postcode',
+        path: 'adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+      {
+        id: 'n-tgt',
+        name: 'postcode',
+        path: 'klant.adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+    ]
+    const nestedSchema = buildSchema('', nestedNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: nestedSchema, targetSchema: nestedSchema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-src', targetFieldId: 'n-tgt' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const dialog = wrapper.find('[data-testid="delete-confirmation"]')
+    expect(dialog.text()).toContain('adres.postcode')
+    expect(dialog.text()).toContain('klant.adres.postcode')
+  })
 })
