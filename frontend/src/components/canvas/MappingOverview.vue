@@ -333,18 +333,18 @@ function cancelDelete() {
       data-testid="delete-confirmation"
     >
       <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-xs w-full mx-4">
-        <p class="text-sm text-slate-700 mb-4">
-          Verwijder koppeling van
-          <span class="font-mono font-semibold text-slate-900 break-words hyphens-none">
+        <div class="text-sm text-slate-700 mb-4 space-y-1">
+          <p>Verwijder koppeling van</p>
+          <p class="font-mono font-semibold text-slate-900 break-words hyphens-none">
             <FieldPath v-if="pendingDeleteRow.source" :path="pendingDeleteRow.source.path" />
             <template v-else>{{ pendingDeleteRow.sourceFieldId }}</template>
-          </span>
-          naar
-          <span class="font-mono font-semibold text-slate-900 break-words hyphens-none">
+          </p>
+          <p>naar</p>
+          <p class="font-mono font-semibold text-slate-900 break-words hyphens-none">
             <FieldPath v-if="pendingDeleteRow.target" :path="pendingDeleteRow.target.path" />
-            <template v-else>{{ pendingDeleteRow.targetFieldId }}</template> </span
-          >?
-        </p>
+            <template v-else>{{ pendingDeleteRow.targetFieldId }}</template>
+          </p>
+        </div>
         <div class="flex justify-end gap-2">
           <button
             class="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
