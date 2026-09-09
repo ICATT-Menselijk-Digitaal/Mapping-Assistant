@@ -24,6 +24,10 @@ Domain terms used across the Mapping Assistant's specs and issues. See `docs/ste
 - **Mapping side** — either endpoint of a coupling: the *source* (fields being mapped from) or the *target* (fields being mapped to). Encoded in code as `MappingSide = 'source' | 'target'`. Introduced during the schema-side composable refactor (no issue).
 - **Field pair analysis** — the per-coupling result of `analyze(source, target)`: a `status` (`compatible` | `constrained` | `incompatible`) plus the list of mismatches that still need a transformation rule. Status is derived from mismatches so the two can never disagree — a change from the earlier split where date→date could report `compatible` and a `date-format` mismatch at the same time. Introduced during the coupling-module refactor (no issue).
 
+## Migration
+
+- **MIG (Migration Tool)** — an external tool that consumes a coupling set export produced by the Mapping Assistant and executes the actual data migration. Developed and maintained independently; the Mapping Assistant's seam with MIG is the export file. Introduced in [#155](../../issues/155).
+
 ## Trial environment
 
 - **Trial visitor** — someone trying out the Mapping Assistant on the public test environment, typically a dev-team contact rather than the general public. Distinct from the product's primary actor, the Technical administrator. Provides their own AI provider API key rather than using a team-managed one. Introduced in [#84](../../issues/84).
