@@ -702,4 +702,92 @@ describe('MappingOverview', () => {
     expect(dialog.text()).toContain('adres.postcode')
     expect(dialog.text()).toContain('klant.adres.postcode')
   })
+
+  // Scenario: Zoeken matcht een bladsegment
+  it('matches a mapping when the search query is the leaf segment of the field path', async () => {
+    const nestedNodes: SchemaFieldNode[] = [
+      {
+        id: 'n-zaak-id',
+        name: 'identificatie',
+        path: 'zaak.identificatie',
+        dataType: 'string',
+        required: false,
+      },
+      { id: 'n-flat', name: 'naam', path: 'naam', dataType: 'string', required: false },
+    ]
+    const schema = buildSchema('', nestedNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: schema, targetSchema: schema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-zaak-id', targetFieldId: 'n-flat' })
+    store.createMapping({ sourceFieldId: 'n-flat', targetFieldId: 'n-flat' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('identificatie')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+
+  // Scenario: Weeskoppeling toont de ruwe veld-ID
+  it('shows the raw field id in the row when the mapping is orphaned', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [{ sourceField: 'ghost.src', targetField: 'tgt-1', transformations: [] }],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    expect(row.text()).toContain('ghost.src')
+  })
+
+  // Scenario: Enkel zeer lang segment valt terug op halverwege breken
+  it('applies break-words and hyphens-none to the field-path wrapper so an overlong segment wraps mid-word', async () => {
+    const nestedNodes: SchemaFieldNode[] = [
+      {
+        id: 'n-src',
+        name: 'postcode',
+        path: 'adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+      {
+        id: 'n-tgt',
+        name: 'postcode',
+        path: 'klant.adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+    ]
+    const nestedSchema = buildSchema('', nestedNodes)
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema: nestedSchema, targetSchema: nestedSchema },
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'n-src', targetFieldId: 'n-tgt' })
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    const rowPathWrappers = row.findAll('.break-words')
+    expect(rowPathWrappers).toHaveLength(2)
+    for (const el of rowPathWrappers) {
+      expect(el.classes()).toContain('hyphens-none')
+    }
+
+    await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    const dialogPathWrappers = wrapper
+      .find('[data-testid="delete-confirmation"]')
+      .findAll('.break-words')
+    expect(dialogPathWrappers).toHaveLength(2)
+    for (const el of dialogPathWrappers) {
+      expect(el.classes()).toContain('hyphens-none')
+    }
+  })
 })
