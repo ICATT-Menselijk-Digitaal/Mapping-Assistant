@@ -281,6 +281,26 @@ describe('SourceSchemaPanel', () => {
       ).toBe('true')
     })
 
+    // Scenario: Hovering a mapping's connection line highlights both of its fields
+    it('highlights both the source and target field row when the connection line is hovered', async () => {
+      const { sourceWrapper, targetWrapper, store } = mountBothPanels()
+      const mapping = store.createMapping({
+        sourceFieldId: 'cityName',
+        targetFieldId: 'countryCode',
+      })!
+
+      store.hoverMapping(mapping.id)
+      await sourceWrapper.vm.$nextTick()
+      await targetWrapper.vm.$nextTick()
+
+      expect(sourceWrapper.find('[data-field-id="cityName"]').attributes('data-highlighted')).toBe(
+        'true',
+      )
+      expect(
+        targetWrapper.find('[data-field-id="countryCode"]').attributes('data-highlighted'),
+      ).toBe('true')
+    })
+
     // Scenario: Hovering an unmapped field shows no highlight
     it('highlights nothing in the other panel when the hovered field has no mapping', async () => {
       const { targetWrapper, store } = mountBothPanels()
