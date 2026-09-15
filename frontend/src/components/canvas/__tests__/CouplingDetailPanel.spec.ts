@@ -72,6 +72,45 @@ describe('CouplingDetailPanel — basics', () => {
     expect(wrapper.find('[data-testid="detail-target-field"]').text()).toContain('doelveld')
   })
 
+  // Scenario: Koppelingsdetail toont het volledige pad
+  it('shows the full field path (not just leaf name) in source and target sections', async () => {
+    const nestedSrcNodes: SchemaFieldNode[] = [
+      {
+        id: 'src-nested',
+        name: 'postcode',
+        path: 'adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+    ]
+    const nestedTgtNodes: SchemaFieldNode[] = [
+      {
+        id: 'tgt-nested',
+        name: 'postcode',
+        path: 'klant.adres.postcode',
+        dataType: 'string',
+        required: false,
+      },
+    ]
+    const srcSchema = buildSchema('bron', nestedSrcNodes)
+    const tgtSchema = buildSchema('doel', nestedTgtNodes)
+    const store = useMappings()
+    const mapping = store.createMapping({
+      sourceFieldId: 'src-nested',
+      targetFieldId: 'tgt-nested',
+    })!
+    store.selectMapping(mapping.id)
+    const wrapper = mount(CouplingDetailPanel, {
+      props: { sourceSchema: srcSchema, targetSchema: tgtSchema },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="detail-source-field"]').text()).toContain('adres.postcode')
+    expect(wrapper.find('[data-testid="detail-target-field"]').text()).toContain(
+      'klant.adres.postcode',
+    )
+  })
+
   it('shows compatible validation status for a compatible mapping', async () => {
     const { wrapper } = mountPanel('src-compatible', 'tgt-compatible')
     await wrapper.vm.$nextTick()
