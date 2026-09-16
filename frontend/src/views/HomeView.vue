@@ -42,7 +42,7 @@ const {
 } = useImport()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
-const { koppelingenWidthPct, setKoppelingenWidthPct } = usePanelWidth()
+const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
 
 // Feature #154: ConnectionLines.vue already recalculates on this event
 // (used today for collapse/expand); reusing it here means a resize-drag
@@ -110,6 +110,7 @@ async function onImportFileSelected(file: File) {
       :min-right-px="280"
       @update:right-width-pct="setKoppelingenWidthPct"
       @resizing="notifySchemaPanelResized"
+      @resize-end="persistKoppelingenWidthPct"
     >
       <template #left>
         <div class="flex flex-col gap-2 h-full min-h-0 pr-2">

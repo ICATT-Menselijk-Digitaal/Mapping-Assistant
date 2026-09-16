@@ -21,8 +21,9 @@ describe('usePanelWidth', () => {
 
   // Scenario: Chosen width is remembered after reloading
   it('persists a chosen width so a fresh read reflects it, simulating a page reload', () => {
-    const { setKoppelingenWidthPct } = usePanelWidth()
+    const { setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
     setKoppelingenWidthPct(0.42)
+    persistKoppelingenWidthPct()
     expect(readStoredWidthPct()).toBe(0.42)
   })
 
@@ -30,6 +31,15 @@ describe('usePanelWidth', () => {
     const { koppelingenWidthPct, setKoppelingenWidthPct } = usePanelWidth()
     setKoppelingenWidthPct(0.25)
     expect(koppelingenWidthPct.value).toBe(0.25)
+  })
+
+  // PR review finding: setKoppelingenWidthPct was writing to localStorage on
+  // every call, meaning a fast drag fired dozens of synchronous writes per
+  // second. It must now only update the live value.
+  it('does not write to localStorage until persistKoppelingenWidthPct is called', () => {
+    const { setKoppelingenWidthPct } = usePanelWidth()
+    setKoppelingenWidthPct(0.42)
+    expect(localStorage.getItem('ma_koppelingen_panel_width_pct')).toBeNull()
   })
 
   it('falls back to the default when the stored value is corrupt', () => {

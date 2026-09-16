@@ -16,6 +16,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:rightWidthPct': [pct: number]
   resizing: []
+  'resize-end': []
 }>()
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -54,10 +55,17 @@ function onMouseUp(): void {
   restoreTextSelection()
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
+  emit('resize-end')
 }
 
 function startDrag(event: MouseEvent): void {
   event.preventDefault()
+  // If the mouse was released outside the browser viewport, the window
+  // 'mouseup' from the previous drag never fired, leaving its listener
+  // pair attached. Remove before re-adding (a no-op if already clean) so a
+  // new drag can never end up with a stacked, duplicate listener pair.
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('mouseup', onMouseUp)
   stopTextSelection()
   window.addEventListener('mousemove', onMouseMove)
   window.addEventListener('mouseup', onMouseUp)

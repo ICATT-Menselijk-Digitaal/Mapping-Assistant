@@ -24,16 +24,23 @@ export function readStoredWidthPct(): number {
 const koppelingenWidthPct = ref<number>(readStoredWidthPct())
 
 export function usePanelWidth() {
+  // Updates the live value only — no localStorage write. Called on every
+  // drag-move tick, so it must stay cheap; persisting on every tick would
+  // mean dozens of synchronous localStorage writes per second during a fast
+  // drag. Call persistKoppelingenWidthPct() once the drag ends instead.
   function setKoppelingenWidthPct(pct: number): void {
     koppelingenWidthPct.value = pct
+  }
+
+  function persistKoppelingenWidthPct(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(pct))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(koppelingenWidthPct.value))
     } catch {
       // localStorage unavailable — best-effort persistence
     }
   }
 
-  return { koppelingenWidthPct, setKoppelingenWidthPct }
+  return { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct }
 }
 
 export function resetPanelWidthState(): void {

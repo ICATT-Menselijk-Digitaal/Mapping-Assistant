@@ -98,6 +98,33 @@ describe('ResizableSplit', () => {
     expect(emitted).toHaveLength(1)
   })
 
+  it('emits resize-end on mouseup', async () => {
+    const wrapper = mountSplit(0.3)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    window.dispatchEvent(new MouseEvent('mouseup'))
+
+    expect(wrapper.emitted('resize-end')).toHaveLength(1)
+  })
+
+  // PR review finding: if mouseup fires outside the browser viewport (never
+  // reaching window), the next mousedown used to stack a second listener
+  // pair, causing every following tick to emit twice.
+  it('does not stack duplicate listeners if a previous drag never received mouseup', async () => {
+    const wrapper = mountSplit(0.3)
+
+    // First drag: mousedown, then the mouse is released outside the
+    // viewport — no window 'mouseup' event ever fires.
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+
+    // Second drag starts before the first one's listeners were ever removed.
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 600 }))
+
+    const emitted = wrapper.emitted('update:rightWidthPct')!
+    expect(emitted).toHaveLength(1)
+  })
+
   // Bug found live: dragging fast enough that the mouse passes over panel
   // text triggers the browser's native text selection instead of resizing.
   it('disables text selection on the page while dragging, and restores it on mouseup', async () => {
