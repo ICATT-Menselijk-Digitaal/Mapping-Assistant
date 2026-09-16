@@ -21,7 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const mappingsStore = useMappings()
-const { mappings, hoveredFieldId, hoveredFieldSide } = storeToRefs(mappingsStore)
+const { mappings, hoveredFieldId, hoveredFieldSide, hoveredMappingId } = storeToRefs(mappingsStore)
 const scopeStore = useSuggestionScope()
 
 const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
@@ -68,30 +68,40 @@ const mappedFieldIds = computed(() => {
   return ids
 })
 
-// A field row is highlighted when it is directly hovered, or it is the
+// A field row is highlighted when it is directly hovered, when it is the
 // mapped counterpart of the field currently hovered (in either panel —
-// hoveredFieldId/hoveredFieldSide are shared store state). Source and
-// target schemas are parsed independently and can share raw field ids, so
-// every comparison must also check the hovered field's side — otherwise an
-// unrelated same-named field on the other schema lights up too.
+// hoveredFieldId/hoveredFieldSide are shared store state), or when its
+// mapping's connection line is hovered directly (hoveredMappingId) — hovering
+// the line highlights both ends, mirroring hovering a field highlighting the
+// line. Source and target schemas are parsed independently and can share raw
+// field ids, so every field-hover comparison must also check the hovered
+// field's side — otherwise an unrelated same-named field on the other schema
+// lights up too.
 const highlightedFieldIds = computed(() => {
   const ids = new Set<string>()
+
+  const hoveredMapping = hoveredMappingId.value
+  if (hoveredMapping) {
+    const m = mappings.value.find((m) => m.id === hoveredMapping)
+    if (m) ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+  }
+
   const hovered = hoveredFieldId.value
   const hoveredSide = hoveredFieldSide.value
-  if (!hovered || !hoveredSide) return ids
-
-  if (hoveredSide === scopeSide.value) {
-    ids.add(hovered)
-    return ids
-  }
-
-  for (const m of mappings.value) {
-    const hoveredMatches =
-      hoveredSide === 'source' ? m.sourceFieldId === hovered : m.targetFieldId === hovered
-    if (hoveredMatches) {
-      ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+  if (hovered && hoveredSide) {
+    if (hoveredSide === scopeSide.value) {
+      ids.add(hovered)
+    } else {
+      for (const m of mappings.value) {
+        const hoveredMatches =
+          hoveredSide === 'source' ? m.sourceFieldId === hovered : m.targetFieldId === hovered
+        if (hoveredMatches) {
+          ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+        }
+      }
     }
   }
+
   return ids
 })
 
@@ -108,7 +118,7 @@ function isFieldSelected(fieldId: string): boolean {
 
 function fieldRowClass(fieldId: string): string {
   if (isFieldSelected(fieldId)) return 'bg-blue-50 ring-1 ring-blue-300 ring-inset'
-  if (isFieldHighlighted(fieldId)) return 'bg-indigo-50'
+  if (isFieldHighlighted(fieldId)) return 'bg-indigo-100'
   return 'hover:bg-slate-50'
 }
 
