@@ -1,0 +1,106 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { mount } from '@vue/test-utils'
+import ResizableSplit from '../ResizableSplit.vue'
+
+function mountSplit(rightWidthPct = 0.3, minLeftPx = 480, minRightPx = 280) {
+  const div = document.createElement('div')
+  document.body.appendChild(div)
+  const wrapper = mount(ResizableSplit, {
+    props: { rightWidthPct, minLeftPx, minRightPx },
+    slots: { left: '<div>Left content</div>', right: '<div>Right content</div>' },
+    attachTo: div,
+  })
+  const root = wrapper.find('[data-testid="resizable-split"]').element as HTMLElement
+  vi.spyOn(root, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 1000,
+    bottom: 500,
+    width: 1000,
+    height: 500,
+    toJSON: () => ({}),
+  })
+  return wrapper
+}
+
+afterEach(() => {
+  document.body.innerHTML = ''
+})
+
+describe('ResizableSplit', () => {
+  it('renders left and right slot content', () => {
+    const wrapper = mountSplit()
+    expect(wrapper.text()).toContain('Left content')
+    expect(wrapper.text()).toContain('Right content')
+  })
+
+  // Scenario: Dragging changes the ratio between canvas and Koppelingen paneel
+  it('emits an updated rightWidthPct when the handle is dragged', async () => {
+    const wrapper = mountSplit(0.3)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    // Root spans x=0..1000; dragging to clientX=600 means 400px (40%) on the right.
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 600 }))
+
+    const emitted = wrapper.emitted('update:rightWidthPct')
+    expect(emitted).toBeTruthy()
+    expect(emitted![emitted!.length - 1]![0]).toBeCloseTo(0.4, 2)
+  })
+
+  // Scenario: Connection lines stay correctly attached during a resize
+  it('emits resizing on every drag-move tick, so a listener can trigger a recalculation', async () => {
+    const wrapper = mountSplit(0.3)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 550 }))
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 560 }))
+
+    expect(wrapper.emitted('resizing')).toHaveLength(2)
+  })
+
+  // Scenario: Dragging past the minimum width is stopped
+  it('clamps to minLeftPx when dragging toward the left edge (right pane would otherwise grow huge)', async () => {
+    const wrapper = mountSplit(0.3, 480, 280)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    // Dragging almost to the left edge would starve the left pane — clamp to 1 - minLeftPx/total = 0.52.
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 10 }))
+
+    const emitted = wrapper.emitted('update:rightWidthPct')
+    expect(emitted![emitted!.length - 1]![0]).toBeCloseTo(0.52, 2)
+  })
+
+  it('clamps to minRightPx when dragging toward the right edge (right pane would otherwise shrink too far)', async () => {
+    const wrapper = mountSplit(0.3, 480, 280)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    // Dragging almost to the right edge would starve the right pane — clamp to minRightPx/total = 0.28.
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 990 }))
+
+    const emitted = wrapper.emitted('update:rightWidthPct')
+    expect(emitted![emitted!.length - 1]![0]).toBeCloseTo(0.28, 2)
+  })
+
+  it('stops listening for mousemove after mouseup', async () => {
+    const wrapper = mountSplit(0.3)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 600 }))
+    window.dispatchEvent(new MouseEvent('mouseup'))
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 700 }))
+
+    const emitted = wrapper.emitted('update:rightWidthPct')!
+    // Only the one mousemove before mouseup should have emitted.
+    expect(emitted).toHaveLength(1)
+  })
+
+  // Scenario: Responds correctly to a browser window resize
+  it('renders the right pane width as a CSS percentage, not a fixed pixel value', () => {
+    const wrapper = mountSplit(0.35)
+    const rightPane = wrapper.find('[data-testid="split-right"]')
+    expect(rightPane.attributes('style')).toContain('35%')
+    expect(rightPane.attributes('style')).not.toMatch(/width:\s*\d+px/)
+  })
+})
