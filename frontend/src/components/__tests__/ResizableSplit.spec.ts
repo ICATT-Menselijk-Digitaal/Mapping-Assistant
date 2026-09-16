@@ -27,6 +27,8 @@ function mountSplit(rightWidthPct = 0.3, minLeftPx = 480, minRightPx = 280) {
 
 afterEach(() => {
   document.body.innerHTML = ''
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
 })
 
 describe('ResizableSplit', () => {
@@ -94,6 +96,37 @@ describe('ResizableSplit', () => {
     const emitted = wrapper.emitted('update:rightWidthPct')!
     // Only the one mousemove before mouseup should have emitted.
     expect(emitted).toHaveLength(1)
+  })
+
+  // Bug found live: dragging fast enough that the mouse passes over panel
+  // text triggers the browser's native text selection instead of resizing.
+  it('disables text selection on the page while dragging, and restores it on mouseup', async () => {
+    const wrapper = mountSplit(0.3)
+
+    expect(document.body.style.userSelect).toBe('')
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    expect(document.body.style.userSelect).toBe('none')
+
+    window.dispatchEvent(new MouseEvent('mouseup'))
+    expect(document.body.style.userSelect).toBe('')
+  })
+
+  it('restores text selection on unmount, even mid-drag', async () => {
+    const wrapper = mountSplit(0.3)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    expect(document.body.style.userSelect).toBe('none')
+    wrapper.unmount()
+
+    expect(document.body.style.userSelect).toBe('')
+  })
+
+  // Bug found live: the handle was invisible until hovered, so it wasn't
+  // discoverable as a drag affordance.
+  it('shows a visible background on the handle by default, not only on hover', () => {
+    const wrapper = mountSplit()
+    const handle = wrapper.find('[data-testid="resize-handle"]')
+    expect(handle.classes().some((c) => c.startsWith('bg-'))).toBe(true)
   })
 
   it('removes its window listeners on unmount, even mid-drag', async () => {

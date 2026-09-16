@@ -36,17 +36,35 @@ function onMouseMove(event: MouseEvent): void {
   emit('resizing')
 }
 
+// Dragging fast enough that the mouse passes over panel text otherwise
+// triggers the browser's native text-selection instead of resizing —
+// suppress it on the whole page for the duration of the drag, not just on
+// this component's own root, since the mouse routinely leaves it mid-drag.
+function stopTextSelection(): void {
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+}
+
+function restoreTextSelection(): void {
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+}
+
 function onMouseUp(): void {
+  restoreTextSelection()
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
 }
 
-function startDrag(): void {
+function startDrag(event: MouseEvent): void {
+  event.preventDefault()
+  stopTextSelection()
   window.addEventListener('mousemove', onMouseMove)
   window.addEventListener('mouseup', onMouseUp)
 }
 
 onUnmounted(() => {
+  restoreTextSelection()
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
 })
@@ -58,7 +76,7 @@ onUnmounted(() => {
       <slot name="left" />
     </div>
     <div
-      class="w-1 shrink-0 cursor-col-resize hover:bg-indigo-200 transition-colors"
+      class="w-1.5 shrink-0 cursor-col-resize bg-slate-200 hover:bg-indigo-300 transition-colors"
       data-testid="resize-handle"
       @mousedown="startDrag"
     />
