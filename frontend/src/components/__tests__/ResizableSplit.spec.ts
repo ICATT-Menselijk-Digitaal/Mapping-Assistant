@@ -96,6 +96,18 @@ describe('ResizableSplit', () => {
     expect(emitted).toHaveLength(1)
   })
 
+  it('removes its window listeners on unmount, even mid-drag', async () => {
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+    const wrapper = mountSplit(0.3)
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    wrapper.unmount()
+
+    expect(removeSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
+    expect(removeSpy).toHaveBeenCalledWith('mouseup', expect.any(Function))
+    removeSpy.mockRestore()
+  })
+
   // Scenario: Responds correctly to a browser window resize
   it('renders the right pane width as a CSS percentage, not a fixed pixel value', () => {
     const wrapper = mountSplit(0.35)
