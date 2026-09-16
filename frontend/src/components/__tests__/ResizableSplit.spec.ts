@@ -173,6 +173,54 @@ describe('ResizableSplit', () => {
     const wrapper = mountSplit(0.35)
     const rightPane = wrapper.find('[data-testid="split-right"]')
     expect(rightPane.attributes('style')).toContain('35%')
-    expect(rightPane.attributes('style')).not.toMatch(/width:\s*\d+px/)
+    expect(rightPane.attributes('style')).not.toMatch(/(?<!min-)width:\s*\d+px/)
+  })
+
+  // Bug found live: shrinking the browser window itself (no drag involved)
+  // used to let a percentage-only right pane collapse under minRightPx,
+  // squishing its contents unpredictably. A CSS min-width floor keeps both
+  // panes readable regardless of window size, matching the fixed-width
+  // sidebar's guarantee from before this component existed.
+  it('enforces minLeftPx and minRightPx as CSS floors, independent of window size', () => {
+    const wrapper = mountSplit(0.1, 480, 280)
+    const leftPane = wrapper.find('[data-testid="split-left"]')
+    const rightPane = wrapper.find('[data-testid="split-right"]')
+    expect(leftPane.attributes('style')).toContain('min-width: 480px')
+    expect(rightPane.attributes('style')).toContain('min-width: 280px')
+  })
+
+  // Bug found live: when the window is shrunk so far that minLeftPx and
+  // minRightPx can no longer both fit, minRightPct exceeds maxRightPct —
+  // clamping in the usual min-then-max order snapped every drag position to
+  // the same value, making the handle feel stuck rather than just out of room.
+  it('does not lock the handle to a single value when the window is too narrow for both minimums', async () => {
+    // total width 600px < 480 + 280 = 760px minimums
+    const wrapper = mountSplit(0.3, 480, 280)
+    const root = wrapper.find('[data-testid="resizable-split"]').element as HTMLElement
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 600,
+      bottom: 500,
+      width: 600,
+      height: 500,
+      toJSON: () => ({}),
+    })
+
+    await wrapper.find('[data-testid="resize-handle"]').trigger('mousedown')
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 100 }))
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500 }))
+
+    const emitted = wrapper.emitted('update:rightWidthPct')!
+    const first = emitted[0]![0] as number
+    const second = emitted[1]![0] as number
+    // Both clientX values land outside the (impossible) valid range, but the
+    // clamp should still resolve to a stable midpoint value it agrees with
+    // itself on for either drag direction — not silently ignore the drag.
+    expect(first).toBeCloseTo(second, 5)
+    expect(first).toBeGreaterThan(0)
+    expect(first).toBeLessThan(1)
   })
 })

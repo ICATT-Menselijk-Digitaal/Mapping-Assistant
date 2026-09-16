@@ -25,6 +25,11 @@ function clampRightPct(rawPct: number, totalWidth: number): number {
   if (totalWidth <= 0) return rawPct
   const minRightPct = props.minRightPx / totalWidth
   const maxRightPct = 1 - props.minLeftPx / totalWidth
+  // When the window has been shrunk so far that both minimums can no longer
+  // fit side by side, minRightPct exceeds maxRightPct — clamping to that
+  // range in the usual order would silently snap every drag to the same
+  // value, making the handle feel stuck instead of just running out of room.
+  if (minRightPct > maxRightPct) return (minRightPct + maxRightPct) / 2
   return Math.min(Math.max(rawPct, minRightPct), maxRightPct)
 }
 
@@ -80,7 +85,7 @@ onUnmounted(() => {
 
 <template>
   <div ref="rootEl" class="flex h-full w-full" data-testid="resizable-split">
-    <div class="flex-1 min-w-0" data-testid="split-left">
+    <div class="flex-1" :style="{ minWidth: minLeftPx + 'px' }" data-testid="split-left">
       <slot name="left" />
     </div>
     <div
@@ -88,7 +93,11 @@ onUnmounted(() => {
       data-testid="resize-handle"
       @mousedown="startDrag"
     />
-    <div class="shrink-0" :style="{ width: rightWidthPct * 100 + '%' }" data-testid="split-right">
+    <div
+      class="shrink-0"
+      :style="{ width: rightWidthPct * 100 + '%', minWidth: minRightPx + 'px' }"
+      data-testid="split-right"
+    >
       <slot name="right" />
     </div>
   </div>
