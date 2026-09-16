@@ -4,15 +4,17 @@ import { createPinia, setActivePinia } from 'pinia'
 import ConnectionLines from '../ConnectionLines.vue'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
+import { buildSchema, EMPTY_SCHEMA } from '@/domain/schema'
 import type { AiSuggestion } from '@/types'
 
-function mountWithContainers() {
+function mountWithContainers(props: Record<string, unknown> = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
 
   const wrapper = mount(ConnectionLines, {
     global: { plugins: [pinia] },
     attachTo: document.body,
+    props,
   })
 
   return { wrapper }
@@ -105,6 +107,45 @@ describe('ConnectionLines', () => {
 
     await flushPromises()
     await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
+  })
+
+  // Bug #160: a schema that finishes loading after the mapping already
+  // exists must still draw the line — without relying on an unrelated
+  // scroll/resize event to trigger the next recalculate().
+  it('draws the line once the schema prop populates, even with no scroll or resize', async () => {
+    const { wrapper } = mountWithContainers({
+      sourceSchema: EMPTY_SCHEMA,
+      targetSchema: EMPTY_SCHEMA,
+    })
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    // Field rows aren't in the DOM yet — the schema fetch is still slower
+    // than the mapping data — so nothing can be drawn yet.
+    expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(0)
+
+    // The schema finishes loading: its rows land in the DOM, and the schema
+    // prop itself changes identity (mirrors useSchemaSide's real behavior).
+    const srcEl = document.createElement('div')
+    srcEl.setAttribute('data-field-id', 'src-1')
+    srcEl.setAttribute('data-field-side', 'source')
+    document.body.appendChild(srcEl)
+
+    const tgtEl = document.createElement('div')
+    tgtEl.setAttribute('data-field-id', 'tgt-1')
+    tgtEl.setAttribute('data-field-side', 'target')
+    document.body.appendChild(tgtEl)
+
+    await wrapper.setProps({
+      sourceSchema: buildSchema('source', []),
+      targetSchema: buildSchema('target', []),
+    })
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
     expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
   })
 
