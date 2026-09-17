@@ -276,6 +276,135 @@ describe('parseOpenApiSchema', () => {
       expect(children.find((c) => c.name === 'name')).toBeDefined()
       expect(children.find((c) => c.name === 'role')).toBeDefined()
     })
+
+    // Live bug found while testing this fix: a self-referencing field (e.g.
+    // Document.vorigeVersie -> Document via anyOf/$ref, a common
+    // audit-trail/version-history shape) recursed forever building the tree,
+    // crashing with "Maximum call stack size exceeded".
+    it('stops at a repeated $ref instead of recursing forever on a self-referencing field', () => {
+      const spec = {
+        openapi: '3.1.0',
+        components: {
+          schemas: {
+            Document: {
+              type: 'object',
+              properties: {
+                titel: { type: 'string' },
+                vorigeVersie: {
+                  anyOf: [{ $ref: '#/components/schemas/Document' }, { type: 'null' }],
+                },
+              },
+            },
+          },
+        },
+      }
+
+      const schema = parseOpenApiSchema(spec)
+      const vorigeVersie = schema.all().find((f) => f.name === 'vorigeVersie')
+      expect(vorigeVersie?.dataType).toBe('object')
+      const children = schema.childrenOf(vorigeVersie!.id)
+      const nestedVorigeVersie = children.find((c) => c.name === 'vorigeVersie')
+      expect(nestedVorigeVersie?.dataType).toBe('object')
+      expect(schema.childrenOf(nestedVorigeVersie!.id)).toHaveLength(0)
+    })
+
+    // Two schemas that reference each other indirectly (Document -> Wijziging
+    // -> Document) must be caught the same way as direct self-reference.
+    it('stops at a repeated $ref in a mutual A -> B -> A cycle', () => {
+      const spec = {
+        openapi: '3.1.0',
+        components: {
+          schemas: {
+            Document: {
+              type: 'object',
+              properties: {
+                laatsteWijziging: { $ref: '#/components/schemas/Wijziging' },
+              },
+            },
+            Wijziging: {
+              type: 'object',
+              properties: {
+                document: {
+                  anyOf: [{ $ref: '#/components/schemas/Document' }, { type: 'null' }],
+                },
+              },
+            },
+          },
+        },
+      }
+
+      const schema = parseOpenApiSchema(spec)
+      const laatsteWijziging = schema.all().find((f) => f.name === 'laatsteWijziging')
+      const wijzigingChildren = schema.childrenOf(laatsteWijziging!.id)
+      const document = wijzigingChildren.find((c) => c.name === 'document')
+      expect(document?.dataType).toBe('object')
+
+      // `document` (Document, 2nd occurrence) still resolves its own
+      // properties, since only "Wijziging" has been seen twice at this
+      // point, not "Document" yet. The cutoff lands one level further down,
+      // at the next repeated name ("Wijziging" again) — this asserts the
+      // walk terminates there rather than recursing forever.
+      const documentChildren = schema.childrenOf(document!.id)
+      const nestedLaatsteWijziging = documentChildren.find((c) => c.name === 'laatsteWijziging')
+      expect(nestedLaatsteWijziging?.dataType).toBe('object')
+      expect(schema.childrenOf(nestedLaatsteWijziging!.id)).toHaveLength(0)
+    })
+
+    // Live bug found while testing the cycle fix above, using e-Suite's real
+    // spec: a discriminator pattern (a base schema offers itself via oneOf,
+    // and each option reaches back to the base via allOf to inherit its
+    // shared fields) was wrongly treated as the same kind of cycle as a
+    // genuine self-reference, wiping out the base's fields entirely.
+    it('resolves a discriminated oneOf/allOf pattern without losing the base schema fields', () => {
+      const spec = {
+        openapi: '3.1.0',
+        components: {
+          schemas: {
+            Zaak: {
+              type: 'object',
+              properties: {
+                betrokkene: { $ref: '#/components/schemas/Subject' },
+              },
+            },
+            Subject: {
+              type: 'object',
+              required: ['identifier'],
+              oneOf: [
+                { $ref: '#/components/schemas/Persoon' },
+                { $ref: '#/components/schemas/Bedrijf' },
+              ],
+              properties: {
+                identifier: { type: 'integer' },
+              },
+            },
+            Persoon: {
+              type: 'object',
+              required: ['voorletters'],
+              allOf: [{ $ref: '#/components/schemas/Subject' }],
+              properties: {
+                voorletters: { type: 'string' },
+              },
+            },
+            Bedrijf: {
+              type: 'object',
+              allOf: [{ $ref: '#/components/schemas/Subject' }],
+              properties: {
+                kvkNummer: { type: 'string' },
+              },
+            },
+          },
+        },
+      }
+
+      const schema = parseOpenApiSchema(spec)
+      const betrokkene = schema.all().find((f) => f.name === 'betrokkene')
+      expect(betrokkene?.dataType).toBe('object')
+      const children = schema.childrenOf(betrokkene!.id)
+      // Persoon's own field, plus Subject's base field inherited via allOf —
+      // neither should be lost.
+      expect(children.find((c) => c.name === 'voorletters')).toBeDefined()
+      expect(children.find((c) => c.name === 'identifier')).toBeDefined()
+    })
   })
 
   it('resolves inline object properties into queryable children', () => {
