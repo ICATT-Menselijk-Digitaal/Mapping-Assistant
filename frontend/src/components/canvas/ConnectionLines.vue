@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { storeToRefs } from 'pinia'
+
+// Bug #160: sourceSchema/targetSchema are optional and only used to react to
+// a schema finishing its (async) load — recalculate() itself still reads
+// field positions straight from the DOM by id, same as always.
+const props = defineProps<{
+  sourceSchema?: Schema
+  targetSchema?: Schema
+}>()
 
 const mappingsStore = useMappings()
 const { mappings, selectedMappingId, hoveredMappingId, hoveredFieldId, hoveredFieldSide } =
@@ -211,6 +220,19 @@ const tracePath = computed(() => (traceLine.value ? bezierPath(traceLine.value) 
 watch(mappings, () => nextTick(recalculate), { deep: true })
 watch(tracedSuggestionId, () => nextTick(recalculate))
 watch(traceSelectionNonce, () => nextTick(recalculate))
+// Bug #160: if a schema loads slower than the mappings themselves (e.g. a
+// slow OpenAPI fetch), the field rows for an existing mapping don't exist in
+// the DOM yet when recalculate() first runs on mount — nothing drew them
+// until an unrelated scroll/resize happened to trigger a re-run. Reacting to
+// the schema itself finishing its load closes that gap.
+watch(
+  () => props.sourceSchema,
+  () => nextTick(recalculate),
+)
+watch(
+  () => props.targetSchema,
+  () => nextTick(recalculate),
+)
 
 let scrollParent: HTMLElement | null = null
 

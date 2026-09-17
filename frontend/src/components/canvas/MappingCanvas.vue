@@ -294,7 +294,7 @@ function onTargetUrlSubmit() {
       </div>
 
       <!-- SVG connection line overlay -->
-      <ConnectionLines />
+      <ConnectionLines :source-schema="sourceSchema" :target-schema="targetSchema" />
     </div>
   </div>
 </template>
