@@ -10,8 +10,7 @@ const props = defineProps<{
 
 <template>
   <div
-    class="px-4 py-2.5 border-b border-slate-200 flex items-center gap-2.5 sticky top-0 z-10 bg-white"
-    :class="props.data.side === 'source' ? 'bg-blue-50/30' : 'bg-emerald-50/30'"
+    class="px-4 py-3 border-b border-slate-200 flex items-center gap-2.5 sticky top-0 z-10 bg-white"
   >
     <!-- Side badge -->
     <div
@@ -27,7 +26,7 @@ const props = defineProps<{
 
     <!-- System name -->
     <h2
-      class="text-sm font-bold tracking-tight truncate"
+      class="text-base font-bold tracking-tight truncate"
       :class="props.data.side === 'source' ? 'text-blue-800' : 'text-emerald-800'"
     >
       {{ props.data.label }}
