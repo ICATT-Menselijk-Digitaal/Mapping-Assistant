@@ -86,14 +86,14 @@ function badge(score: number) {
     </div>
     <div v-if="interactive" class="flex gap-2">
       <button
-        class="flex-1 px-3 py-1 text-xs font-medium bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
+        class="flex-1 max-w-36 px-3 py-1 text-xs font-medium bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
         data-testid="accept-button"
         @click.stop="emit('accept', suggestionId)"
       >
         Accepteer
       </button>
       <button
-        class="flex-1 px-3 py-1 text-xs font-medium border border-slate-300 text-slate-600 hover:bg-slate-50 rounded transition-colors"
+        class="flex-1 max-w-36 px-3 py-1 text-xs font-medium border border-slate-300 text-slate-600 hover:bg-slate-50 rounded transition-colors"
         data-testid="reject-button"
         @click.stop="emit('reject', suggestionId)"
       >
