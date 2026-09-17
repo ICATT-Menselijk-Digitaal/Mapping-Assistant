@@ -203,6 +203,81 @@ describe('parseOpenApiSchema', () => {
     expect(itemsChildren.find((c) => c.name === 'sku')).toBeDefined()
   })
 
+  // Bug #151: nullable object refs via anyOf/oneOf/allOf were shown as
+  // unknown type with no children, breaking suggestion navigation into them.
+  describe('composition keywords (allOf/anyOf/oneOf)', () => {
+    const composedSpec = (compose: 'anyOf' | 'oneOf') => ({
+      openapi: '3.1.0',
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: {
+              betrokkene: {
+                [compose]: [{ $ref: '#/components/schemas/Betrokkene' }, { type: 'null' }],
+              },
+            },
+          },
+          Betrokkene: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+            },
+          },
+        },
+      },
+    })
+
+    it('resolves a nullable $ref via anyOf into an expandable object field', () => {
+      const schema = parseOpenApiSchema(composedSpec('anyOf'))
+      const betrokkene = schema.all().find((f) => f.name === 'betrokkene')
+      expect(betrokkene?.dataType).toBe('object')
+      const children = schema.childrenOf(betrokkene!.id)
+      expect(children.find((c) => c.name === 'name')).toBeDefined()
+    })
+
+    it('resolves a nullable $ref via oneOf into an expandable object field', () => {
+      const schema = parseOpenApiSchema(composedSpec('oneOf'))
+      const betrokkene = schema.all().find((f) => f.name === 'betrokkene')
+      expect(betrokkene?.dataType).toBe('object')
+      const children = schema.childrenOf(betrokkene!.id)
+      expect(children.find((c) => c.name === 'name')).toBeDefined()
+    })
+
+    it('merges allOf branches into one expandable object field', () => {
+      const spec = {
+        openapi: '3.1.0',
+        components: {
+          schemas: {
+            Zaak: {
+              type: 'object',
+              properties: {
+                betrokkene: {
+                  allOf: [
+                    { $ref: '#/components/schemas/BasisBetrokkene' },
+                    { properties: { role: { type: 'string' } } },
+                  ],
+                },
+              },
+            },
+            BasisBetrokkene: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+              },
+            },
+          },
+        },
+      }
+      const schema = parseOpenApiSchema(spec)
+      const betrokkene = schema.all().find((f) => f.name === 'betrokkene')
+      expect(betrokkene?.dataType).toBe('object')
+      const children = schema.childrenOf(betrokkene!.id)
+      expect(children.find((c) => c.name === 'name')).toBeDefined()
+      expect(children.find((c) => c.name === 'role')).toBeDefined()
+    })
+  })
+
   it('resolves inline object properties into queryable children', () => {
     const spec = {
       openapi: '3.0.0',
