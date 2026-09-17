@@ -15,7 +15,7 @@ const props = defineProps<{
   >
     <!-- Side badge -->
     <div
-      class="px-1.5 py-0.5 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold tracking-widest uppercase"
+      class="h-6 px-1.5 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold tracking-widest uppercase"
       :class="
         props.data.side === 'source'
           ? 'bg-blue-100 text-blue-700'
