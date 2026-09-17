@@ -125,6 +125,110 @@ describe('SourceSchemaPanel', () => {
     div.remove()
   })
 
+  // Bug #151 follow-up: the tree used to be a fixed two-level template (a
+  // root field, then one level of children with no further expand option),
+  // so anything nested 3+ levels deep (e.g. a discriminated union merged by
+  // the OpenAPI parser fix) was visible but permanently unexpandable. The
+  // tree is now genuinely recursive via SchemaFieldRow.
+  it('expands arbitrarily deep nesting, not just one level', async () => {
+    const deepNodes: SchemaFieldNode[] = [
+      node({
+        name: 'betrokkenen',
+        path: 'Zaak.betrokkenen',
+        id: 'Zaak.betrokkenen',
+        dataType: 'array',
+        children: [
+          node({
+            name: 'betrokkene',
+            path: 'Zaak.betrokkenen.betrokkene',
+            id: 'Zaak.betrokkenen.betrokkene',
+            dataType: 'object',
+            children: [
+              node({
+                name: 'voorletters',
+                path: 'Zaak.betrokkenen.betrokkene.voorletters',
+                id: 'Zaak.betrokkenen.betrokkene.voorletters',
+                dataType: 'string',
+              }),
+            ],
+          }),
+        ],
+      }),
+    ]
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(deepNodes) },
+      attachTo: div,
+    })
+
+    await wrapper.find('[data-testid="schema-group-toggle-Zaak"]').trigger('click')
+    await wrapper.find('[data-testid="field-toggle-Zaak.betrokkenen"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-children-Zaak.betrokkenen"]').isVisible()).toBe(true)
+
+    // The 2nd-level node (betrokkene) has children of its own — it must be a
+    // toggle, not a dead-end leaf.
+    const nestedToggle = wrapper.find('[data-testid="field-toggle-Zaak.betrokkenen.betrokkene"]')
+    expect(nestedToggle.exists()).toBe(true)
+    expect(
+      wrapper.find('[data-testid="field-children-Zaak.betrokkenen.betrokkene"]').isVisible(),
+    ).toBe(false)
+
+    await nestedToggle.trigger('click')
+    expect(
+      wrapper.find('[data-testid="field-children-Zaak.betrokkenen.betrokkene"]').isVisible(),
+    ).toBe(true)
+    expect(wrapper.find('[data-field-id="Zaak.betrokkenen.betrokkene.voorletters"]').exists()).toBe(
+      true,
+    )
+
+    wrapper.unmount()
+    div.remove()
+  })
+
+  // The 3rd-level leaf must still be a real, mappable field (data-field-id +
+  // data-field-side), not just visible text — this is what ConnectionLines
+  // and click-to-map key off of.
+  it('makes a 3rd-level leaf field clickable and identifiable by side, at any depth', async () => {
+    const deepNodes: SchemaFieldNode[] = [
+      node({
+        name: 'a',
+        path: 'a',
+        id: 'a',
+        dataType: 'object',
+        children: [
+          node({
+            name: 'b',
+            path: 'a.b',
+            id: 'a.b',
+            dataType: 'object',
+            children: [node({ name: 'c', path: 'a.b.c', id: 'a.b.c', dataType: 'string' })],
+          }),
+        ],
+      }),
+    ]
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    const wrapper = mount(SourceSchemaPanel, {
+      props: { schema: schemaOf(deepNodes), side: 'target' },
+      attachTo: div,
+    })
+
+    await wrapper.find('[data-testid="field-toggle-a"]').trigger('click')
+    await wrapper.find('[data-testid="field-toggle-a.b"]').trigger('click')
+
+    const leaf = wrapper.find('[data-field-id="a.b.c"]')
+    expect(leaf.exists()).toBe(true)
+    expect(leaf.attributes('data-field-side')).toBe('target')
+    expect(leaf.attributes('data-child-of-field')).toBe('target:a.b')
+
+    await leaf.trigger('click')
+    expect(wrapper.emitted('field-click')).toEqual([['a.b.c']])
+
+    wrapper.unmount()
+    div.remove()
+  })
+
   // Scenario: Maximum field length visible for string fields
   it('shows maxLength next to string fields that define it', () => {
     const nodesWithMax: SchemaFieldNode[] = [
@@ -206,6 +310,56 @@ describe('SourceSchemaPanel', () => {
       await wrapper.vm.scrollToField('adres.straat')
 
       expect(wrapper.find('[data-testid="field-children-adres"]').isVisible()).toBe(true)
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+
+      wrapper.unmount()
+      div.remove()
+    })
+
+    // Bug #151: an AI suggestion targeting a field several objects deep
+    // (e.g. Zaak.betrokkenen.betrokkene.voorletters) must expand every
+    // ancestor on the way down, not just the immediate parent.
+    it('expands every ancestor, not just the immediate parent, for a field nested 3 levels deep', async () => {
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock
+      const div = document.createElement('div')
+      document.body.appendChild(div)
+
+      const deepNodes: SchemaFieldNode[] = [
+        node({
+          name: 'betrokkenen',
+          path: 'Zaak.betrokkenen',
+          id: 'Zaak.betrokkenen',
+          dataType: 'array',
+          children: [
+            node({
+              name: 'betrokkene',
+              path: 'Zaak.betrokkenen.betrokkene',
+              id: 'Zaak.betrokkenen.betrokkene',
+              dataType: 'object',
+              children: [
+                node({
+                  name: 'voorletters',
+                  path: 'Zaak.betrokkenen.betrokkene.voorletters',
+                  id: 'Zaak.betrokkenen.betrokkene.voorletters',
+                  dataType: 'string',
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]
+      const wrapper = mount(SourceSchemaPanel, {
+        props: { schema: schemaOf(deepNodes) },
+        attachTo: div,
+      })
+
+      await wrapper.vm.scrollToField('Zaak.betrokkenen.betrokkene.voorletters')
+
+      expect(wrapper.find('[data-testid="schema-group-fields-Zaak"]').isVisible()).toBe(true)
+      expect(wrapper.find('[data-testid="field-children-Zaak.betrokkenen"]').isVisible()).toBe(true)
+      expect(
+        wrapper.find('[data-testid="field-children-Zaak.betrokkenen.betrokkene"]').isVisible(),
+      ).toBe(true)
       expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
 
       wrapper.unmount()
