@@ -5,6 +5,7 @@ import { useAISuggestions, AIKeyRejectedError } from '@/composables/useAISuggest
 import { useMappings } from '@/composables/useMappings'
 import { useApiKey } from '@/composables/useApiKey'
 import { useSuggestionScope } from '@/composables/useSuggestionScope'
+import { useTargetScopeFlag } from '@/composables/useTargetScopeFlag'
 import AISuggestionCard from './AISuggestionCard.vue'
 
 const props = defineProps<{
@@ -15,6 +16,7 @@ const props = defineProps<{
 const aiStore = useAISuggestions()
 const mappingsStore = useMappings()
 const scopeStore = useSuggestionScope()
+const { targetScopeEnabled } = useTargetScopeFlag()
 const { hasKey, getKey, removeStoredKey } = useApiKey()
 
 const keyRejected = computed(() => aiStore.error instanceof AIKeyRejectedError)
@@ -30,26 +32,63 @@ const scopedSourceFields = computed(() =>
   scopeStore.scopedSourceLeaves.filter((f) => !mappedSourceIds.value.has(f.id)),
 )
 
-// Per Feature #89 AC: the target side is always fully included in the
-// suggestion call — every unmapped target leaf, not gated by scope.
-const scopedTargetFields = computed(() =>
+// Per Feature #89 AC: without target scope test mode, the target side stays
+// fully included in the suggestion call — every unmapped target leaf, not
+// gated by scope. Under `?targetScope=1` (Feature #159), it narrows to the
+// selected target scope the same way the source side already does.
+const fullTargetFields = computed(() =>
   props.targetSchema
     .all()
     .filter(
       (f) => !mappedTargetIds.value.has(f.id) && props.targetSchema.childrenOf(f.id).length === 0,
     ),
 )
+const scopedTargetFields = computed(() =>
+  targetScopeEnabled.value
+    ? scopeStore.scopedTargetLeaves.filter((f) => !mappedTargetIds.value.has(f.id))
+    : fullTargetFields.value,
+)
 
 const canGenerate = computed(
   () =>
     scopeStore.hasSourceSelection &&
+    (!targetScopeEnabled.value || scopeStore.hasTargetSelection) &&
     scopedSourceFields.value.length > 0 &&
     scopedTargetFields.value.length > 0,
 )
 const scopeHasNothingToSuggest = computed(
-  () => scopeStore.hasSourceSelection && scopedTargetFields.value.length === 0,
+  () =>
+    scopeStore.hasSourceSelection &&
+    (!targetScopeEnabled.value || scopeStore.hasTargetSelection) &&
+    scopedTargetFields.value.length === 0,
 )
 const canShowEmptyState = computed(() => !aiStore.error && scopeHasNothingToSuggest.value)
+
+// Scope-required hint: source is required unconditionally; target is only
+// required — and only hinted at — while target scope test mode is active.
+const scopeHintMessage = computed(() => {
+  if (!scopeStore.hasSourceSelection) {
+    return 'Selecteer minstens één veld in het bronschema om suggesties te genereren.'
+  }
+  if (targetScopeEnabled.value && !scopeStore.hasTargetSelection) {
+    return 'Selecteer minstens één veld in het doelschema om suggesties te genereren.'
+  }
+  return null
+})
+
+// New behaviour (Task #174): while target scope test mode is active, a
+// changed target scope invalidates existing suggestions — mirroring the
+// edge case in Feature #159. Source-side scope changes still never prune
+// suggestions (see the note in ConnectionLines.vue); that's #89's existing
+// gap, not something this task fixes.
+watch(
+  () => scopeStore.selectedTargetRootIds,
+  () => {
+    if (!targetScopeEnabled.value) return
+    aiStore.suggestions = []
+    aiStore.lowConfidenceSuggestions = []
+  },
+)
 
 const resolvedSuggestions = computed(() =>
   aiStore.suggestions.map((s) => ({
@@ -320,11 +359,11 @@ async function changeKey() {
           Genereer suggesties
         </button>
         <p
-          v-if="!scopeStore.hasSourceSelection"
+          v-if="scopeHintMessage"
           class="text-xs text-red-600 max-w-xs px-6 text-center"
           data-testid="scope-required-hint"
         >
-          Selecteer minstens één veld in het bronschema om suggesties te genereren.
+          {{ scopeHintMessage }}
         </p>
       </div>
 
