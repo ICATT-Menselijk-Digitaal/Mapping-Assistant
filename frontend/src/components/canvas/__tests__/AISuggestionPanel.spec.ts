@@ -112,7 +112,9 @@ const targetNodesWithMultipleContainers: SchemaFieldNode[] = [
     path: 'Zaak',
     dataType: 'object',
     required: false,
-    children: [{ id: 'tgt-zaak-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true }],
+    children: [
+      { id: 'tgt-zaak-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
+    ],
   },
   {
     id: 'tgt-status',
