@@ -520,3 +520,77 @@ describe('Source schema upload UI', () => {
     expect(wrapper.emitted('SourceUrlEntered')![0]![0]).toBe('https://example.com/api.json')
   })
 })
+
+// Feature #153 — operation-type–filtered schema display
+describe('Operation-type–filtered schema panels', () => {
+  const zaakNodes: SchemaFieldNode[] = [
+    {
+      id: 'ZaakResponse.id',
+      name: 'id',
+      path: 'ZaakResponse.id',
+      dataType: 'string',
+      required: true,
+    },
+    {
+      id: 'ZaakResponse.status',
+      name: 'status',
+      path: 'ZaakResponse.status',
+      dataType: 'string',
+      required: false,
+    },
+  ]
+  const zaakSchema = buildSchema('ZaakResponse', zaakNodes)
+
+  function mountFiltered(
+    overrides: {
+      sourceEligibleSchemaNames?: string[] | null
+      targetEligibleSchemaNames?: string[] | null
+    } = {},
+  ) {
+    return mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: zaakSchema,
+        targetSchema: EMPTY_SCHEMA,
+        sourceEligibleSchemaNames: overrides.sourceEligibleSchemaNames ?? null,
+        targetEligibleSchemaNames: overrides.targetEligibleSchemaNames ?? null,
+      },
+    })
+  }
+
+  // Scenario: Source panel shows only GET response schemas
+  it('shows the filtered source fields when eligible schema names are provided', () => {
+    const wrapper = mountFiltered({ sourceEligibleSchemaNames: ['ZaakResponse'] })
+    const sourceColumn = wrapper.find('[data-testid="source-column"]')
+    expect(sourceColumn.text()).toContain('id')
+    expect(sourceColumn.text()).toContain('status')
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(false)
+  })
+
+  // Scenario: Source panel communicates clearly when no GET operations exist
+  it('shows a no-schemas message in source when eligible list is empty', () => {
+    const wrapper = mountFiltered({ sourceEligibleSchemaNames: [] })
+    expect(wrapper.find('[data-testid="source-no-schemas"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(false)
+  })
+
+  // Scenario: Target panel communicates clearly when no POST operations exist
+  it('shows a no-schemas message in target when eligible list is empty', () => {
+    const wrapper = mountFiltered({ targetEligibleSchemaNames: [] })
+    expect(wrapper.find('[data-testid="target-no-schemas"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="target-upload"]').exists()).toBe(false)
+  })
+
+  it('shows upload UI in source when eligibleSchemaNames is null (backwards compat)', () => {
+    const wrapper = mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: {
+        sourceSchema: EMPTY_SCHEMA,
+        targetSchema: EMPTY_SCHEMA,
+        sourceEligibleSchemaNames: null,
+      },
+    })
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="source-no-schemas"]').exists()).toBe(false)
+  })
+})
