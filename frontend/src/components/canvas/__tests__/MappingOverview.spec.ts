@@ -794,3 +794,66 @@ describe('MappingOverview', () => {
     }
   })
 })
+
+describe('MappingOverview — opmerking', () => {
+  // Scenario: Row indicator and hover preview for a Koppeling with a comment
+  it('shows a comment icon only on rows with a comment', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const withComment = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+    store.setComment(withComment.id, 'Belangrijke context')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('[data-testid="comment-indicator"]')).toHaveLength(1)
+  })
+
+  it('shows the comment text and relative time in the hover preview', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const withComment = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.setComment(withComment.id, 'Belangrijke context')
+    await wrapper.vm.$nextTick()
+
+    const preview = wrapper.find('[data-testid="comment-preview"]')
+    expect(preview.exists()).toBe(true)
+    expect(preview.text()).toContain('Belangrijke context')
+    expect(preview.text()).toMatch(/geleden|zojuist/)
+  })
+
+  // Scenario: Filtering the Koppelingen paneel by comment presence
+  it('filters to only Koppelingen with a comment, with a live count', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const withComment = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+    store.setComment(withComment.id, 'Belangrijke context')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="filter-comment"]').text()).toContain('1')
+
+    await wrapper.find('[data-testid="filter-comment"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.text()).toContain('zaakId')
+  })
+
+  // Scenario: Removing a comment updates an active "Met opmerking" filter immediately
+  it('removes a row from the active "Met opmerking" filter as soon as its comment is removed', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const withComment = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.setComment(withComment.id, 'Belangrijke context')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-comment"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    store.removeComment(withComment.id)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+})

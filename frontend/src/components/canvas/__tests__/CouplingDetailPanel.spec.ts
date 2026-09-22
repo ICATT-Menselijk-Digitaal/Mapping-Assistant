@@ -402,7 +402,7 @@ describe('CouplingDetailPanel — opmerking', () => {
     expect(textEl.text()).toContain('regel een')
     expect(textEl.text()).toContain('<script>alert(1)</script>')
     expect(textEl.find('script').exists()).toBe(false)
-    expect(textEl.element.style.whiteSpace).toBe('pre-wrap')
+    expect((textEl.element as HTMLElement).style.whiteSpace).toBe('pre-wrap')
   })
 
   // Scenario: A comment remains reachable on an orphaned Koppeling

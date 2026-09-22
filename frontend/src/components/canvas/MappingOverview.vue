@@ -8,6 +8,7 @@ import FieldPath from './FieldPath.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { analyze, isResolved } from '@/domain/coupling'
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
+import { formatRelativeTime } from '@/utils/formatRelativeTime'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -26,6 +27,7 @@ const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
 const searchQuery = ref('')
 const filterStatus = ref<'all' | 'actionRequired'>('all')
+const filterComment = ref(false)
 const currentTab = computed(() => props.activeTab ?? 'koppelingen')
 const rowRefs = ref<Map<string, HTMLElement>>(new Map())
 
@@ -59,9 +61,14 @@ const rows = computed(() =>
       source,
       target,
       isComplete: source && target ? isResolved(analyze(source, target), m) : false,
+      hasComment: m.comment !== undefined,
+      comment: m.comment,
+      commentedAt: m.commentedAt,
     }
   }),
 )
+
+const commentCount = computed(() => rows.value.filter((r) => r.hasComment).length)
 
 function statusIcon(row: { validationStatus: string; isComplete: boolean }): {
   text: string
@@ -85,6 +92,7 @@ const filteredRows = computed(() => {
   const status = filterStatus.value
   return rows.value.filter((r) => {
     if (status === 'actionRequired' && !requiresAction(r)) return false
+    if (filterComment.value && !r.hasComment) return false
     if (!q) return true
     return (
       (r.source?.path ?? r.sourceFieldId).toLowerCase().includes(q) ||
@@ -191,6 +199,18 @@ function cancelDelete() {
         >
           Actie vereist
         </button>
+        <button
+          :class="[
+            'flex-1 text-[11px] px-2 py-1 rounded border transition-colors',
+            filterComment
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-300'
+              : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700',
+          ]"
+          data-testid="filter-comment"
+          @click="filterComment = !filterComment"
+        >
+          Met opmerking · {{ commentCount }}
+        </button>
       </div>
     </div>
 
@@ -293,6 +313,26 @@ function cancelDelete() {
               >{{ fieldTypeBadge(row.target.dataType).label }}</span
             >
           </div>
+
+          <!-- Comment indicator + hover preview -->
+          <span v-if="row.hasComment" class="group/comment relative shrink-0">
+            <span
+              class="text-indigo-500 text-[13px] leading-none"
+              data-testid="comment-indicator"
+              title="Heeft een opmerking"
+              aria-label="Heeft een opmerking"
+              >💬</span
+            >
+            <div
+              class="hidden group-hover/comment:block absolute right-0 top-full mt-1 z-10 w-56 bg-white border border-slate-200 rounded shadow-md px-2.5 py-2 text-left"
+              data-testid="comment-preview"
+            >
+              <p class="text-xs text-slate-700 break-words line-clamp-3">{{ row.comment }}</p>
+              <p class="text-[10px] text-slate-400 mt-1">
+                {{ formatRelativeTime(row.commentedAt!) }}
+              </p>
+            </div>
+          </span>
 
           <!-- Remove button -->
           <button

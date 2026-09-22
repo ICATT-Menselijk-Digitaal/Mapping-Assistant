@@ -375,9 +375,10 @@ function removeComment() {
         </div>
       </div>
 
-      <!-- Active dialog -->
+      <!-- Active dialog (only reachable via the mismatches section, which is
+      itself gated on both fields resolving) -->
       <div
-        v-if="activeDialog"
+        v-if="activeDialog && sourceField && targetField"
         class="mx-4 mb-3 border border-slate-200 rounded"
         data-testid="dialog-container"
       >
