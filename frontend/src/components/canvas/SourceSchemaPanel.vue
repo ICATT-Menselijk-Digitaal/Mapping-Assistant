@@ -5,6 +5,7 @@ import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useSuggestionScope } from '@/composables/useSuggestionScope'
+import { useTargetScopeFlag } from '@/composables/useTargetScopeFlag'
 import { highlightHtml } from '@/utils/highlightSegments'
 import SchemaFieldRow from './SchemaFieldRow.vue'
 
@@ -23,12 +24,17 @@ const emit = defineEmits<{
 const mappingsStore = useMappings()
 const { mappings, hoveredFieldId, hoveredFieldSide, hoveredMappingId } = storeToRefs(mappingsStore)
 const scopeStore = useSuggestionScope()
+const { targetScopeEnabled } = useTargetScopeFlag()
 
 const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
 
-// Per Feature #89: only the source side is scope-selectable. Target is
-// always fully included in AI calls, so no scope UI is rendered on it.
-const scopeEnabled = computed(() => scopeSide.value === 'source')
+// Per Feature #89: the source side is always scope-selectable. The target
+// side is only scope-selectable behind the `?targetScope=1` test-mode flag
+// (Feature #159) — otherwise it stays fully included in AI calls, matching
+// #89's original AC.
+const scopeEnabled = computed(
+  () => scopeSide.value === 'source' || (scopeSide.value === 'target' && targetScopeEnabled.value),
+)
 
 const allRootsSelected = computed(() => {
   const roots = props.schema.roots

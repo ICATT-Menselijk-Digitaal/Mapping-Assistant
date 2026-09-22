@@ -577,13 +577,51 @@ describe('SourceSchemaPanel', () => {
       )
     })
 
-    // Per Feature #89 AC: target side is never scope-gated, so no scope UI renders there
-    it('does not render scope selection UI on the target side', () => {
+    // Per Feature #89 AC: without target scope test mode, the target side is
+    // never scope-gated, so no scope UI renders there
+    it('does not render scope selection UI on the target side when target scope test mode is inactive', () => {
       const wrapper = mount(SourceSchemaPanel, {
         props: { schema: schemaOf(multiSchemaNodes), side: 'target' },
       })
       expect(wrapper.find('[data-testid="scope-select-all-target"]').exists()).toBe(false)
       expect(wrapper.find('[data-testid="scope-checkbox-target-Zaak"]').exists()).toBe(false)
+    })
+
+    // Scenario: Target scope test mode is active (Task #174)
+    describe('with target scope test mode active', () => {
+      beforeEach(() => {
+        window.history.replaceState({}, '', '/?targetScope=1')
+      })
+
+      afterEach(() => {
+        window.history.replaceState({}, '', '/')
+      })
+
+      it('renders a scope checkbox and select-all toggle for each root schema object on the target side', () => {
+        const wrapper = mount(SourceSchemaPanel, {
+          props: { schema: schemaOf(multiSchemaNodes), side: 'target' },
+        })
+        expect(wrapper.find('[data-testid="scope-select-all-target"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="scope-checkbox-target-Zaak"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="scope-checkbox-target-Status"]').exists()).toBe(true)
+      })
+
+      it('toggling a target group checkbox selects every root field in that group only', async () => {
+        const wrapper = mount(SourceSchemaPanel, {
+          props: { schema: schemaOf(multiSchemaNodes), side: 'target' },
+        })
+        const scopeStore = useSuggestionScope()
+        await wrapper.find('[data-testid="scope-checkbox-target-Zaak"]').trigger('change')
+        expect(scopeStore.isSelected('target', 'Zaak.zaakId')).toBe(true)
+        expect(scopeStore.isSelected('target', 'Status.statusCode')).toBe(false)
+      })
+
+      it('does not disable scope selection UI on the source side', () => {
+        const wrapper = mount(SourceSchemaPanel, {
+          props: { schema: schemaOf(multiSchemaNodes), side: 'source' },
+        })
+        expect(wrapper.find('[data-testid="scope-select-all-source"]').exists()).toBe(true)
+      })
     })
   })
 
