@@ -315,3 +315,120 @@ describe('CouplingDetailPanel — rule list', () => {
     expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toBe('● Vereist')
   })
 })
+
+describe('CouplingDetailPanel — opmerking', () => {
+  // Scenario: Adding a comment to a Koppeling
+  it('adds a comment via "Opmerking toevoegen" and shows it', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-textarea"]').setValue('Belangrijke context')
+    await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toBe('Belangrijke context')
+  })
+
+  // Scenario: A saved comment shows when it was added
+  it('shows a timestamp once a comment is saved', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-textarea"]').setValue('Met tijdstempel')
+    await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-timestamp"]').text().length).toBeGreaterThan(0)
+  })
+
+  // Scenario: Editing an existing comment
+  it('edits an existing comment via the overflow menu', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.setComment(mapping.id, 'Eerste versie')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="opmerking-menu-toggle"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-edit"]').trigger('click')
+    const textarea = wrapper.find('[data-testid="opmerking-textarea"]')
+    expect((textarea.element as HTMLTextAreaElement).value).toBe('Eerste versie')
+    await textarea.setValue('Tweede versie')
+    await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toBe('Tweede versie')
+  })
+
+  // Scenario: Removing an existing comment
+  it('removes an existing comment via the overflow menu', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.setComment(mapping.id, 'Weg ermee')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="opmerking-menu-toggle"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-remove"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="opmerking-add-button"]').exists()).toBe(true)
+  })
+
+  // Scenario: Comment length is capped while composing
+  it('caps comment input at MAX_COMMENT_LENGTH characters', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
+    const textarea = wrapper.find('[data-testid="opmerking-textarea"]')
+    expect(textarea.attributes('maxlength')).toBe('500')
+
+    await textarea.setValue('x'.repeat(600))
+    await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toHaveLength(500)
+  })
+
+  // Scenario: Comment input preserves line breaks and rejects unsafe markup
+  it('preserves line breaks and never renders comment text as markup', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
+    await wrapper
+      .find('[data-testid="opmerking-textarea"]')
+      .setValue('regel een\nregel twee <script>alert(1)</script>')
+    await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const textEl = wrapper.find('[data-testid="opmerking-text"]')
+    // Rendered via text interpolation only: the literal tag text is present
+    // as text content, never parsed into a real <script> element.
+    expect(textEl.text()).toContain('regel een')
+    expect(textEl.text()).toContain('<script>alert(1)</script>')
+    expect(textEl.find('script').exists()).toBe(false)
+    expect(textEl.element.style.whiteSpace).toBe('pre-wrap')
+  })
+
+  // Scenario: A comment remains reachable on an orphaned Koppeling
+  it('still shows the opmerking section when the mapping is orphaned', async () => {
+    const store = useMappings()
+    store.restoreMappings(
+      [
+        {
+          sourceField: 'missing-src',
+          targetField: 'doelveld',
+          transformations: [],
+          comment: 'Overleefde de import',
+          commentedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+      sourceSchema,
+      targetSchema,
+    )
+    const orphanedMapping = store.mappings[0]!
+    store.selectMapping(orphanedMapping.id)
+    const wrapper = mount(CouplingDetailPanel, {
+      props: { sourceSchema, targetSchema },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="coupling-detail-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toBe('Overleefde de import')
+  })
+})
