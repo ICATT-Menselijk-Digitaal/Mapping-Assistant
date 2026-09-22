@@ -229,16 +229,11 @@ function cancelDelete() {
         :key="row.id"
         :ref="(el) => setRowRef(row.id, el as HTMLElement | null)"
         :class="[
-          'flex flex-col gap-1 px-3 py-2 text-sm',
-          row.orphaned
-            ? 'cursor-default bg-amber-50/40'
-            : [
-                'cursor-pointer hover:bg-slate-50',
-                { 'bg-indigo-50': row.id === selectedMappingId },
-              ],
+          'flex flex-col gap-1 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50',
+          row.orphaned ? 'bg-amber-50/40' : { 'bg-indigo-50': row.id === selectedMappingId },
         ]"
         data-testid="mapping-row"
-        @click.stop="row.orphaned ? null : store.selectMapping(row.id)"
+        @click.stop="store.selectMapping(row.id)"
       >
         <div class="flex items-center gap-2">
           <!-- Validation status icon -->

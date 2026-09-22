@@ -459,7 +459,10 @@ describe('MappingOverview', () => {
     expect(wrapper.find('[data-testid="orphan-details"]').exists()).toBe(false)
   })
 
-  it('does not select an orphaned mapping when its row is clicked', async () => {
+  // Scenario: A comment remains reachable on an orphaned Koppeling (Task #177)
+  // Orphaned rows are selectable so their detail view — and any comment on
+  // it — stays reachable, even though the row itself can't be re-mapped.
+  it('selects an orphaned mapping when its row is clicked', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.restoreMappings(
@@ -471,7 +474,7 @@ describe('MappingOverview', () => {
 
     const row = wrapper.find('[data-testid="mapping-row"]')
     await row.trigger('click')
-    expect(store.selectedMappingId).toBeNull()
+    expect(store.selectedMappingId).toBe(store.mappings[0]!.id)
   })
 
   // Scenario: Filtering to "Actie vereist" hides resolved mappings
