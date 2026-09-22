@@ -103,6 +103,38 @@ const targetNodesWithContainer: SchemaFieldNode[] = [
 const sourceSchemaWithContainers = buildSchema('', sourceNodesWithContainer)
 const targetSchemaWithContainers = buildSchema('', targetNodesWithContainer)
 
+// Two independent root containers on the target side, for Task #174 tests
+// where restricting to one selected target root must leave the other out.
+const targetNodesWithMultipleContainers: SchemaFieldNode[] = [
+  {
+    id: 'tgt-zaak',
+    name: 'Zaak',
+    path: 'Zaak',
+    dataType: 'object',
+    required: false,
+    children: [
+      { id: 'tgt-zaak-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
+    ],
+  },
+  {
+    id: 'tgt-status',
+    name: 'Status',
+    path: 'Status',
+    dataType: 'object',
+    required: false,
+    children: [
+      {
+        id: 'tgt-status-1',
+        name: 'statusCode',
+        path: 'Status.statusCode',
+        dataType: 'string',
+        required: true,
+      },
+    ],
+  },
+]
+const targetSchemaWithMultipleContainers = buildSchema('', targetNodesWithMultipleContainers)
+
 function mountPanel(props = { sourceSchema, targetSchema }) {
   // The scope store derives leaves from the schema resources, not from props,
   // so tests must seed the resources with the same schemas the panel renders.
@@ -957,6 +989,115 @@ describe('AISuggestionPanel', () => {
       const wrapper = mountPanel(scopedProps)
       await wrapper.vm.$nextTick()
       expect(wrapper.find('[data-testid="scope-required-hint"]').exists()).toBe(true)
+    })
+  })
+
+  // Feature #159 / Task #174: target-side scoping only applies under the
+  // `?targetScope=1` test-mode flag.
+  describe('target scope test mode', () => {
+    const multiRootProps = {
+      sourceSchema: sourceSchemaWithContainers,
+      targetSchema: targetSchemaWithMultipleContainers,
+    }
+
+    // Scenario: Target scope test mode is inactive
+    it('sends every unmapped target field when the flag is absent, ignoring any target selection', async () => {
+      const wrapper = mountPanel(multiRootProps)
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-zaak')
+      await wrapper.vm.$nextTick()
+      const aiStore = useAISuggestions()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [, targetArgs] = spy.mock.calls[0]!
+      expect(targetArgs.map((f) => f.id).sort()).toEqual(['tgt-status-1', 'tgt-zaak-1'])
+    })
+
+    describe('with the flag active', () => {
+      beforeEach(() => {
+        window.history.replaceState({}, '', '/?targetScope=1')
+      })
+
+      afterEach(() => {
+        window.history.replaceState({}, '', '/')
+      })
+
+      // Scenario: Suggestion run is restricted to the selected target scope
+      it('only sends leaves under the selected target root', async () => {
+        const wrapper = mountPanel(multiRootProps)
+        const scopeStore = useSuggestionScope()
+        scopeStore.toggle('source', 'src-container')
+        scopeStore.toggle('target', 'tgt-zaak')
+        await wrapper.vm.$nextTick()
+        const aiStore = useAISuggestions()
+        const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+        await wrapper.find('[data-testid="generate-button"]').trigger('click')
+        const [, targetArgs] = spy.mock.calls[0]!
+        expect(targetArgs.map((f) => f.id)).toEqual(['tgt-zaak-1'])
+      })
+
+      // Scenario: Generate suggestions stays disabled until both sides have a selection
+      it('keeps generate disabled with only a source selection, and shows a target hint', async () => {
+        const wrapper = mountPanel(multiRootProps)
+        const scopeStore = useSuggestionScope()
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
+
+        scopeStore.toggle('source', 'src-container')
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[data-testid="scope-required-hint"]').text()).toContain('doelschema')
+
+        scopeStore.toggle('target', 'tgt-zaak')
+        await wrapper.vm.$nextTick()
+        expect(
+          wrapper.find('[data-testid="generate-button"]').attributes('disabled'),
+        ).toBeUndefined()
+      })
+
+      // Scenario: Selected target scope has nothing to suggest
+      it('shows the empty state when the selected target root has no unmapped fields', async () => {
+        const mappingsStore = useMappings()
+        mappingsStore.mappings = [
+          {
+            id: 'm1',
+            sourceFieldId: 'src-1',
+            targetFieldId: 'tgt-zaak-1',
+            transformations: [],
+            status: 'confirmed',
+          },
+        ]
+        const wrapper = mountPanel(multiRootProps)
+        const scopeStore = useSuggestionScope()
+        scopeStore.toggle('source', 'src-container')
+        scopeStore.toggle('target', 'tgt-zaak')
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
+      })
+
+      // Scenario: Changing the target scope invalidates existing suggestions
+      it('clears existing suggestions when the target scope selection changes', async () => {
+        const wrapper = mountPanel(multiRootProps)
+        const aiStore = useAISuggestions()
+        const scopeStore = useSuggestionScope()
+        scopeStore.toggle('target', 'tgt-zaak')
+        await wrapper.vm.$nextTick()
+        aiStore.suggestions = [
+          {
+            id: '1',
+            sourceFieldId: 'src-1',
+            targetFieldId: 'tgt-zaak-1',
+            confidenceScore: 0.97,
+            status: 'pending',
+          },
+        ] as AiSuggestion[]
+
+        scopeStore.toggle('target', 'tgt-status')
+        await wrapper.vm.$nextTick()
+
+        expect(aiStore.suggestions).toHaveLength(0)
+      })
     })
   })
 
