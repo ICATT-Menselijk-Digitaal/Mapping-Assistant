@@ -106,6 +106,31 @@ export function updateRule(
   })
 }
 
+export const MAX_COMMENT_LENGTH = 500
+
+/** Set (or overwrite) a mapping's comment, refreshing its timestamp. */
+export function setComment(
+  list: readonly FieldMapping[],
+  mappingId: string,
+  comment: string,
+): FieldMapping[] {
+  if (!list.some((m) => m.id === mappingId)) return list as FieldMapping[]
+  const trimmed = comment.slice(0, MAX_COMMENT_LENGTH)
+  return list.map((m) =>
+    m.id === mappingId ? { ...m, comment: trimmed, commentedAt: new Date().toISOString() } : m,
+  )
+}
+
+export function removeComment(list: readonly FieldMapping[], mappingId: string): FieldMapping[] {
+  const mapping = list.find((m) => m.id === mappingId)
+  if (!mapping || mapping.comment === undefined) return list as FieldMapping[]
+  return list.map((m) => {
+    if (m.id !== mappingId) return m
+    const { comment: _comment, commentedAt: _commentedAt, ...rest } = m
+    return rest
+  })
+}
+
 export function toggleMismatch(
   list: readonly FieldMapping[],
   mappingId: string,
@@ -140,6 +165,8 @@ export function restoreMappings(
       status: 'confirmed',
     }
     if (orphaned) mapping.orphaned = true
+    if (m.comment !== undefined) mapping.comment = m.comment
+    if (m.commentedAt !== undefined) mapping.commentedAt = m.commentedAt
     return mapping
   })
 }

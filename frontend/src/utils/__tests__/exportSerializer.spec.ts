@@ -206,6 +206,40 @@ describe('serializeMappingSet', () => {
     expect(result.fieldMappings).toHaveLength(0)
   })
 
+  // Scenario: A comment survives export and import
+  it('includes comment and commentedAt when present', () => {
+    const withComment: FieldMapping[] = [
+      {
+        id: 'm3',
+        sourceFieldId: 'customerId',
+        targetFieldId: 'id',
+        transformations: [],
+        status: 'confirmed',
+        comment: 'Belangrijke context',
+        commentedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: withComment,
+      aiStats: emptyAiStats,
+    })
+    expect(result.fieldMappings[0]!.comment).toBe('Belangrijke context')
+    expect(result.fieldMappings[0]!.commentedAt).toBe('2026-01-01T00:00:00.000Z')
+  })
+
+  it('omits comment and commentedAt when absent', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings,
+      aiStats: emptyAiStats,
+    })
+    expect(result.fieldMappings[0]).not.toHaveProperty('comment')
+    expect(result.fieldMappings[0]).not.toHaveProperty('commentedAt')
+  })
+
   it('uses the provided exportedAt when supplied (deterministic for tests)', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
