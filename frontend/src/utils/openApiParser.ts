@@ -284,3 +284,182 @@ export function parseOpenApiSchema(spec: unknown): Schema {
   const tree = parseOpenApiTree(spec)
   return buildSchema(extractSchemaName(spec), tree)
 }
+
+export function parseOpenApiSchemaFiltered(spec: unknown, allowedNames: string[]): Schema {
+  if (!spec || typeof spec !== 'object') return buildSchema('', [])
+  const s = spec as Record<string, unknown>
+
+  const allSchemas: Record<string, unknown> =
+    ((s.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ??
+    (s.definitions as Record<string, unknown>) ??
+    {}
+
+  const allowedSet = new Set(allowedNames)
+  const allSchemaNames = Object.keys(allSchemas)
+  const filteredNames = allSchemaNames.filter((n) => allowedSet.has(n))
+  if (filteredNames.length === 0) return buildSchema(extractSchemaName(spec), [])
+
+  // Use full schema count for path prefix consistency with the stored schema's field IDs
+  const multiSchema = allSchemaNames.length > 1
+  const fields: SchemaFieldNode[] = []
+
+  for (const schemaName of filteredNames) {
+    const schema = allSchemas[schemaName] as Record<string, unknown>
+    const properties = schema.properties as Record<string, unknown> | undefined
+    if (!properties) continue
+
+    const required = (schema.required as string[]) ?? []
+    for (const [propName, prop] of Object.entries(properties)) {
+      const p = prop as Record<string, unknown>
+      const path = multiSchema ? `${schemaName}.${propName}` : propName
+      const display = resolveSchema(p, allSchemas).schema
+      const field: SchemaFieldNode = {
+        id: path,
+        name: propName,
+        path,
+        dataType: mapType(display),
+        required: required.includes(propName),
+        description: display.description as string | undefined,
+        maxLength: display.maxLength as number | undefined,
+      }
+      const children = childrenFor(p, allSchemas, path)
+      if (children) field.children = children
+      fields.push(field)
+    }
+  }
+
+  return buildSchema(extractSchemaName(spec), fields)
+}
+
+export interface OperationSchemas {
+  names: string[]
+  inlineSchemas: Map<string, Record<string, unknown>>
+}
+
+function extractBodySchemaRefs(
+  body: unknown,
+  allSchemas: Record<string, unknown>,
+  operationKey: string,
+  acc: { names: Set<string>; inlineSchemas: Map<string, Record<string, unknown>> },
+): void {
+  if (!body || typeof body !== 'object') return
+  const b = body as Record<string, unknown>
+  const content = b.content as Record<string, unknown> | undefined
+  if (!content) return
+
+  for (const mediaTypeObj of Object.values(content)) {
+    if (!mediaTypeObj || typeof mediaTypeObj !== 'object') continue
+    const m = mediaTypeObj as Record<string, unknown>
+    const schema = m.schema as Record<string, unknown> | undefined
+    if (!schema) continue
+
+    if (schema.$ref && typeof schema.$ref === 'string') {
+      const name = refName(schema.$ref)
+      if (name && name in allSchemas) acc.names.add(name)
+    } else if (schema.properties) {
+      acc.names.add(operationKey)
+      acc.inlineSchemas.set(operationKey, schema)
+    }
+  }
+}
+
+export function schemasByOperation(
+  spec: unknown,
+  method: 'get' | 'post',
+  role: 'response' | 'request',
+): OperationSchemas {
+  const empty: OperationSchemas = { names: [], inlineSchemas: new Map() }
+  if (!spec || typeof spec !== 'object') return empty
+  const s = spec as Record<string, unknown>
+  const paths = s.paths as Record<string, unknown> | undefined
+  if (!paths) return empty
+
+  const allSchemas: Record<string, unknown> =
+    ((s.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ??
+    (s.definitions as Record<string, unknown>) ??
+    {}
+
+  const acc = {
+    names: new Set<string>(),
+    inlineSchemas: new Map<string, Record<string, unknown>>(),
+  }
+
+  for (const [pathKey, pathItem] of Object.entries(paths)) {
+    if (!pathItem || typeof pathItem !== 'object') continue
+    const item = pathItem as Record<string, unknown>
+    const operation = item[method] as Record<string, unknown> | undefined
+    if (!operation) continue
+
+    if (role === 'response') {
+      const responses = operation.responses as Record<string, unknown> | undefined
+      if (!responses) continue
+      for (const [statusCode, response] of Object.entries(responses)) {
+        extractBodySchemaRefs(
+          response,
+          allSchemas,
+          `${method.toUpperCase()} ${pathKey} (${statusCode})`,
+          acc,
+        )
+      }
+    } else {
+      const requestBody = operation.requestBody as Record<string, unknown> | undefined
+      extractBodySchemaRefs(requestBody, allSchemas, `${method.toUpperCase()} ${pathKey}`, acc)
+    }
+  }
+
+  return { names: [...acc.names], inlineSchemas: acc.inlineSchemas }
+}
+
+function parseSchemaDefinition(
+  schemaName: string,
+  schemaDef: Record<string, unknown>,
+  allSchemas: Record<string, unknown>,
+): SchemaFieldNode[] {
+  const resolved = resolveSchema(schemaDef, allSchemas).schema
+  const properties = resolved.properties as Record<string, unknown> | undefined
+  if (!properties) return []
+
+  const required = (resolved.required as string[]) ?? []
+  const fields: SchemaFieldNode[] = []
+
+  for (const [propName, prop] of Object.entries(properties)) {
+    const p = prop as Record<string, unknown>
+    const path = `${schemaName}.${propName}`
+    const display = resolveSchema(p, allSchemas).schema
+    const field: SchemaFieldNode = {
+      id: path,
+      name: propName,
+      path,
+      dataType: mapType(display),
+      required: required.includes(propName),
+      description: display.description as string | undefined,
+      maxLength: display.maxLength as number | undefined,
+    }
+    const children = childrenFor(p, allSchemas, path)
+    if (children) field.children = children
+    fields.push(field)
+  }
+
+  return fields
+}
+
+export function parseOpenApiSchemaForName(
+  spec: unknown,
+  schemaName: string,
+  inlineSchemas: Map<string, Record<string, unknown>> = new Map(),
+): Schema {
+  if (!spec || typeof spec !== 'object') return buildSchema(schemaName, [])
+  const s = spec as Record<string, unknown>
+
+  const allSchemas: Record<string, unknown> =
+    ((s.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ??
+    (s.definitions as Record<string, unknown>) ??
+    {}
+
+  const schemaDef =
+    inlineSchemas.get(schemaName) ?? (allSchemas[schemaName] as Record<string, unknown> | undefined)
+
+  if (!schemaDef) return buildSchema(schemaName, [])
+
+  return buildSchema(schemaName, parseSchemaDefinition(schemaName, schemaDef, allSchemas))
+}

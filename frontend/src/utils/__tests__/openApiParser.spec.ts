@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { parseOpenApiSchema } from '../openApiParser'
+import {
+  parseOpenApiSchema,
+  parseOpenApiSchemaFiltered,
+  schemasByOperation,
+  parseOpenApiSchemaForName,
+} from '../openApiParser'
 
 const minimalOpenApi3 = {
   openapi: '3.0.0',
@@ -432,5 +437,270 @@ describe('parseOpenApiSchema', () => {
     const metaChildren = schema.childrenOf(meta!.id)
     expect(metaChildren).toHaveLength(2)
     expect(metaChildren.find((c) => c.name === 'key')).toBeDefined()
+  })
+})
+
+// Feature #153 — filtered schema display
+describe('parseOpenApiSchemaFiltered', () => {
+  const multiSchemaSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Test API', version: '1.0' },
+    components: {
+      schemas: {
+        ZaakResponse: {
+          type: 'object',
+          properties: { id: { type: 'string' }, status: { type: 'string' } },
+        },
+        ZaakRequest: {
+          type: 'object',
+          properties: { status: { type: 'string' } },
+        },
+        Unrelated: {
+          type: 'object',
+          properties: { data: { type: 'string' } },
+        },
+      },
+    },
+  }
+
+  it('returns only fields from the allowed schema names', () => {
+    const schema = parseOpenApiSchemaFiltered(multiSchemaSpec, ['ZaakResponse'])
+    const ids = schema.all().map((f) => f.id)
+    expect(ids).toContain('ZaakResponse.id')
+    expect(ids).toContain('ZaakResponse.status')
+    expect(ids).not.toContain('ZaakRequest.status')
+    expect(ids).not.toContain('Unrelated.data')
+  })
+
+  it('returns fields from multiple allowed schemas', () => {
+    const schema = parseOpenApiSchemaFiltered(multiSchemaSpec, ['ZaakResponse', 'ZaakRequest'])
+    const ids = schema.all().map((f) => f.id)
+    expect(ids).toContain('ZaakResponse.id')
+    expect(ids).toContain('ZaakRequest.status')
+    expect(ids).not.toContain('Unrelated.data')
+  })
+
+  it('uses SchemaName.propName path prefix consistent with the full-spec parser', () => {
+    const schema = parseOpenApiSchemaFiltered(multiSchemaSpec, ['ZaakResponse'])
+    expect(schema.all().find((f) => f.name === 'id')?.id).toBe('ZaakResponse.id')
+  })
+
+  it('returns an empty schema when no allowed names match', () => {
+    const schema = parseOpenApiSchemaFiltered(multiSchemaSpec, ['NonExistent'])
+    expect(schema.all()).toHaveLength(0)
+  })
+})
+
+// Feature #153 — operation-type–filtered schema selectors
+describe('schemasByOperation', () => {
+  const specWithOperations = {
+    openapi: '3.0.0',
+    info: { title: 'Test API', version: '1.0' },
+    paths: {
+      '/zaken': {
+        get: {
+          responses: {
+            200: {
+              content: {
+                'application/json': { schema: { $ref: '#/components/schemas/ZaakResponse' } },
+              },
+            },
+          },
+        },
+        post: {
+          requestBody: {
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/ZaakRequest' } },
+            },
+          },
+          responses: { 201: {} },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        ZaakResponse: {
+          type: 'object',
+          properties: { id: { type: 'string' }, status: { type: 'string' } },
+        },
+        ZaakRequest: {
+          type: 'object',
+          properties: { status: { type: 'string' } },
+        },
+        Unrelated: {
+          type: 'object',
+          properties: { data: { type: 'string' } },
+        },
+      },
+    },
+  }
+
+  // Scenario: Source panel shows only GET response schemas
+  it('returns only schemas referenced in GET response bodies', () => {
+    const result = schemasByOperation(specWithOperations, 'get', 'response')
+    expect(result.names).toContain('ZaakResponse')
+    expect(result.names).not.toContain('ZaakRequest')
+    expect(result.names).not.toContain('Unrelated')
+  })
+
+  // Scenario: Target panel shows only POST request schemas
+  it('returns only schemas referenced in POST request bodies', () => {
+    const result = schemasByOperation(specWithOperations, 'post', 'request')
+    expect(result.names).toContain('ZaakRequest')
+    expect(result.names).not.toContain('ZaakResponse')
+    expect(result.names).not.toContain('Unrelated')
+  })
+
+  // Scenario: Source panel communicates clearly when no GET operations exist
+  it('returns empty names when spec has no GET operations', () => {
+    const noGetSpec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          post: {
+            requestBody: {
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
+            },
+            responses: {},
+          },
+        },
+      },
+      components: { schemas: { Item: { type: 'object', properties: { id: { type: 'string' } } } } },
+    }
+    const result = schemasByOperation(noGetSpec, 'get', 'response')
+    expect(result.names).toHaveLength(0)
+  })
+
+  // Scenario: Target panel communicates clearly when no POST operations exist
+  it('returns empty names when spec has no POST operations', () => {
+    const noPostSpec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              200: {
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: { Item: { type: 'object', properties: { id: { type: 'string' } } } } },
+    }
+    const result = schemasByOperation(noPostSpec, 'post', 'request')
+    expect(result.names).toHaveLength(0)
+  })
+
+  // Scenario: Schema shared across operation types appears in both selectors
+  it('includes a schema referenced in both a GET response and POST request', () => {
+    const sharedSpec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              200: {
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
+              },
+            },
+          },
+          post: {
+            requestBody: {
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } },
+            },
+            responses: {},
+          },
+        },
+      },
+      components: { schemas: { Item: { type: 'object', properties: { id: { type: 'string' } } } } },
+    }
+    const getResult = schemasByOperation(sharedSpec, 'get', 'response')
+    const postResult = schemasByOperation(sharedSpec, 'post', 'request')
+    expect(getResult.names).toContain('Item')
+    expect(postResult.names).toContain('Item')
+  })
+
+  // Scenario: Inline schemas are included in operation-type filtering
+  it('includes inline schemas (no $ref) from GET response bodies', () => {
+    const inlineSpec = {
+      openapi: '3.0.0',
+      paths: {
+        '/items': {
+          get: {
+            responses: {
+              200: {
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: { count: { type: 'integer' }, name: { type: 'string' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      components: { schemas: {} },
+    }
+    const result = schemasByOperation(inlineSpec, 'get', 'response')
+    expect(result.names).toHaveLength(1)
+    expect(result.inlineSchemas.size).toBe(1)
+  })
+})
+
+describe('parseOpenApiSchemaForName', () => {
+  const multiSchemaSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Test', version: '1.0' },
+    components: {
+      schemas: {
+        Zaak: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'string' }, status: { type: 'string' } },
+        },
+        Besluit: {
+          type: 'object',
+          properties: { code: { type: 'string' } },
+        },
+      },
+    },
+  }
+
+  // Scenario: Source panel shows only the selected GET schema's fields
+  it('parses only the named schema fields, prefixed with schema name', () => {
+    const schema = parseOpenApiSchemaForName(multiSchemaSpec, 'Zaak')
+    expect(schema.name).toBe('Zaak')
+    const ids = schema.all().map((f) => f.id)
+    expect(ids).toContain('Zaak.id')
+    expect(ids).toContain('Zaak.status')
+    expect(ids).not.toContain('Besluit.code')
+  })
+
+  it('marks fields as required correctly', () => {
+    const schema = parseOpenApiSchemaForName(multiSchemaSpec, 'Zaak')
+    expect(schema.all().find((f) => f.name === 'id')?.required).toBe(true)
+    expect(schema.all().find((f) => f.name === 'status')?.required).toBe(false)
+  })
+
+  it('returns an empty schema when the schema name is not found', () => {
+    const schema = parseOpenApiSchemaForName(multiSchemaSpec, 'NonExistent')
+    expect(schema.all()).toHaveLength(0)
+  })
+
+  // Scenario: Inline schemas are resolved and listed
+  it('parses an inline schema by synthetic name using the inlineSchemas map', () => {
+    const inlineSchemaDef = {
+      type: 'object',
+      properties: { count: { type: 'integer' }, name: { type: 'string' } },
+    } as Record<string, unknown>
+    const inlineSchemas = new Map<string, Record<string, unknown>>([['my-inline', inlineSchemaDef]])
+    const schema = parseOpenApiSchemaForName(multiSchemaSpec, 'my-inline', inlineSchemas)
+    expect(schema.name).toBe('my-inline')
+    expect(schema.all().find((f) => f.name === 'count')?.dataType).toBe('number')
+    expect(schema.all().find((f) => f.name === 'name')?.dataType).toBe('string')
   })
 })
