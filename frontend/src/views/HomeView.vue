@@ -7,11 +7,13 @@ import ExportButton from '@/components/ExportButton.vue'
 import ImportButton from '@/components/ImportButton.vue'
 import WorkspaceCode from '@/components/WorkspaceCode.vue'
 import RemoteUpdateBanner from '@/components/RemoteUpdateBanner.vue'
+import ResizableSplit from '@/components/ResizableSplit.vue'
 import { loadAll, startSync, stopSync } from '@/api/sync'
 import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { useImport } from '@/composables/useImport'
+import { usePanelWidth } from '@/composables/usePanelWidth'
 
 const source = useSchemaSide('source')
 const target = useSchemaSide('target')
@@ -40,6 +42,14 @@ const {
 } = useImport()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
+const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
+
+// Feature #154: ConnectionLines.vue already recalculates on this event
+// (used today for collapse/expand); reusing it here means a resize-drag
+// needs no new listener wired into that file.
+function notifySchemaPanelResized(): void {
+  window.dispatchEvent(new Event('schema-panel-toggle'))
+}
 
 // Hydrate every resource and start polling for cross-device updates. Data
 // orchestration lives in the data layer (loadAll + the workspace store re-loads
@@ -93,51 +103,65 @@ async function onImportFileSelected(file: File) {
     >
       {{ sourceError || targetError }}
     </div>
-    <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
-      <div class="flex-1 min-h-0">
-        <MappingCanvas
-          :source-schema="sourceSchema"
-          :target-schema="targetSchema"
-          :source-label="sourceSchema.name || 'Bronschema'"
-          :target-label="targetSchema.name || 'Doelschema'"
-          @source-file-selected="onSourceFileSelected"
-          @source-url-entered="onSourceUrlEntered"
-          @target-file-selected="onTargetFileSelected"
-          @target-url-entered="onTargetUrlEntered"
-        />
-      </div>
-    </div>
-    <div class="w-80 shrink-0 flex flex-col gap-2 h-full min-h-0">
-      <CouplingDetailPanel
-        v-if="mappingsStore.selectedMappingId !== null"
-        :source-schema="sourceSchema"
-        :target-schema="targetSchema"
-        class="flex-1 min-h-0"
-      />
-      <MappingOverview
-        v-else
-        v-model:active-tab="activeTab"
-        :source-schema="sourceSchema"
-        :target-schema="targetSchema"
-        class="flex-1 min-h-0"
-      />
-      <div class="shrink-0 flex flex-col items-end gap-2">
-        <RemoteUpdateBanner />
-        <WorkspaceCode />
-        <ImportButton
-          :error="importError"
-          :warnings="importWarnings"
-          @file-selected="onImportFileSelected"
-          @dismiss-error="clearImportError"
-          @dismiss-warnings="clearImportWarnings"
-        />
-        <ExportButton
-          :source-schema="sourceSchema"
-          :target-schema="targetSchema"
-          :source-url="sourceSchemaUrl"
-          :target-url="targetSchemaUrl"
-        />
-      </div>
-    </div>
+    <ResizableSplit
+      class="flex-1 min-w-0 min-h-0"
+      :right-width-pct="koppelingenWidthPct"
+      :min-left-px="480"
+      :min-right-px="280"
+      @update:right-width-pct="setKoppelingenWidthPct"
+      @resizing="notifySchemaPanelResized"
+      @resize-end="persistKoppelingenWidthPct"
+    >
+      <template #left>
+        <div class="flex flex-col gap-2 h-full min-h-0 pr-2">
+          <div class="flex-1 min-h-0">
+            <MappingCanvas
+              :source-schema="sourceSchema"
+              :target-schema="targetSchema"
+              :source-label="sourceSchema.name || 'Bronschema'"
+              :target-label="targetSchema.name || 'Doelschema'"
+              @source-file-selected="onSourceFileSelected"
+              @source-url-entered="onSourceUrlEntered"
+              @target-file-selected="onTargetFileSelected"
+              @target-url-entered="onTargetUrlEntered"
+            />
+          </div>
+        </div>
+      </template>
+      <template #right>
+        <div class="flex flex-col gap-2 h-full min-h-0 pl-2">
+          <CouplingDetailPanel
+            v-if="mappingsStore.selectedMappingId !== null"
+            :source-schema="sourceSchema"
+            :target-schema="targetSchema"
+            class="flex-1 min-h-0"
+          />
+          <MappingOverview
+            v-else
+            v-model:active-tab="activeTab"
+            :source-schema="sourceSchema"
+            :target-schema="targetSchema"
+            class="flex-1 min-h-0"
+          />
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <RemoteUpdateBanner />
+            <WorkspaceCode />
+            <ImportButton
+              :error="importError"
+              :warnings="importWarnings"
+              @file-selected="onImportFileSelected"
+              @dismiss-error="clearImportError"
+              @dismiss-warnings="clearImportWarnings"
+            />
+            <ExportButton
+              :source-schema="sourceSchema"
+              :target-schema="targetSchema"
+              :source-url="sourceSchemaUrl"
+              :target-url="targetSchemaUrl"
+            />
+          </div>
+        </div>
+      </template>
+    </ResizableSplit>
   </main>
 </template>
