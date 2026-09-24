@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import FieldPath from './FieldPath.vue'
 
 withDefaults(
   defineProps<{
@@ -43,9 +44,13 @@ function badge(score: number) {
   >
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <div class="flex items-center gap-1.5 text-[13px] font-mono min-w-0 flex-1">
-        <span class="text-[--color-source] break-all">{{ sourceName }}</span>
+        <span class="text-[--color-source] break-words hyphens-none"
+          ><FieldPath :path="sourceName"
+        /></span>
         <span class="text-slate-400 shrink-0">→</span>
-        <span class="text-[--color-destination] break-all">{{ targetName }}</span>
+        <span class="text-[--color-destination] break-words hyphens-none"
+          ><FieldPath :path="targetName"
+        /></span>
       </div>
       <span
         :class="[
