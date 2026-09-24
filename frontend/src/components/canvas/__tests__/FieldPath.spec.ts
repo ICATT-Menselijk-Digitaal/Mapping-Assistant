@@ -24,4 +24,30 @@ describe('FieldPath', () => {
     const wrapper = mount(FieldPath, { props: { path: 'zaak.identificatie' } })
     expect(wrapper.text()).toContain('zaak.identificatie')
   })
+
+  it('wraps the matching substring in a mark element when highlightQuery is provided', () => {
+    const wrapper = mount(FieldPath, { props: { path: 'zaak.naam', highlightQuery: 'naam' } })
+    const mark = wrapper.find('mark')
+    expect(mark.exists()).toBe(true)
+    expect(mark.text()).toBe('naam')
+  })
+
+  it('highlights a match that spans within a segment, not across dots', () => {
+    const wrapper = mount(FieldPath, { props: { path: 'adres.postcode', highlightQuery: 'post' } })
+    const mark = wrapper.find('mark')
+    expect(mark.exists()).toBe(true)
+    expect(mark.text()).toBe('post')
+  })
+
+  it('does not render mark elements when highlightQuery is empty', () => {
+    const wrapper = mount(FieldPath, { props: { path: 'zaak.naam', highlightQuery: '' } })
+    expect(wrapper.find('mark').exists()).toBe(false)
+  })
+
+  it('matching is case-insensitive', () => {
+    const wrapper = mount(FieldPath, { props: { path: 'zaak.Naam', highlightQuery: 'naam' } })
+    const mark = wrapper.find('mark')
+    expect(mark.exists()).toBe(true)
+    expect(mark.text()).toBe('Naam')
+  })
 })
