@@ -57,8 +57,8 @@ describe('FieldPath', () => {
     })
     const marks = wrapper.findAll('mark')
     expect(marks).toHaveLength(2)
-    expect(marks[0].text()).toBe('zaak')
-    expect(marks[1].text()).toBe('naam')
+    expect(marks[0]!.text()).toBe('zaak')
+    expect(marks[1]!.text()).toBe('naam')
   })
 
   it('highlights partial cross-dot match correctly', () => {
@@ -67,7 +67,7 @@ describe('FieldPath', () => {
     })
     const marks = wrapper.findAll('mark')
     expect(marks).toHaveLength(2)
-    expect(marks[0].text()).toBe('es')
-    expect(marks[1].text()).toBe('post')
+    expect(marks[0]!.text()).toBe('es')
+    expect(marks[1]!.text()).toBe('post')
   })
 })
