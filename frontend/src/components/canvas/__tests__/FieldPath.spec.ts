@@ -50,4 +50,24 @@ describe('FieldPath', () => {
     expect(mark.exists()).toBe(true)
     expect(mark.text()).toBe('Naam')
   })
+
+  it('highlights both segments when the query contains a dot', () => {
+    const wrapper = mount(FieldPath, {
+      props: { path: 'zaak.naam', highlightQuery: 'zaak.naam' },
+    })
+    const marks = wrapper.findAll('mark')
+    expect(marks).toHaveLength(2)
+    expect(marks[0].text()).toBe('zaak')
+    expect(marks[1].text()).toBe('naam')
+  })
+
+  it('highlights partial cross-dot match correctly', () => {
+    const wrapper = mount(FieldPath, {
+      props: { path: 'adres.postcode', highlightQuery: 'es.post' },
+    })
+    const marks = wrapper.findAll('mark')
+    expect(marks).toHaveLength(2)
+    expect(marks[0].text()).toBe('es')
+    expect(marks[1].text()).toBe('post')
+  })
 })
