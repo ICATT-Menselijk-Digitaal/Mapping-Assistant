@@ -27,6 +27,19 @@ describe('AISuggestionCard', () => {
     expect(wrapper.text()).toContain('client_id')
   })
 
+  it('inserts wbr break opportunities after dots in long nested paths', () => {
+    const wrapper = mount(AISuggestionCard, {
+      props: {
+        suggestionId: 'sug-1',
+        sourceName: 'Zaak.initiator.adressen.huisnummer',
+        targetName: 'object.adres.nummer',
+        confidenceScore: 0.9,
+      },
+    })
+    expect(wrapper.findAll('wbr').length).toBeGreaterThan(0)
+    expect(wrapper.text()).toContain('Zaak.initiator.adressen.huisnummer')
+  })
+
   it('shows Hoog badge for score ≥ 0.8', () => {
     const wrapper = mountCard()
     const badge = wrapper.find('[data-testid="confidence-badge"]')
