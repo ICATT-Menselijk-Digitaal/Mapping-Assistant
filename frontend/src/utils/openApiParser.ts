@@ -304,7 +304,8 @@ export function parseOpenApiSchemaFiltered(spec: unknown, allowedNames: string[]
   const fields: SchemaFieldNode[] = []
 
   for (const schemaName of filteredNames) {
-    const schema = allSchemas[schemaName] as Record<string, unknown>
+    const schemaDef = allSchemas[schemaName] as Record<string, unknown>
+    const schema = resolveSchema(schemaDef, allSchemas).schema
     const properties = schema.properties as Record<string, unknown> | undefined
     if (!properties) continue
 
@@ -336,6 +337,24 @@ export interface OperationSchemas {
   inlineSchemas: Map<string, Record<string, unknown>>
 }
 
+function resolvePaginatedSchemaName(
+  schemaName: string,
+  allSchemas: Record<string, unknown>,
+): string {
+  const schema = allSchemas[schemaName] as Record<string, unknown> | undefined
+  if (!schema) return schemaName
+  const props = schema.properties as Record<string, unknown> | undefined
+  if (!props) return schemaName
+  if (!('results' in props && 'count' in props)) return schemaName
+  if (!('previousPage' in props || 'nextPage' in props)) return schemaName
+  const results = props.results as Record<string, unknown> | undefined
+  if (!results || results.type !== 'array') return schemaName
+  const items = results.items as Record<string, unknown> | undefined
+  if (!items || typeof items.$ref !== 'string') return schemaName
+  const innerName = refName(items.$ref)
+  return innerName && innerName in allSchemas ? innerName : schemaName
+}
+
 function extractBodySchemaRefs(
   body: unknown,
   allSchemas: Record<string, unknown>,
@@ -355,7 +374,7 @@ function extractBodySchemaRefs(
 
     if (schema.$ref && typeof schema.$ref === 'string') {
       const name = refName(schema.$ref)
-      if (name && name in allSchemas) acc.names.add(name)
+      if (name && name in allSchemas) acc.names.add(resolvePaginatedSchemaName(name, allSchemas))
     } else if (schema.properties) {
       acc.names.add(operationKey)
       acc.inlineSchemas.set(operationKey, schema)
@@ -394,6 +413,7 @@ export function schemasByOperation(
       const responses = operation.responses as Record<string, unknown> | undefined
       if (!responses) continue
       for (const [statusCode, response] of Object.entries(responses)) {
+        if (!statusCode.startsWith('2')) continue
         extractBodySchemaRefs(
           response,
           allSchemas,
