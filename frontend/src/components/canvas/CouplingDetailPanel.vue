@@ -258,8 +258,85 @@ function removeComment() {
         </template>
       </div>
 
+      <!-- Transformatieregels section -->
+      <div v-if="sourceField && targetField" class="mx-4 mb-3">
+        <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Transformatieregels</p>
+        <TransformationRuleList
+          :rules="selectedMapping.transformations"
+          :mapping-id="selectedMapping.id"
+        />
+      </div>
+
+      <!-- Gedetecteerde problemen section -->
+      <div v-if="sourceField && targetField && detectedMismatches.length > 0" class="mx-4 mb-3">
+        <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">
+          Gedetecteerde problemen
+        </p>
+        <div class="space-y-1.5">
+          <MismatchCard
+            v-for="type in detectedMismatches"
+            :key="type"
+            :type="type"
+            :resolved="isMismatchResolvedForMapping(type)"
+            :manually-resolved="isMismatchManuallyResolvedForMapping(type)"
+            :label="mismatchLabel(type)"
+            @solve="openDialog(type)"
+            @toggle-manual-resolution="
+              store.toggleManualMismatchResolution(selectedMapping!.id, type)
+            "
+          />
+        </div>
+      </div>
+
+      <!-- Active dialog (only reachable via the mismatches section, which is
+      itself gated on both fields resolving) -->
+      <div
+        v-if="activeDialog && sourceField && targetField"
+        class="mx-4 mb-3 border border-slate-200 rounded"
+        data-testid="dialog-container"
+      >
+        <TruncationDialog
+          v-if="activeDialog === 'truncate'"
+          :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
+          :target-max-length="targetField.maxLength"
+          @close="closeDialog"
+        />
+        <DefaultValueDialog
+          v-else-if="activeDialog === 'default'"
+          :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
+          @close="closeDialog"
+        />
+        <CastConfirmDialog
+          v-else-if="activeDialog === 'cast'"
+          :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
+          :from-type="sourceField.dataType"
+          :to-type="targetField.dataType"
+          @close="closeDialog"
+        />
+        <DateFormatDialog
+          v-else-if="activeDialog === 'date-format'"
+          :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
+          @close="closeDialog"
+        />
+      </div>
+
+      <!-- AI Suggestie button -->
+      <div v-if="sourceField && targetField" class="mx-4 mb-4">
+        <button
+          class="w-full text-xs border border-violet-300 text-violet-700 rounded px-3 py-1.5 hover:bg-violet-50"
+          data-testid="ai-suggestion-btn"
+          @click="requestAiSuggestion"
+        >
+          AI Suggestie
+        </button>
+      </div>
+
       <!-- Opmerking section -->
-      <div class="mx-4 mb-3" data-testid="opmerking-section">
+      <div class="mx-4 mb-4" data-testid="opmerking-section">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Opmerking</p>
 
         <button
@@ -343,83 +420,6 @@ function removeComment() {
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Transformatieregels section -->
-      <div v-if="sourceField && targetField" class="mx-4 mb-3">
-        <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Transformatieregels</p>
-        <TransformationRuleList
-          :rules="selectedMapping.transformations"
-          :mapping-id="selectedMapping.id"
-        />
-      </div>
-
-      <!-- Gedetecteerde problemen section -->
-      <div v-if="sourceField && targetField && detectedMismatches.length > 0" class="mx-4 mb-3">
-        <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">
-          Gedetecteerde problemen
-        </p>
-        <div class="space-y-1.5">
-          <MismatchCard
-            v-for="type in detectedMismatches"
-            :key="type"
-            :type="type"
-            :resolved="isMismatchResolvedForMapping(type)"
-            :manually-resolved="isMismatchManuallyResolvedForMapping(type)"
-            :label="mismatchLabel(type)"
-            @solve="openDialog(type)"
-            @toggle-manual-resolution="
-              store.toggleManualMismatchResolution(selectedMapping!.id, type)
-            "
-          />
-        </div>
-      </div>
-
-      <!-- Active dialog (only reachable via the mismatches section, which is
-      itself gated on both fields resolving) -->
-      <div
-        v-if="activeDialog && sourceField && targetField"
-        class="mx-4 mb-3 border border-slate-200 rounded"
-        data-testid="dialog-container"
-      >
-        <TruncationDialog
-          v-if="activeDialog === 'truncate'"
-          :mapping-id="selectedMapping.id"
-          :source-path="sourceField.path"
-          :target-max-length="targetField.maxLength"
-          @close="closeDialog"
-        />
-        <DefaultValueDialog
-          v-else-if="activeDialog === 'default'"
-          :mapping-id="selectedMapping.id"
-          :source-path="sourceField.path"
-          @close="closeDialog"
-        />
-        <CastConfirmDialog
-          v-else-if="activeDialog === 'cast'"
-          :mapping-id="selectedMapping.id"
-          :source-path="sourceField.path"
-          :from-type="sourceField.dataType"
-          :to-type="targetField.dataType"
-          @close="closeDialog"
-        />
-        <DateFormatDialog
-          v-else-if="activeDialog === 'date-format'"
-          :mapping-id="selectedMapping.id"
-          :source-path="sourceField.path"
-          @close="closeDialog"
-        />
-      </div>
-
-      <!-- AI Suggestie button -->
-      <div v-if="sourceField && targetField" class="mx-4 mb-4">
-        <button
-          class="w-full text-xs border border-violet-300 text-violet-700 rounded px-3 py-1.5 hover:bg-violet-50"
-          data-testid="ai-suggestion-btn"
-          @click="requestAiSuggestion"
-        >
-          AI Suggestie
-        </button>
       </div>
     </div>
     <!-- end scrollable body -->
