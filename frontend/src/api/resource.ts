@@ -83,6 +83,12 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
   let dirty = false
   let remoteStash: Versioned<TStored | null> | null = null
   let writeSeq = 0
+  // Counts writes whose setVersioned() round-trip has not yet settled. While
+  // > 0, poll() skips the conflict-stash path: the rev mismatch it sees may be
+  // our own write, not a foreign change. Once the write settles it updates rev,
+  // so the next poll either finds rev === env.rev (our write landed cleanest) or
+  // correctly surfaces a genuine remote conflict.
+  let pendingWriteCount = 0
 
   function current(): TDomain {
     const data = queryClient.getQueryData<TDomain>(key)
@@ -122,8 +128,10 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
 
   function schedulePersist(next: TDomain): void {
     const seq = ++writeSeq
+    pendingWriteCount++
     void setVersioned<TStored>(storageKey, codec.encode(next))
       .then((env) => {
+        pendingWriteCount--
         if (seq !== writeSeq) return
         // Track our own write's rev so polls don't flag it as someone else's
         // change; stay dirty so a *real* remote divergence still surfaces.
@@ -131,6 +139,7 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
         error.value = null
       })
       .catch((e) => {
+        pendingWriteCount--
         if (seq === writeSeq) error.value = e
       })
   }
@@ -162,6 +171,11 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
     const env = await getVersioned<TStored>(storageKey)
     if (env.rev === rev) return
     if (dirty) {
+      // While one of our own writes is still in flight, the rev mismatch may be
+      // our own change arriving at the server — not a foreign update. Defer
+      // until the write settles; it will update rev, and the next poll tick will
+      // either find rev === env.rev or correctly detect a genuine conflict.
+      if (pendingWriteCount > 0) return
       // Don't clobber unsaved local edits — surface the change instead.
       remoteStash = env
       remoteAhead.value = true
