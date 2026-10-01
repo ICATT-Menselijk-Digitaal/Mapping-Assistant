@@ -477,6 +477,29 @@ describe('MappingOverview', () => {
     expect(store.selectedMappingId).toBe(store.mappings[0]!.id)
   })
 
+  // PR #182 review: a selected orphaned row looked identical to an
+  // unselected one (orphaned rows never got the indigo "selected" class).
+  it('visually distinguishes a selected orphaned row from an unselected one', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.restoreMappings(
+      [
+        { sourceField: 'missing-src', targetField: 'tgt-1', transformations: [] },
+        { sourceField: 'missing-src-2', targetField: 'tgt-1', transformations: [] },
+      ],
+      sourceSchema,
+      targetSchema,
+    )
+    await wrapper.vm.$nextTick()
+
+    const rows = wrapper.findAll('[data-testid="mapping-row"]')
+    await rows[0]!.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const [selected, unselected] = wrapper.findAll('[data-testid="mapping-row"]')
+    expect(selected!.classes()).not.toEqual(unselected!.classes())
+  })
+
   // Scenario: Filtering to "Actie vereist" hides resolved mappings
   it('shows only action-required mappings when the "Actie vereist" filter is active', async () => {
     const wrapper = mountOverview()

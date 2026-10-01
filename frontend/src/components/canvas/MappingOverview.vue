@@ -251,6 +251,7 @@ function cancelDelete() {
         :class="[
           'flex flex-col gap-1 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50',
           row.orphaned ? 'bg-amber-50/40' : { 'bg-indigo-50': row.id === selectedMappingId },
+          { 'ring-2 ring-inset ring-indigo-400': row.orphaned && row.id === selectedMappingId },
         ]"
         data-testid="mapping-row"
         @click.stop="store.selectMapping(row.id)"
