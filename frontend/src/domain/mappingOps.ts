@@ -106,7 +106,7 @@ export function updateRule(
   })
 }
 
-export const MAX_COMMENT_LENGTH = 500
+export const MAX_COMMENT_LENGTH = 1000
 
 /** Set (or overwrite) a mapping's comment, refreshing its timestamp. */
 export function setComment(

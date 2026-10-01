@@ -352,10 +352,17 @@ function removeComment() {
           <textarea
             v-model="commentDraft"
             :maxlength="MAX_COMMENT_LENGTH"
-            rows="3"
+            rows="10"
             class="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400 resize-none"
             data-testid="opmerking-textarea"
           />
+          <p
+            class="text-[11px] text-right"
+            :class="commentDraft.length >= MAX_COMMENT_LENGTH ? 'text-red-600' : 'text-slate-400'"
+            data-testid="opmerking-char-count"
+          >
+            {{ commentDraft.length }}/{{ MAX_COMMENT_LENGTH }}
+          </p>
           <div class="flex justify-end gap-2">
             <button
               class="px-3 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded"

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useMappings } from '@/composables/useMappings'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 import { analyze, isResolved } from '@/domain/coupling'
+import { MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
 import CouplingDetailPanel from '../CouplingDetailPanel.vue'
 import TruncationDialog from '../TruncationDialog.vue'
 
@@ -377,13 +378,28 @@ describe('CouplingDetailPanel — opmerking', () => {
     const { wrapper } = mountPanel()
     await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
     const textarea = wrapper.find('[data-testid="opmerking-textarea"]')
-    expect(textarea.attributes('maxlength')).toBe('500')
+    expect(textarea.attributes('maxlength')).toBe(String(MAX_COMMENT_LENGTH))
 
-    await textarea.setValue('x'.repeat(600))
+    await textarea.setValue('x'.repeat(MAX_COMMENT_LENGTH + 100))
     await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toHaveLength(500)
+    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toHaveLength(MAX_COMMENT_LENGTH)
+  })
+
+  it('shows a character counter that turns red at the limit', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
+    const textarea = wrapper.find('[data-testid="opmerking-textarea"]')
+    const counter = () => wrapper.find('[data-testid="opmerking-char-count"]')
+
+    await textarea.setValue('hallo')
+    expect(counter().text()).toBe(`5/${MAX_COMMENT_LENGTH}`)
+    expect(counter().classes()).not.toContain('text-red-600')
+
+    await textarea.setValue('x'.repeat(MAX_COMMENT_LENGTH))
+    expect(counter().text()).toBe(`${MAX_COMMENT_LENGTH}/${MAX_COMMENT_LENGTH}`)
+    expect(counter().classes()).toContain('text-red-600')
   })
 
   // Scenario: Comment input preserves line breaks and rejects unsafe markup
