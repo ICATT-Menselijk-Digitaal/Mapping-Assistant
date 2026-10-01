@@ -128,8 +128,14 @@ function cancelCommentEdit() {
   commentDraft.value = ''
 }
 
+// Blank/whitespace-only input is never saved as a comment — the Opslaan
+// button is disabled for it (see template), so this only guards direct
+// calls (e.g. a future keyboard shortcut) against the same inconsistent
+// state: hasComment true but nothing to show or remove.
+const canSaveComment = computed(() => commentDraft.value.trim().length > 0)
+
 function saveComment() {
-  if (!selectedMapping.value) return
+  if (!selectedMapping.value || !canSaveComment.value) return
   store.setComment(selectedMapping.value.id, commentDraft.value)
   isEditingComment.value = false
   commentDraft.value = ''
@@ -372,8 +378,9 @@ function removeComment() {
               Annuleren
             </button>
             <button
-              class="px-3 py-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded"
+              class="px-3 py-1 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:bg-slate-300 disabled:cursor-not-allowed"
               data-testid="opmerking-save-button"
+              :disabled="!canSaveComment"
               @click="saveComment"
             >
               Opslaan

@@ -373,6 +373,36 @@ describe('CouplingDetailPanel — opmerking', () => {
     expect(wrapper.find('[data-testid="opmerking-add-button"]').exists()).toBe(true)
   })
 
+  // PR #182 review: saving blank/whitespace-only text left an inconsistent
+  // state — hasComment true, but the detail view showed "Opmerking
+  // toevoegen" again with no way to fix or remove it except overwriting.
+  it('disables Opslaan while the draft is blank or whitespace-only', async () => {
+    const { wrapper } = mountPanel()
+    await wrapper.find('[data-testid="opmerking-add-button"]').trigger('click')
+    const saveButton = wrapper.find('[data-testid="opmerking-save-button"]')
+    expect(saveButton.attributes('disabled')).toBeDefined()
+
+    await wrapper.find('[data-testid="opmerking-textarea"]').setValue('   ')
+    expect(saveButton.attributes('disabled')).toBeDefined()
+
+    await wrapper.find('[data-testid="opmerking-textarea"]').setValue('echte tekst')
+    expect(saveButton.attributes('disabled')).toBeUndefined()
+  })
+
+  it('does not let clearing an existing comment to blank save as an empty comment', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.setComment(mapping.id, 'Bestaande opmerking')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="opmerking-menu-toggle"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-edit"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-textarea"]').setValue('   ')
+    await wrapper.find('[data-testid="opmerking-save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(store.mappings[0]!.comment).toBe('Bestaande opmerking')
+  })
+
   // Scenario: Comment length is capped while composing
   it('caps comment input at MAX_COMMENT_LENGTH characters', async () => {
     const { wrapper } = mountPanel()
