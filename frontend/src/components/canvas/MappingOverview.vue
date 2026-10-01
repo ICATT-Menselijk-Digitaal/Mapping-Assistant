@@ -314,24 +314,37 @@ function cancelDelete() {
             >
           </div>
 
-          <!-- Comment indicator + hover preview -->
-          <span v-if="row.hasComment" class="group/comment relative shrink-0">
-            <span
-              class="text-indigo-500 text-[13px] leading-none"
-              data-testid="comment-indicator"
-              title="Heeft een opmerking"
-              aria-label="Heeft een opmerking"
-              >💬</span
-            >
-            <div
-              class="hidden group-hover/comment:block absolute right-0 top-full mt-1 z-10 w-56 bg-white border border-slate-200 rounded shadow-md px-2.5 py-2 text-left"
-              data-testid="comment-preview"
-            >
-              <p class="text-xs text-slate-700 break-words line-clamp-3">{{ row.comment }}</p>
-              <p class="text-[10px] text-slate-400 mt-1">
-                {{ formatRelativeTime(row.commentedAt!) }}
-              </p>
-            </div>
+          <!-- Comment indicator + hover preview — the wrapper always reserves
+          its width so the type badges and remove button line up across rows
+          whether or not a given row has a comment. -->
+          <span class="group/comment relative shrink-0 w-4 h-4 flex items-center justify-center">
+            <template v-if="row.hasComment">
+              <svg
+                class="w-3.5 h-3.5 text-slate-500"
+                data-testid="comment-indicator"
+                title="Heeft een opmerking"
+                aria-label="Heeft een opmerking"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M7 3 L17 3 A4 4 0 0 1 21 7 L21 13 A4 4 0 0 1 17 17 L7 17 L3 21 L3 7 A4 4 0 0 1 7 3 Z"
+                />
+              </svg>
+              <div
+                class="hidden group-hover/comment:block absolute right-0 top-full mt-1 z-10 w-56 bg-white border border-slate-200 rounded shadow-md px-2.5 py-2 text-left"
+                data-testid="comment-preview"
+              >
+                <p class="text-xs text-slate-700 break-words line-clamp-3">{{ row.comment }}</p>
+                <p class="text-[10px] text-slate-400 mt-1">
+                  {{ formatRelativeTime(row.commentedAt!) }}
+                </p>
+              </div>
+            </template>
           </span>
 
           <!-- Remove button -->
