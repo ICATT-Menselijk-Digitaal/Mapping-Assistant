@@ -263,7 +263,11 @@ function cancelDelete() {
             <span
               class="font-mono text-slate-800 text-[13px] flex-1 min-w-0 break-words hyphens-none"
             >
-              <FieldPath v-if="row.source" :path="row.source.path" />
+              <FieldPath
+                v-if="row.source"
+                :path="row.source.path"
+                :highlight-query="searchQuery || undefined"
+              />
               <template v-else>{{ row.sourceFieldId }}</template>
             </span>
             <span
@@ -285,7 +289,11 @@ function cancelDelete() {
             <span
               class="font-mono text-slate-800 text-[13px] flex-1 min-w-0 break-words hyphens-none"
             >
-              <FieldPath v-if="row.target" :path="row.target.path" />
+              <FieldPath
+                v-if="row.target"
+                :path="row.target.path"
+                :highlight-query="searchQuery || undefined"
+              />
               <template v-else>{{ row.targetFieldId }}</template>
             </span>
             <span

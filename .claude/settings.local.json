@@ -11,7 +11,11 @@
       "Bash(npx vitest *)",
       "Bash(xargs grep *)",
       "PowerShell(npm run *)",
-      "Bash(npx prettier *)"
+      "Bash(npx prettier *)",
+      "Bash(git fetch *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git stash *)"
     ]
   }
 }
