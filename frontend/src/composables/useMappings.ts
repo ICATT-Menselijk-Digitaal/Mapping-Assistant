@@ -103,6 +103,14 @@ export const useMappings = defineStore('mappings', () => {
     commit(ops.toggleMismatch(mappings.value, mappingId, type))
   }
 
+  function setComment(mappingId: string, comment: string): void {
+    commit(ops.setComment(mappings.value, mappingId, comment))
+  }
+
+  function removeComment(mappingId: string): void {
+    commit(ops.removeComment(mappings.value, mappingId))
+  }
+
   function restoreMappings(
     exported: readonly ExportedFieldMapping[],
     sourceSchema: Schema,
@@ -145,6 +153,8 @@ export const useMappings = defineStore('mappings', () => {
     removeTransformationRule,
     updateTransformationRule,
     toggleManualMismatchResolution,
+    setComment,
+    removeComment,
     restoreMappings,
     mappingsWithStatus,
   }

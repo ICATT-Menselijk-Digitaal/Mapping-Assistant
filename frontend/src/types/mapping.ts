@@ -40,6 +40,8 @@ export interface FieldMapping {
   transformations: TransformationRule[]
   status: MappingStatus
   notes?: string
+  comment?: string
+  commentedAt?: string // ISO 8601
   manuallyResolvedMismatches?: MismatchType[]
   // True when restored from an import file whose source or target path
   // does not resolve against the imported schemas.

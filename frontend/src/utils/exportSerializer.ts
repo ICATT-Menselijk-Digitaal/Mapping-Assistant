@@ -22,6 +22,8 @@ export interface ExportedFieldMapping {
   sourceField: string
   targetField: string
   transformations: ExportedTransformationRule[]
+  comment?: string
+  commentedAt?: string
 }
 
 export interface ExportedAIStatistics {
@@ -74,6 +76,21 @@ function serializeSchema(schema: Schema, sourceUrl: string | null): ExportedSche
   return { name: schema.name, sourceUrl }
 }
 
+function exportFieldMapping(
+  m: FieldMapping,
+  source: { schema: Schema },
+  target: { schema: Schema },
+): ExportedFieldMapping {
+  const out: ExportedFieldMapping = {
+    sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
+    targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
+    transformations: m.transformations.map(exportTransformationRule),
+  }
+  if (m.comment !== undefined) out.comment = m.comment
+  if (m.commentedAt !== undefined) out.commentedAt = m.commentedAt
+  return out
+}
+
 export function serializeMappingSet(input: SerializeInput): MappingSetExport {
   const { source, target, mappings, aiStats } = input
   return {
@@ -81,11 +98,7 @@ export function serializeMappingSet(input: SerializeInput): MappingSetExport {
     exportedAt: input.exportedAt ?? new Date().toISOString(),
     sourceSchema: serializeSchema(source.schema, source.sourceUrl),
     targetSchema: serializeSchema(target.schema, target.sourceUrl),
-    fieldMappings: mappings.map((m) => ({
-      sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
-      targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
-      transformations: m.transformations.map(exportTransformationRule),
-    })),
+    fieldMappings: mappings.map((m) => exportFieldMapping(m, source, target)),
     statistics: { ai: aiStats },
   }
 }
