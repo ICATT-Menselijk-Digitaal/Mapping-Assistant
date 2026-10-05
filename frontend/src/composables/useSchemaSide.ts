@@ -2,7 +2,12 @@ import { computed, ref } from 'vue'
 import * as yaml from 'js-yaml'
 import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
 import type { MappingSide } from '@/domain/coupling'
-import { parseOpenApiSchema } from '@/utils/openApiParser'
+import {
+  parseOpenApiSchema,
+  parseOpenApiSchemaFiltered,
+  schemasByOperation,
+  type OperationSchemas,
+} from '@/utils/openApiParser'
 import { buildSchemaFromFields } from '@/utils/schemaFromFields'
 import type { ExportedSchema } from '@/utils/exportSerializer'
 import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
@@ -26,6 +31,27 @@ export function useSchemaSide(side: MappingSide) {
   const error = ref<string | null>(null)
   const isLoading = ref(false)
 
+  const method = side === 'source' ? 'get' : 'post'
+  const role = side === 'source' ? 'response' : 'request'
+
+  const rawSpec = ref<unknown | null>(null)
+
+  const operationSchemasInfo = computed<OperationSchemas | null>(() => {
+    if (!rawSpec.value) return null
+    return schemasByOperation(rawSpec.value, method, role)
+  })
+
+  const eligibleSchemaNames = computed<string[] | null>(
+    () => operationSchemasInfo.value?.names ?? null,
+  )
+
+  const displayedSchema = computed<Schema>(() => {
+    const names = eligibleSchemaNames.value
+    if (!rawSpec.value || names === null) return resource.state.value.schema
+    if (names.length === 0) return EMPTY_SCHEMA
+    return parseOpenApiSchemaFiltered(rawSpec.value, names)
+  })
+
   function applySchema(nextSchema: Schema, nextSourceUrl: string | null): void {
     resource.write({ schema: nextSchema, sourceUrl: nextSourceUrl })
   }
@@ -37,6 +63,7 @@ export function useSchemaSide(side: MappingSide) {
     } catch {
       throw new Error('Ongeldig bestand: geen geldige YAML, JSON of OpenAPI-spec')
     }
+    rawSpec.value = spec
     return parseOpenApiSchema(spec)
   }
 
@@ -84,5 +111,16 @@ export function useSchemaSide(side: MappingSide) {
     return resource.load()
   }
 
-  return { schema, sourceUrl, error, isLoading, load, loadFromFile, loadFromUrl, restoreFromExport }
+  return {
+    schema,
+    sourceUrl,
+    error,
+    isLoading,
+    load,
+    loadFromFile,
+    loadFromUrl,
+    restoreFromExport,
+    displayedSchema,
+    eligibleSchemaNames,
+  }
 }
