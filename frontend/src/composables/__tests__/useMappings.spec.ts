@@ -402,4 +402,31 @@ describe('useMappings', () => {
       expect(store.mappings[0]!.manuallyResolvedMismatches).toContain('default')
     })
   })
+
+  describe('setComment / removeComment', () => {
+    // Scenario: Adding a comment to a Koppeling
+    it('sets a comment and commentedAt on the mapping', () => {
+      const store = useMappings()
+      const m = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+      store.setComment(m.id, 'Belangrijke context')
+      expect(store.mappings[0]!.comment).toBe('Belangrijke context')
+      expect(store.mappings[0]!.commentedAt).toBeDefined()
+    })
+
+    // Scenario: Removing an existing comment
+    it('removeComment clears the comment and commentedAt', () => {
+      const store = useMappings()
+      const m = store.createMapping({ sourceFieldId: 'src', targetFieldId: 'tgt' })!
+      store.setComment(m.id, 'Weg ermee')
+      store.removeComment(m.id)
+      expect(store.mappings[0]!.comment).toBeUndefined()
+      expect(store.mappings[0]!.commentedAt).toBeUndefined()
+    })
+
+    it('does nothing when the mapping id is not found', () => {
+      const store = useMappings()
+      expect(() => store.setComment('nonexistent', 'x')).not.toThrow()
+      expect(() => store.removeComment('nonexistent')).not.toThrow()
+    })
+  })
 })

@@ -6,9 +6,12 @@ import {
   addMapping,
   addRule,
   makeMapping,
+  MAX_COMMENT_LENGTH,
+  removeComment,
   removeMapping,
   removeRule,
   restoreMappings,
+  setComment,
   toggleMismatch,
   updateRule,
 } from '../mappingOps'
@@ -77,6 +80,26 @@ describe('mappingOps', () => {
     expect(restored[1]!.orphaned).toBe(true)
   })
 
+  // Scenario: Importing an orphaned Koppeling still restores its comment
+  it('restoreMappings carries a comment through even for an orphaned mapping', () => {
+    const schema = buildSchema('s', [
+      { id: 'a', name: 'a', path: 'a', dataType: 'string', required: false },
+    ])
+    const exported: ExportedFieldMapping[] = [
+      {
+        sourceField: 'missing',
+        targetField: 'a',
+        transformations: [],
+        comment: 'Belangrijke context',
+        commentedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]
+    const [restored] = restoreMappings(exported, schema, schema)
+    expect(restored!.orphaned).toBe(true)
+    expect(restored!.comment).toBe('Belangrijke context')
+    expect(restored!.commentedAt).toBe('2026-01-01T00:00:00.000Z')
+  })
+
   it('returns the SAME reference on a no-op (unknown id) so callers can skip the write', () => {
     const m = base()
     const list = addRule([m], m.id, { expression: '$', label: 'x', source: 'manual' })
@@ -86,6 +109,61 @@ describe('mappingOps', () => {
     expect(removeRule(list, m.id, 'missing-rule')).toBe(list)
     expect(updateRule(list, m.id, 'missing-rule', { label: 'x' })).toBe(list)
     expect(toggleMismatch(list, 'missing', 'truncate')).toBe(list)
+    expect(setComment(list, 'missing', 'hi')).toBe(list)
+    expect(removeComment(list, 'missing')).toBe(list)
+  })
+
+  describe('setComment / removeComment', () => {
+    // Scenario: Adding a comment to a Koppeling
+    it('setComment adds a comment and a commentedAt timestamp', () => {
+      const m = base()
+      const before = new Date().toISOString()
+      const list = setComment([m], m.id, 'Belangrijke context')
+      expect(list[0]!.comment).toBe('Belangrijke context')
+      expect(list[0]!.commentedAt).toBeDefined()
+      expect(list[0]!.commentedAt! >= before).toBe(true)
+    })
+
+    // Scenario: Editing an existing comment
+    it('setComment overwrites an existing comment and refreshes commentedAt', () => {
+      const m = base()
+      const first = setComment([m], m.id, 'Eerste versie')
+      const firstTimestamp = first[0]!.commentedAt
+      const second = setComment(first, m.id, 'Tweede versie')
+      expect(second[0]!.comment).toBe('Tweede versie')
+      expect(second[0]!.commentedAt! >= firstTimestamp!).toBe(true)
+    })
+
+    // Scenario: Comment length is capped while composing
+    it('setComment truncates to MAX_COMMENT_LENGTH', () => {
+      const m = base()
+      const tooLong = 'x'.repeat(MAX_COMMENT_LENGTH + 50)
+      const list = setComment([m], m.id, tooLong)
+      expect(list[0]!.comment).toHaveLength(MAX_COMMENT_LENGTH)
+    })
+
+    // Scenario: Removing an existing comment
+    it('removeComment clears comment and commentedAt', () => {
+      const m = base()
+      const withComment = setComment([m], m.id, 'Weg ermee')
+      const list = removeComment(withComment, m.id)
+      expect(list[0]!.comment).toBeUndefined()
+      expect(list[0]!.commentedAt).toBeUndefined()
+    })
+
+    it('removeComment is a no-op when the mapping has no comment', () => {
+      const m = base()
+      const list = [m]
+      expect(removeComment(list, m.id)).toBe(list)
+    })
+
+    it('does not mutate the input list', () => {
+      const m = base()
+      const input = [m]
+      setComment(input, m.id, 'x')
+      expect(input[0]).toBe(m)
+      expect(input[0]!.comment).toBeUndefined()
+    })
   })
 
   it('returns a NEW reference when something actually changes', () => {
