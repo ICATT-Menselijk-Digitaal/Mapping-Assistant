@@ -18,14 +18,16 @@ import { usePanelWidth } from '@/composables/usePanelWidth'
 const source = useSchemaSide('source')
 const target = useSchemaSide('target')
 const {
-  schema: sourceSchema,
+  displayedSchema: sourceDisplayedSchema,
+  eligibleSchemaNames: sourceEligibleSchemaNames,
   sourceUrl: sourceSchemaUrl,
   error: sourceError,
   loadFromFile: loadSourceFromFile,
   loadFromUrl: loadSourceFromUrl,
 } = source
 const {
-  schema: targetSchema,
+  displayedSchema: targetDisplayedSchema,
+  eligibleSchemaNames: targetEligibleSchemaNames,
   sourceUrl: targetSchemaUrl,
   error: targetError,
   loadFromFile: loadTargetFromFile,
@@ -116,10 +118,12 @@ async function onImportFileSelected(file: File) {
         <div class="flex flex-col gap-2 h-full min-h-0 pr-2">
           <div class="flex-1 min-h-0">
             <MappingCanvas
-              :source-schema="sourceSchema"
-              :target-schema="targetSchema"
-              :source-label="sourceSchema.name || 'Bronschema'"
-              :target-label="targetSchema.name || 'Doelschema'"
+              :source-schema="sourceDisplayedSchema"
+              :target-schema="targetDisplayedSchema"
+              :source-label="sourceDisplayedSchema.name || 'Bronschema'"
+              :target-label="targetDisplayedSchema.name || 'Doelschema'"
+              :source-eligible-schema-names="sourceEligibleSchemaNames"
+              :target-eligible-schema-names="targetEligibleSchemaNames"
               @source-file-selected="onSourceFileSelected"
               @source-url-entered="onSourceUrlEntered"
               @target-file-selected="onTargetFileSelected"
@@ -132,15 +136,15 @@ async function onImportFileSelected(file: File) {
         <div class="flex flex-col gap-2 h-full min-h-0 pl-2">
           <CouplingDetailPanel
             v-if="mappingsStore.selectedMappingId !== null"
-            :source-schema="sourceSchema"
-            :target-schema="targetSchema"
+            :source-schema="sourceDisplayedSchema"
+            :target-schema="targetDisplayedSchema"
             class="flex-1 min-h-0"
           />
           <MappingOverview
             v-else
             v-model:active-tab="activeTab"
-            :source-schema="sourceSchema"
-            :target-schema="targetSchema"
+            :source-schema="sourceDisplayedSchema"
+            :target-schema="targetDisplayedSchema"
             class="flex-1 min-h-0"
           />
           <div class="shrink-0 flex flex-col items-end gap-2">
@@ -154,8 +158,8 @@ async function onImportFileSelected(file: File) {
               @dismiss-warnings="clearImportWarnings"
             />
             <ExportButton
-              :source-schema="sourceSchema"
-              :target-schema="targetSchema"
+              :source-schema="sourceDisplayedSchema"
+              :target-schema="targetDisplayedSchema"
               :source-url="sourceSchemaUrl"
               :target-url="targetSchemaUrl"
             />

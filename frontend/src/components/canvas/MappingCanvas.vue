@@ -13,6 +13,8 @@ const props = defineProps<{
   targetSchema: Schema
   sourceLabel?: string
   targetLabel?: string
+  sourceEligibleSchemaNames?: string[] | null
+  targetEligibleSchemaNames?: string[] | null
 }>()
 
 const emit = defineEmits<{
@@ -172,9 +174,23 @@ function onTargetUrlSubmit() {
           :counter="sourceCounter"
         />
 
+        <!-- No eligible schemas after spec load -->
+        <div
+          v-if="
+            sourceEligibleSchemaNames !== null &&
+            sourceEligibleSchemaNames !== undefined &&
+            sourceEligibleSchemaNames.length === 0
+          "
+          class="flex-1 flex items-center justify-center p-6 text-sm text-slate-400 text-center"
+          data-testid="source-no-schemas"
+        >
+          Geen bronschema's gevonden voor leesoperaties (GET). Controleer of de specificatie
+          GET-operaties bevat.
+        </div>
+
         <!-- Upload UI when no source schema loaded -->
         <div
-          v-if="sourceSchema.all().length === 0"
+          v-else-if="sourceSchema.all().length === 0 && !sourceEligibleSchemaNames?.length"
           class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="source-upload"
         >
@@ -240,9 +256,23 @@ function onTargetUrlSubmit() {
           :counter="targetCounter"
         />
 
+        <!-- No eligible schemas after spec load -->
+        <div
+          v-if="
+            targetEligibleSchemaNames !== null &&
+            targetEligibleSchemaNames !== undefined &&
+            targetEligibleSchemaNames.length === 0
+          "
+          class="flex-1 flex items-center justify-center p-6 text-sm text-slate-400 text-center"
+          data-testid="target-no-schemas"
+        >
+          Geen doelschema's gevonden voor schrijfoperaties (POST). Controleer of de specificatie
+          POST-operaties bevat.
+        </div>
+
         <!-- Upload UI when no target schema loaded -->
         <div
-          v-if="targetSchema.all().length === 0"
+          v-else-if="targetSchema.all().length === 0 && !targetEligibleSchemaNames?.length"
           class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="target-upload"
         >
