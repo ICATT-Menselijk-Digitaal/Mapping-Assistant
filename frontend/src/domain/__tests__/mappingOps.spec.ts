@@ -240,6 +240,12 @@ describe('mappingOps', () => {
       expect(hasCouplingForTarget(list, 't1')).toBe(true)
     })
 
+    // Scenario: Removing a default-value coupling returns the target field to unmapped
+    it('removeMapping deletes a source-less coupling just like a regular one', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(removeMapping(list, created!.id)).toEqual([])
+    })
+
     // A default value is resolved the same way any other mismatch is: a
     // transformation rule. addRule/removeRule need no special-casing for a
     // source-less coupling — removing the rule makes it unresolved again
