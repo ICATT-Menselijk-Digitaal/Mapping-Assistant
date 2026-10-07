@@ -7,7 +7,7 @@ import { analyze, isMismatchResolved, DEFAULT_VALUE_REQUIRED_ANALYSIS } from '@/
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
-import { supportsStaticValue, validateStaticValue } from '@/utils/validateStaticValue'
+import { supportsStaticValue } from '@/utils/validateStaticValue'
 import type { MismatchType } from '@/types/mapping'
 import TransformationRuleList from './TransformationRuleList.vue'
 import MismatchCard from './MismatchCard.vue'
@@ -15,6 +15,7 @@ import TruncationDialog from './TruncationDialog.vue'
 import DefaultValueDialog from './DefaultValueDialog.vue'
 import CastConfirmDialog from './CastConfirmDialog.vue'
 import DateFormatDialog from './DateFormatDialog.vue'
+import StaticValueDialog from './StaticValueDialog.vue'
 import FieldPath from './FieldPath.vue'
 
 const props = defineProps<{
@@ -85,45 +86,17 @@ function isMismatchResolvedForMapping(type: MismatchType): boolean {
   return selectedMapping.value ? isMismatchResolved(type, selectedMapping.value) : false
 }
 
-// Default-value input (source-less couplings only, scalar target types —
-// object/array targets are resolved via a literal JSON value in the JSONata
-// expression editor below instead, see Feature #163's edge case).
-const staticValueDraft = ref('')
-const staticValueError = ref<string | null>(null)
-
-function showsStaticValueInput(): boolean {
-  return (
-    isDefaultValueCoupling.value &&
-    !!targetField.value &&
-    supportsStaticValue(targetField.value.dataType)
-  )
-}
-
-function onStaticValueInput() {
-  if (
-    !selectedMapping.value ||
-    !targetField.value ||
-    !supportsStaticValue(targetField.value.dataType)
-  ) {
-    return
-  }
-  const result = validateStaticValue(staticValueDraft.value, targetField.value.dataType, {
-    maxLength: targetField.value.maxLength,
-  })
-  if (result.valid) {
-    staticValueError.value = null
-    store.setDefaultValue(selectedMapping.value.id, {
-      value: staticValueDraft.value.trim(),
-      dataType: targetField.value.dataType,
-    })
-  } else {
-    staticValueError.value = result.error
-    store.clearDefaultValue(selectedMapping.value.id)
-  }
-}
-
 function isMismatchManuallyResolvedForMapping(type: MismatchType): boolean {
   return selectedMapping.value?.manuallyResolvedMismatches?.includes(type) ?? false
+}
+
+// The missing-source card only offers "Oplossen" for a target type a static
+// value can be validated against — object/array targets are resolved via a
+// literal JSON value in the JSONata expression editor instead (Feature #163
+// edge case), which the Transformatieregels section already covers.
+function isMismatchSolvable(type: MismatchType): boolean {
+  if (type !== 'missing-source') return true
+  return !!targetField.value && supportsStaticValue(targetField.value.dataType)
 }
 
 const activeDialog = ref<MismatchType | null>(null)
@@ -150,15 +123,12 @@ const isEditingComment = ref(false)
 const commentDraft = ref('')
 const commentMenuOpen = ref(false)
 
-// Reset any in-progress comment edit and default-value draft when the
-// selected Koppeling changes, so leftover draft state from one mapping never
-// leaks into another.
-watch(selectedMapping, (m) => {
+// Reset any in-progress comment edit when the selected Koppeling changes, so
+// leftover draft text from one mapping never leaks into another.
+watch(selectedMapping, () => {
   isEditingComment.value = false
   commentMenuOpen.value = false
   commentDraft.value = ''
-  staticValueDraft.value = m?.defaultValue?.value ?? ''
-  staticValueError.value = null
 })
 
 function startAddComment() {
@@ -320,27 +290,6 @@ function removeComment() {
         </template>
       </div>
 
-      <!-- Standaardwaarde section (source-less couplings, scalar target types only) -->
-      <div v-if="showsStaticValueInput()" class="mx-4 mb-3">
-        <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Standaardwaarde</p>
-        <input
-          v-model="staticValueDraft"
-          type="text"
-          class="w-full text-sm border rounded px-2 py-1.5 focus:outline-none"
-          :class="staticValueError ? 'border-red-400' : 'border-slate-300 focus:border-indigo-400'"
-          placeholder="Vaste waarde invoeren"
-          data-testid="default-value-input"
-          @input="onStaticValueInput"
-        />
-        <p
-          v-if="staticValueError"
-          class="text-xs text-red-600 mt-1"
-          data-testid="default-value-error"
-        >
-          {{ staticValueError }}
-        </p>
-      </div>
-
       <!-- Transformatieregels section -->
       <div v-if="targetField && (sourceField || isDefaultValueCoupling)" class="mx-4 mb-3">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Transformatieregels</p>
@@ -363,6 +312,7 @@ function removeComment() {
             :resolved="isMismatchResolvedForMapping(type)"
             :manually-resolved="isMismatchManuallyResolvedForMapping(type)"
             :label="mismatchLabel(type)"
+            :solvable="isMismatchSolvable(type)"
             @solve="openDialog(type)"
             @toggle-manual-resolution="
               store.toggleManualMismatchResolution(selectedMapping!.id, type)
@@ -371,28 +321,34 @@ function removeComment() {
         </div>
       </div>
 
-      <!-- Active dialog (only reachable via the mismatches section, which is
-      itself gated on both fields resolving) -->
+      <!-- Active dialog (reachable via the mismatches section; missing-source
+      is the only type reachable without a sourceField) -->
       <div
-        v-if="activeDialog && sourceField && targetField"
+        v-if="activeDialog && targetField && (sourceField || isDefaultValueCoupling)"
         class="mx-4 mb-3 border border-slate-200 rounded"
         data-testid="dialog-container"
       >
+        <StaticValueDialog
+          v-if="activeDialog === 'missing-source'"
+          :mapping-id="selectedMapping.id"
+          :target-field="targetField"
+          @close="closeDialog"
+        />
         <TruncationDialog
-          v-if="activeDialog === 'truncate'"
+          v-else-if="activeDialog === 'truncate' && sourceField"
           :mapping-id="selectedMapping.id"
           :source-path="sourceField.path"
           :target-max-length="targetField.maxLength"
           @close="closeDialog"
         />
         <DefaultValueDialog
-          v-else-if="activeDialog === 'default'"
+          v-else-if="activeDialog === 'default' && sourceField"
           :mapping-id="selectedMapping.id"
           :source-path="sourceField.path"
           @close="closeDialog"
         />
         <CastConfirmDialog
-          v-else-if="activeDialog === 'cast'"
+          v-else-if="activeDialog === 'cast' && sourceField"
           :mapping-id="selectedMapping.id"
           :source-path="sourceField.path"
           :from-type="sourceField.dataType"
@@ -400,7 +356,7 @@ function removeComment() {
           @close="closeDialog"
         />
         <DateFormatDialog
-          v-else-if="activeDialog === 'date-format'"
+          v-else-if="activeDialog === 'date-format' && sourceField"
           :mapping-id="selectedMapping.id"
           :source-path="sourceField.path"
           @close="closeDialog"

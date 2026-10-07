@@ -2,23 +2,27 @@
 import { computed } from 'vue'
 import type { MismatchType } from '@/types/mapping'
 
-const props = defineProps<{
-  type: MismatchType
-  resolved: boolean
-  manuallyResolved: boolean
-  label: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    type: MismatchType
+    resolved: boolean
+    manuallyResolved: boolean
+    label: string
+    // False when there's no dialog to solve this instance with — e.g. a
+    // missing-source card on an object/array target field, where a static
+    // value input doesn't apply and the JSONata editor is the only path.
+    solvable?: boolean
+  }>(),
+  { solvable: true },
+)
 
 const emit = defineEmits<{
   solve: []
   'toggle-manual-resolution': []
 }>()
 
-// missing-source has no "Oplossen" dialog — it's resolved via the inline
-// default-value input or, for a JSONata expression, the manual-resolve
-// toggle below. Its unresolved badge also reads "!" per Feature #163's AC,
+// missing-source's unresolved badge reads "!" per Feature #163's AC,
 // distinct from every other mismatch type's "●".
-const hasSolveDialog = computed(() => props.type !== 'missing-source')
 const unresolvedSymbol = computed(() => (props.type === 'missing-source' ? '!' : '●'))
 </script>
 
@@ -42,7 +46,7 @@ const unresolvedSymbol = computed(() => (props.type === 'missing-source' ? '!' :
         <span class="text-xs text-slate-700">{{ props.label }}</span>
         <div v-if="!props.resolved" class="flex items-center gap-1.5 mt-1.5">
           <button
-            v-if="!props.manuallyResolved && hasSolveDialog"
+            v-if="!props.manuallyResolved && props.solvable"
             class="inline-flex items-center h-6 text-xs text-blue-600 border border-blue-300 rounded px-2 hover:bg-blue-50 transition-colors"
             :data-testid="`mismatch-solve-${props.type}`"
             @click="emit('solve')"

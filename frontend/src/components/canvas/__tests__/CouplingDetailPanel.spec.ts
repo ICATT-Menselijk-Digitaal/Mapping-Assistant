@@ -520,50 +520,65 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
   })
 
   // Scenario: A static value matching the target type resolves the problem
-  it('a valid static value resolves the problem, turning the icon to "✓"', async () => {
+  // The "Oplossen" button on the missing-source card opens StaticValueDialog
+  // — the exact same pattern every other detected problem already uses.
+  it('a valid static value entered via "Oplossen" resolves the problem, turning the icon to "✓"', async () => {
     const { wrapper } = mountDefaultValuePanel('tgt-str-short')
     await wrapper.vm.$nextTick()
 
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
     await wrapper.find('[data-testid="default-value-input"]').setValue('standaardtekst')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain(
       '✓ Opgelost',
     )
   })
 
   // Scenario: A static value that does not match the target type is rejected
-  it('rejects a non-numeric static value for a number target with a clear error', async () => {
+  it('rejects a non-numeric static value for a number target with a clear error, dialog stays open', async () => {
     const { wrapper } = mountDefaultValuePanel('tgt-num')
     await wrapper.vm.$nextTick()
 
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
     await wrapper.find('[data-testid="default-value-input"]').setValue('hello')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
   })
 
-  it('offers the static-value input for boolean and date targets too', async () => {
+  it('offers "Oplossen" for boolean and date targets too', async () => {
     const boolPanel = mountDefaultValuePanel('tgt-bool')
     await boolPanel.wrapper.vm.$nextTick()
-    expect(boolPanel.wrapper.find('[data-testid="default-value-input"]').exists()).toBe(true)
+    expect(boolPanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      true,
+    )
 
     const datePanel = mountDefaultValuePanel('tgt-date')
     await datePanel.wrapper.vm.$nextTick()
-    expect(datePanel.wrapper.find('[data-testid="default-value-input"]').exists()).toBe(true)
+    expect(datePanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      true,
+    )
   })
 
   // Edge Case: Default value for an object or array target field
-  it('does not offer the static-value input for object or array targets', async () => {
+  it('does not offer "Oplossen" for object or array targets — only the JSONata path applies', async () => {
     const objectPanel = mountDefaultValuePanel('tgt-object')
     await objectPanel.wrapper.vm.$nextTick()
-    expect(objectPanel.wrapper.find('[data-testid="default-value-input"]').exists()).toBe(false)
+    expect(objectPanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      false,
+    )
 
     const arrayPanel = mountDefaultValuePanel('tgt-array')
     await arrayPanel.wrapper.vm.$nextTick()
-    expect(arrayPanel.wrapper.find('[data-testid="default-value-input"]').exists()).toBe(false)
+    expect(arrayPanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      false,
+    )
   })
 
   // Scenario: A JSONata expression does not auto-resolve the problem
