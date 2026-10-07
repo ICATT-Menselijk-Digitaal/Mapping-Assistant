@@ -10,14 +10,14 @@ const emit = defineEmits<{ confirm: []; close: [] }>()
 
 <template>
   <MismatchDialogShell
-    title="Koppeling zonder bronveld"
+    title="Standaardwaarde voor doelveld instellen"
     save-label="Bevestigen"
     @close="emit('close')"
     @save="emit('confirm')"
   >
     <p class="text-sm text-slate-600">
-      Dit doelveld heeft geen bronveld. Je kunt in plaats daarvan een standaardwaarde of
-      JSONata-expressie instellen.
+      Dit doelveld heeft geen bronveld. Wil je in plaats daarvan een standaardwaarde of
+      JSONata-expressie instellen?
     </p>
     <div class="flex items-center gap-2" data-testid="default-value-confirm-field">
       <span
