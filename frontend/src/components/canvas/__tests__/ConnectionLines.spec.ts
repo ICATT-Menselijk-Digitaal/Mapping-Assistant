@@ -521,6 +521,26 @@ describe('ConnectionLines', () => {
       expect(wrapper.findAll('[data-testid="default-value-dot"]')).toHaveLength(1)
     })
 
+    // Kim's review of #187: clicking a source-less coupling's only canvas
+    // presence (the dot) must open its detail view, like clicking any line does.
+    it('clicking the dot selects the source-less coupling', async () => {
+      const tgtEl = document.createElement('div')
+      tgtEl.setAttribute('data-field-id', 'tgt-1')
+      tgtEl.setAttribute('data-field-side', 'target')
+      document.body.appendChild(tgtEl)
+
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      const created = store.createDefaultValueCoupling({ targetFieldId: 'tgt-1' })!
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="default-value-dot-group"]').trigger('click')
+
+      expect(store.selectedMappingId).toBe(created.id)
+    })
+
     it('renders one dot per source-less coupling, alongside regular lines', async () => {
       const srcEl = document.createElement('div')
       srcEl.setAttribute('data-field-id', 'src-1')

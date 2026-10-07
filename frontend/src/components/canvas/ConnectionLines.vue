@@ -38,11 +38,18 @@ interface DotCoords {
   y: number
 }
 
+// Carries the mapping id too — unlike a plain collapsed-group dot, this dot
+// is a coupling's only visual presence on the canvas, so it must be
+// clickable to select it the same way a regular connection line is.
+interface DefaultValueDotCoords extends DotCoords {
+  id: string
+}
+
 const lines = ref<LineCoords[]>([])
 const dots = ref<DotCoords[]>([])
 // One dot per source-less ("default-value") coupling's target field — these
 // never get a line, since there is no source endpoint to draw from.
-const defaultValueDots = ref<DotCoords[]>([])
+const defaultValueDots = ref<DefaultValueDotCoords[]>([])
 const traceLine = ref<LineCoords | null>(null)
 const svgRef = ref<SVGSVGElement | null>(null)
 
@@ -81,6 +88,14 @@ const linesWithMeta = computed(() =>
       dimmed,
       selected: line.id === selectedMappingId.value,
     }
+  }),
+)
+
+const defaultValueDotsWithMeta = computed(() =>
+  defaultValueDots.value.map((dot) => {
+    const focused = focusedMappingIds.value.has(dot.id)
+    const dimmed = focusedMappingIds.value.size > 0 && !focused
+    return { ...dot, focused, dimmed }
   }),
 )
 
@@ -190,7 +205,7 @@ function computeTraceLine(): LineCoords | null {
 function recalculate() {
   const result: LineCoords[] = []
   const dotsByKey = new Map<string, DotCoords>()
-  const defaultValueDotsByKey = new Map<string, DotCoords>()
+  const defaultValueDotsByKey = new Map<string, DefaultValueDotCoords>()
 
   for (const mapping of mappings.value) {
     if (mapping.sourceFieldId === null) {
@@ -199,7 +214,7 @@ function recalculate() {
       if (!end) continue
       const key = end.anchorKey ?? `target:${mapping.targetFieldId}`
       if (!defaultValueDotsByKey.has(key)) {
-        defaultValueDotsByKey.set(key, { key, x: end.x, y: end.y })
+        defaultValueDotsByKey.set(key, { key, x: end.x, y: end.y, id: mapping.id })
       }
       continue
     }
@@ -355,15 +370,29 @@ onUnmounted(() => {
 
     <!-- One dot per source-less ("default-value") coupling's target field
          (Feature #163) — same blue as a regular connection's dot, since it's
-         still a real, resolved-or-resolvable coupling, just one-sided. -->
-    <circle
-      v-for="dot in defaultValueDots"
+         still a real, resolved-or-resolvable coupling, just one-sided.
+         Clickable/hoverable the same way a connection line is — it's this
+         coupling's only presence on the canvas. -->
+    <g
+      v-for="dot in defaultValueDotsWithMeta"
       :key="dot.key"
-      :cx="dot.x"
-      :cy="dot.y"
-      r="4"
-      fill="#6366f1"
-      data-testid="default-value-dot"
-    />
+      style="pointer-events: auto; cursor: pointer"
+      data-testid="default-value-dot-group"
+      :data-dimmed="dot.dimmed"
+      @mouseenter="mappingsStore.hoverMapping(dot.id)"
+      @mouseleave="mappingsStore.hoverMapping(null)"
+      @click.stop="mappingsStore.selectMapping(dot.id)"
+    >
+      <!-- Wider invisible hit area so the dot is easy to hover and click -->
+      <circle :cx="dot.x" :cy="dot.y" r="10" fill="transparent" />
+      <circle
+        :cx="dot.x"
+        :cy="dot.y"
+        r="4"
+        :fill="dot.focused ? '#4f46e5' : '#6366f1'"
+        :fill-opacity="dot.focused ? 1 : dot.dimmed ? 0.15 : 0.7"
+        data-testid="default-value-dot"
+      />
+    </g>
   </svg>
 </template>
