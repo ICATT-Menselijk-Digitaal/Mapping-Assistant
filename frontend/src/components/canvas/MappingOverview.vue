@@ -6,7 +6,7 @@ import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import FieldPath from './FieldPath.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
-import { analyze, isResolved } from '@/domain/coupling'
+import { analyze, isResolved, DEFAULT_VALUE_REQUIRED_ANALYSIS } from '@/domain/coupling'
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 
@@ -17,7 +17,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
+  FieldMappingRemoved: [payload: { sourceFieldId: string | null; targetFieldId: string }]
   'update:activeTab': ['koppelingen' | 'ai']
 }>()
 
@@ -47,20 +47,27 @@ watch(selectionNonce, async () => {
 
 const rows = computed(() =>
   store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => {
-    const source = props.sourceSchema.byId(m.sourceFieldId)
+    const source = m.sourceFieldId ? props.sourceSchema.byId(m.sourceFieldId) : undefined
     const target = props.targetSchema.byId(m.targetFieldId)
     const orphaned = m.orphaned === true
+    const isDefaultValueCoupling = m.sourceFieldId === null
+    const analysis = isDefaultValueCoupling
+      ? DEFAULT_VALUE_REQUIRED_ANALYSIS
+      : source && target
+        ? analyze(source, target)
+        : null
     return {
       id: m.id,
       sourceFieldId: m.sourceFieldId,
       targetFieldId: m.targetFieldId,
       validationStatus: m.validationStatus,
       orphaned,
+      isDefaultValueCoupling,
       missingSource: orphaned && !source,
       missingTarget: orphaned && !target,
       source,
       target,
-      isComplete: source && target ? isResolved(analyze(source, target), m) : false,
+      isComplete: analysis ? isResolved(analysis, m) : false,
       hasComment: m.comment !== undefined,
       comment: m.comment,
       commentedAt: m.commentedAt,
@@ -95,7 +102,7 @@ const filteredRows = computed(() => {
     if (filterComment.value && !r.hasComment) return false
     if (!q) return true
     return (
-      (r.source?.path ?? r.sourceFieldId).toLowerCase().includes(q) ||
+      (r.source?.path ?? r.sourceFieldId ?? '').toLowerCase().includes(q) ||
       (r.target?.path ?? r.targetFieldId).toLowerCase().includes(q)
     )
   })
@@ -284,6 +291,7 @@ function cancelDelete() {
                 :path="row.source.path"
                 :highlight-query="searchQuery || undefined"
               />
+              <template v-else-if="row.isDefaultValueCoupling">—</template>
               <template v-else>{{ row.sourceFieldId }}</template>
             </span>
             <span
@@ -394,6 +402,7 @@ function cancelDelete() {
           <p>Verwijder koppeling van</p>
           <p class="font-mono font-semibold text-slate-900 break-words hyphens-none">
             <FieldPath v-if="pendingDeleteRow.source" :path="pendingDeleteRow.source.path" />
+            <template v-else-if="pendingDeleteRow.isDefaultValueCoupling">—</template>
             <template v-else>{{ pendingDeleteRow.sourceFieldId }}</template>
           </p>
           <p>naar</p>

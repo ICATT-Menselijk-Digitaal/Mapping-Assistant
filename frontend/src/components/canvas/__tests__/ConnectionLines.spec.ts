@@ -502,6 +502,54 @@ describe('ConnectionLines', () => {
     targetPanelEl.remove()
   })
 
+  // Scenario: The canvas shows a coloured dot instead of a connection line
+  describe('default-value coupling (Feature #163)', () => {
+    it('renders a dot at the target field instead of a line, with no source element present', async () => {
+      const tgtEl = document.createElement('div')
+      tgtEl.setAttribute('data-field-id', 'tgt-1')
+      tgtEl.setAttribute('data-field-side', 'target')
+      document.body.appendChild(tgtEl)
+
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      store.createDefaultValueCoupling({ targetFieldId: 'tgt-1' })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(0)
+      expect(wrapper.findAll('[data-testid="default-value-dot"]')).toHaveLength(1)
+    })
+
+    it('renders one dot per source-less coupling, alongside regular lines', async () => {
+      const srcEl = document.createElement('div')
+      srcEl.setAttribute('data-field-id', 'src-1')
+      srcEl.setAttribute('data-field-side', 'source')
+      document.body.appendChild(srcEl)
+
+      const tgtEl1 = document.createElement('div')
+      tgtEl1.setAttribute('data-field-id', 'tgt-1')
+      tgtEl1.setAttribute('data-field-side', 'target')
+      document.body.appendChild(tgtEl1)
+
+      const tgtEl2 = document.createElement('div')
+      tgtEl2.setAttribute('data-field-id', 'tgt-2')
+      tgtEl2.setAttribute('data-field-side', 'target')
+      document.body.appendChild(tgtEl2)
+
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      store.createDefaultValueCoupling({ targetFieldId: 'tgt-2' })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
+      expect(wrapper.findAll('[data-testid="default-value-dot"]')).toHaveLength(1)
+    })
+  })
+
   it('attaches a capture scroll listener on the parent and removes it on unmount', () => {
     const addSpy = vi.spyOn(EventTarget.prototype, 'addEventListener')
     const removeSpy = vi.spyOn(EventTarget.prototype, 'removeEventListener')

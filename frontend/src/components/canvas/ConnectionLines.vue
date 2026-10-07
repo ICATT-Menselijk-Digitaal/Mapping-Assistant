@@ -40,6 +40,9 @@ interface DotCoords {
 
 const lines = ref<LineCoords[]>([])
 const dots = ref<DotCoords[]>([])
+// One dot per source-less ("default-value") coupling's target field — these
+// never get a line, since there is no source endpoint to draw from.
+const defaultValueDots = ref<DotCoords[]>([])
 const traceLine = ref<LineCoords | null>(null)
 const svgRef = ref<SVGSVGElement | null>(null)
 
@@ -187,8 +190,20 @@ function computeTraceLine(): LineCoords | null {
 function recalculate() {
   const result: LineCoords[] = []
   const dotsByKey = new Map<string, DotCoords>()
+  const defaultValueDotsByKey = new Map<string, DotCoords>()
 
   for (const mapping of mappings.value) {
+    if (mapping.sourceFieldId === null) {
+      // Source-less coupling: a dot at the target field, never a line.
+      const end = getFieldMidY(mapping.targetFieldId, 'target')
+      if (!end) continue
+      const key = end.anchorKey ?? `target:${mapping.targetFieldId}`
+      if (!defaultValueDotsByKey.has(key)) {
+        defaultValueDotsByKey.set(key, { key, x: end.x, y: end.y })
+      }
+      continue
+    }
+
     const start = getFieldMidY(mapping.sourceFieldId, 'source')
     const end = getFieldMidY(mapping.targetFieldId, 'target')
     if (!start || !end) continue
@@ -212,6 +227,7 @@ function recalculate() {
 
   lines.value = result
   dots.value = Array.from(dotsByKey.values())
+  defaultValueDots.value = Array.from(defaultValueDotsByKey.values())
   traceLine.value = computeTraceLine()
 }
 
@@ -335,6 +351,19 @@ onUnmounted(() => {
       r="4"
       fill="#6366f1"
       data-testid="collapsed-mapping-dot"
+    />
+
+    <!-- One dot per source-less ("default-value") coupling's target field
+         (Feature #163) — a distinct colour from both a regular mapping and
+         the AI trace line, since it represents neither. -->
+    <circle
+      v-for="dot in defaultValueDots"
+      :key="dot.key"
+      :cx="dot.x"
+      :cy="dot.y"
+      r="4"
+      fill="#0d9488"
+      data-testid="default-value-dot"
     />
   </svg>
 </template>

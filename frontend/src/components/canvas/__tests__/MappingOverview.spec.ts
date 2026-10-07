@@ -880,3 +880,33 @@ describe('MappingOverview — opmerking', () => {
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
   })
 })
+
+describe('MappingOverview — default-value coupling (Feature #163)', () => {
+  // Scenario: The Koppelingspaneel and transformation panel show "—" as the source
+  it('shows "—" as the source for a source-less coupling, not the raw id or "null"', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createDefaultValueCoupling({ targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    expect(row.text()).toContain('—')
+    expect(row.text()).not.toContain('null')
+    expect(row.find('[data-testid="orphan-indicator"]').exists()).toBe(false)
+  })
+
+  it('does not count a source-less coupling as actie vereist once it has a valid default value', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const mapping = store.createDefaultValueCoupling({ targetFieldId: 'tgt-str' })!
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    store.setDefaultValue(mapping.id, { value: 'standaard', dataType: 'string' })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+})
