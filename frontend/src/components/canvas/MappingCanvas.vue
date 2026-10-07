@@ -6,6 +6,7 @@ import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
 import DefaultValueConfirmDialog from './DefaultValueConfirmDialog.vue'
+import ReplaceCouplingConfirmDialog from './ReplaceCouplingConfirmDialog.vue'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 
@@ -114,12 +115,12 @@ function onSourceFieldClick(fieldId: string) {
   selectedSourceId.value = selectedSourceId.value === fieldId ? null : fieldId
 }
 
-function onTargetFieldClick(fieldId: string) {
-  if (!selectedSourceId.value) return
-
+// Creates a source-bound mapping and emits FieldMappingCreated — shared by
+// the direct-create path below and the replace-confirmation's confirm action.
+function createMappingAndEmit(sourceFieldId: string, targetFieldId: string) {
   const mapping = mappingsStore.createMapping({
-    sourceFieldId: selectedSourceId.value,
-    targetFieldId: fieldId,
+    sourceFieldId,
+    targetFieldId,
     schemas: { source: props.sourceSchema, target: props.targetSchema },
   })
 
@@ -131,8 +132,63 @@ function onTargetFieldClick(fieldId: string) {
       targetFieldId: mapping.targetFieldId,
     })
   }
+}
 
+// PR #189 review: a target is covered by at most one coupling. Mapping a
+// source onto a target that already carries one (source-bound or
+// default-value) no longer silently creates a second coupling — it asks for
+// explicit confirmation to replace the existing one first.
+const pendingReplace = ref<{
+  existingId: string
+  existingSourceFieldId: string | null
+  newSourceFieldId: string
+  targetFieldId: string
+} | null>(null)
+
+const pendingReplaceLabels = computed(() => {
+  if (!pendingReplace.value) return null
+  const { existingSourceFieldId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  const target = props.targetSchema.byId(targetFieldId)
+  const existingSource = existingSourceFieldId
+    ? props.sourceSchema.byId(existingSourceFieldId)
+    : null
+  const newSource = props.sourceSchema.byId(newSourceFieldId)
+  return {
+    targetPath: target?.path ?? targetFieldId,
+    existingSourcePath: existingSource?.path ?? '—',
+    newSourcePath: newSource?.path ?? newSourceFieldId,
+  }
+})
+
+function onTargetFieldClick(fieldId: string) {
+  if (!selectedSourceId.value) return
+  const sourceFieldId = selectedSourceId.value
   selectedSourceId.value = null
+
+  const existing = mappingsStore.mappings.find((m) => m.targetFieldId === fieldId)
+  if (existing) {
+    pendingReplace.value = {
+      existingId: existing.id,
+      existingSourceFieldId: existing.sourceFieldId,
+      newSourceFieldId: sourceFieldId,
+      targetFieldId: fieldId,
+    }
+    return
+  }
+
+  createMappingAndEmit(sourceFieldId, fieldId)
+}
+
+function confirmReplaceCoupling() {
+  if (!pendingReplace.value) return
+  const { existingId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  mappingsStore.removeMapping(existingId)
+  createMappingAndEmit(newSourceFieldId, targetFieldId)
+  pendingReplace.value = null
+}
+
+function cancelReplaceCoupling() {
+  pendingReplace.value = null
 }
 
 // Feature #163: double-clicking an unmapped target field opens a confirmation
@@ -377,6 +433,23 @@ function onTargetUrlSubmit() {
           :field="pendingDefaultValueField"
           @close="cancelDefaultValueCoupling"
           @confirm="confirmDefaultValueCoupling"
+        />
+      </div>
+    </div>
+
+    <!-- Replace-coupling confirmation (PR #189 review) -->
+    <div
+      v-if="pendingReplaceLabels"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="replace-coupling-confirm-overlay"
+    >
+      <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+        <ReplaceCouplingConfirmDialog
+          :target-path="pendingReplaceLabels.targetPath"
+          :existing-source-path="pendingReplaceLabels.existingSourcePath"
+          :new-source-path="pendingReplaceLabels.newSourcePath"
+          @close="cancelReplaceCoupling"
+          @confirm="confirmReplaceCoupling"
         />
       </div>
     </div>

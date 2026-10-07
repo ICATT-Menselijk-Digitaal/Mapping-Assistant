@@ -37,6 +37,24 @@ describe('mappingOps', () => {
     expect(second.list).toHaveLength(1)
   })
 
+  // PR #189 review: a target is covered by at most one coupling, so this now
+  // also rejects a DIFFERENT source mapping to an already-covered target —
+  // not just an exact duplicate pair.
+  it('addMapping rejects a different source mapping to an already-mapped target', () => {
+    const first = addMapping([], { sourceFieldId: 's1', targetFieldId: 't1' })
+    const second = addMapping(first.list, { sourceFieldId: 's2', targetFieldId: 't1' })
+    expect(second.created).toBeNull()
+    expect(second.list).toHaveLength(1)
+  })
+
+  it('addMapping rejects a source mapping to a target that already has a default-value coupling', () => {
+    const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+    const result = addMapping(list, { sourceFieldId: 's1', targetFieldId: 't1' })
+    expect(result.created).toBeNull()
+    expect(result.list).toHaveLength(1)
+    expect(result.list[0]!.sourceFieldId).toBeNull()
+  })
+
   it('addMapping does not mutate the input list', () => {
     const input: FieldMapping[] = []
     addMapping(input, { sourceFieldId: 's1', targetFieldId: 't1' })

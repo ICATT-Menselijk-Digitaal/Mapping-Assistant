@@ -30,20 +30,29 @@ export function makeMapping(input: CreateMappingInput): FieldMapping {
   }
 }
 
-export function isDuplicate(
+/** True when `targetFieldId` already carries any coupling — source-bound or source-less. */
+export function hasCouplingForTarget(
   list: readonly FieldMapping[],
-  sourceFieldId: string,
   targetFieldId: string,
 ): boolean {
-  return list.some((m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === targetFieldId)
+  return list.some((m) => m.targetFieldId === targetFieldId)
 }
 
-/** Append a new mapping unless an identical source→target pair already exists. */
+/**
+ * Append a new mapping unless the target field already carries any coupling —
+ * a target is covered by at most one `FieldMapping` at a time (PR #189
+ * review: this used to dedupe only on the exact source+target pair, which let
+ * two different sources both map to the same target, or a source-bound
+ * mapping silently coexist with an already-resolved default-value coupling).
+ * Replacing an existing coupling with a new one is a UI-level decision
+ * (`MappingCanvas`'s replace-confirmation) — this function only enforces that
+ * "at most one" never gets silently violated, regardless of caller.
+ */
 export function addMapping(
   list: readonly FieldMapping[],
   input: CreateMappingInput,
 ): { list: FieldMapping[]; created: FieldMapping | null } {
-  if (isDuplicate(list, input.sourceFieldId, input.targetFieldId)) {
+  if (hasCouplingForTarget(list, input.targetFieldId)) {
     return { list: list as FieldMapping[], created: null }
   }
   const created = makeMapping(input)
@@ -63,13 +72,6 @@ export function makeDefaultValueCoupling(input: CreateDefaultValueCouplingInput)
     transformations: [],
     status: 'confirmed',
   }
-}
-
-export function hasCouplingForTarget(
-  list: readonly FieldMapping[],
-  targetFieldId: string,
-): boolean {
-  return list.some((m) => m.targetFieldId === targetFieldId)
 }
 
 /**

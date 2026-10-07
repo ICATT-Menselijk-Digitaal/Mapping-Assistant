@@ -364,7 +364,7 @@ describe('MappingOverview', () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
-    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-2' }) // incompatible — distinct target: a target can carry at most one coupling
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findAll('[data-testid="validation-status"]')).toHaveLength(2)
@@ -506,7 +506,7 @@ describe('MappingOverview', () => {
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible ✓
     store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // constrained ! (unresolved)
-    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible ✕
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-2' }) // incompatible ✕ — distinct target
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(3)
@@ -546,7 +546,7 @@ describe('MappingOverview', () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
-    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-2' }) // incompatible — distinct target
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
@@ -677,6 +677,7 @@ describe('MappingOverview', () => {
         required: false,
       },
       { id: 'n-flat', name: 'naam', path: 'naam', dataType: 'string', required: false },
+      { id: 'n-decoy', name: 'overig', path: 'overig', dataType: 'string', required: false },
     ]
     const schema = buildSchema('', nestedNodes)
     const wrapper = mount(MappingOverview, {
@@ -685,7 +686,9 @@ describe('MappingOverview', () => {
     })
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'n-zaak-id', targetFieldId: 'n-flat' })
-    store.createMapping({ sourceFieldId: 'n-flat', targetFieldId: 'n-flat' })
+    // Decoy row — must not match the search below. Targets a different field
+    // than the mapping above: a target can carry at most one coupling.
+    store.createMapping({ sourceFieldId: 'n-decoy', targetFieldId: 'n-decoy' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="search-input"]').setValue('zaak')
@@ -740,6 +743,7 @@ describe('MappingOverview', () => {
         required: false,
       },
       { id: 'n-flat', name: 'naam', path: 'naam', dataType: 'string', required: false },
+      { id: 'n-decoy', name: 'overig', path: 'overig', dataType: 'string', required: false },
     ]
     const schema = buildSchema('', nestedNodes)
     const wrapper = mount(MappingOverview, {
@@ -748,7 +752,9 @@ describe('MappingOverview', () => {
     })
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'n-zaak-id', targetFieldId: 'n-flat' })
-    store.createMapping({ sourceFieldId: 'n-flat', targetFieldId: 'n-flat' })
+    // Decoy row — must not match the search below. Targets a different field
+    // than the mapping above: a target can carry at most one coupling.
+    store.createMapping({ sourceFieldId: 'n-decoy', targetFieldId: 'n-decoy' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="search-input"]').setValue('identificatie')
