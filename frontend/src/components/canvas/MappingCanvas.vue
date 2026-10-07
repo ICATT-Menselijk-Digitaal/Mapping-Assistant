@@ -5,6 +5,7 @@ import type { Schema } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
+import DefaultValueConfirmDialog from './DefaultValueConfirmDialog.vue'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 
@@ -72,7 +73,7 @@ watch(selectionNonce, async () => {
   const mapping = mappings.value.find((m) => m.id === id)
   if (!mapping) return
   await nextTick()
-  sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
+  if (mapping.sourceFieldId) sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
   targetPanelRef.value?.scrollToField(mapping.targetFieldId)
 })
 
@@ -94,7 +95,10 @@ watch(traceSelectionNonce, async () => {
 })
 
 const sourceCounter = computed(() => {
-  const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
+  // A source-less coupling has no sourceFieldId to count.
+  const mappedIds = new Set(
+    mappingsStore.mappings.map((m) => m.sourceFieldId).filter((id): id is string => id !== null),
+  )
   return { mapped: mappedIds.size, total: props.sourceSchema.all().length }
 })
 
@@ -119,7 +123,9 @@ function onTargetFieldClick(fieldId: string) {
     schemas: { source: props.sourceSchema, target: props.targetSchema },
   })
 
-  if (mapping) {
+  // sourceFieldId is always set here — this path always supplies one above —
+  // the guard only satisfies FieldMapping's more general nullable type.
+  if (mapping && mapping.sourceFieldId) {
     emit('FieldMappingCreated', {
       sourceFieldId: mapping.sourceFieldId,
       targetFieldId: mapping.targetFieldId,
@@ -127,6 +133,38 @@ function onTargetFieldClick(fieldId: string) {
   }
 
   selectedSourceId.value = null
+}
+
+// Feature #163: double-clicking an unmapped target field opens a confirmation
+// dialogue before creating a source-less ("default-value") coupling. A
+// target that already carries any coupling just selects it instead (Edge
+// Case: "Target field already has a coupling").
+const pendingDefaultValueFieldId = ref<string | null>(null)
+const pendingDefaultValueField = computed(() =>
+  pendingDefaultValueFieldId.value
+    ? (props.targetSchema.byId(pendingDefaultValueFieldId.value) ?? null)
+    : null,
+)
+
+function onTargetFieldDoubleClick(fieldId: string) {
+  const existing = mappingsStore.mappings.find((m) => m.targetFieldId === fieldId)
+  if (existing) {
+    mappingsStore.selectMapping(existing.id)
+    return
+  }
+  pendingDefaultValueFieldId.value = fieldId
+}
+
+function confirmDefaultValueCoupling() {
+  const fieldId = pendingDefaultValueFieldId.value
+  if (!fieldId) return
+  const created = mappingsStore.createDefaultValueCoupling({ targetFieldId: fieldId })
+  if (created) mappingsStore.selectMapping(created.id)
+  pendingDefaultValueFieldId.value = null
+}
+
+function cancelDefaultValueCoupling() {
+  pendingDefaultValueFieldId.value = null
 }
 
 function onSourceFileChange(event: Event) {
@@ -320,11 +358,27 @@ function onTargetUrlSubmit() {
           :schema="targetSchema"
           side="target"
           @field-click="onTargetFieldClick"
+          @field-dblclick="onTargetFieldDoubleClick"
         />
       </div>
 
       <!-- SVG connection line overlay -->
       <ConnectionLines :source-schema="sourceSchema" :target-schema="targetSchema" />
+    </div>
+
+    <!-- Default-value coupling confirmation (Feature #163) -->
+    <div
+      v-if="pendingDefaultValueField"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="default-value-confirm-overlay"
+    >
+      <div class="bg-white rounded-lg shadow-lg max-w-sm w-full mx-4">
+        <DefaultValueConfirmDialog
+          :field="pendingDefaultValueField"
+          @close="cancelDefaultValueCoupling"
+          @confirm="confirmDefaultValueCoupling"
+        />
+      </div>
     </div>
   </div>
 </template>

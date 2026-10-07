@@ -124,6 +124,76 @@ describe('MappingCanvas', () => {
     expect(wrapper.emitted('FieldMappingCreated')).toBeFalsy()
   })
 
+  describe('default-value coupling (Feature #163)', () => {
+    // Selecting a mapping triggers the scroll-into-view watcher above, which
+    // jsdom doesn't implement — stub it so that's not what these tests cover.
+    beforeEach(() => {
+      window.HTMLElement.prototype.scrollIntoView = vi.fn<() => void>()
+    })
+
+    // Scenario: Confirming the dialogue creates a source-less coupling and opens its detail view
+    it('double-clicking an unmapped target field opens a confirmation dialogue', async () => {
+      const wrapper = mountCanvas()
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('dblclick')
+
+      expect(wrapper.find('[data-testid="default-value-confirm-overlay"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="default-value-confirm-field"]').text()).toContain('uuid')
+    })
+
+    it('confirming creates a source-less coupling and selects it', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('dblclick')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]).toMatchObject({ sourceFieldId: null, targetFieldId: 'tgt-1' })
+      expect(store.selectedMappingId).toBe(store.mappings[0]!.id)
+      expect(wrapper.find('[data-testid="default-value-confirm-overlay"]').exists()).toBe(false)
+    })
+
+    it('cancelling the confirmation dialogue creates nothing', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('dblclick')
+      await wrapper.find('[data-testid="cancel-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(0)
+      expect(wrapper.find('[data-testid="default-value-confirm-overlay"]').exists()).toBe(false)
+    })
+
+    // Edge Case: Target field already has a coupling
+    it('double-clicking an already-mapped target selects it instead of opening the dialogue', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="src-1"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+      const existingId = store.mappings[0]!.id
+      store.selectMapping(null)
+
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('dblclick')
+
+      expect(wrapper.find('[data-testid="default-value-confirm-overlay"]').exists()).toBe(false)
+      expect(store.mappings).toHaveLength(1)
+      expect(store.selectedMappingId).toBe(existingId)
+    })
+
+    it('double-clicking an already-existing default-value coupling selects it instead of creating another', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('dblclick')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+      const createdId = store.mappings[0]!.id
+      store.selectMapping(null)
+
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('dblclick')
+
+      expect(wrapper.find('[data-testid="default-value-confirm-overlay"]').exists()).toBe(false)
+      expect(store.mappings).toHaveLength(1)
+      expect(store.selectedMappingId).toBe(createdId)
+    })
+  })
+
   // Many-to-many: same source to multiple targets
   it('allows the same source field to be mapped to multiple target fields', async () => {
     const wrapper = mountCanvas()
