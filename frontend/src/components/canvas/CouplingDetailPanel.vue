@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useTransformationSuggestions } from '@/composables/useTransformationSuggestions'
-import { analyze, isMismatchResolved } from '@/domain/coupling'
+import { analyze, isMismatchResolved, DEFAULT_VALUE_REQUIRED_ANALYSIS } from '@/domain/coupling'
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
+import { supportsStaticValue, validateStaticValue } from '@/utils/validateStaticValue'
 import type { MismatchType } from '@/types/mapping'
 import TransformationRuleList from './TransformationRuleList.vue'
 import MismatchCard from './MismatchCard.vue'
@@ -31,8 +32,13 @@ const selectedMapping = computed(() =>
     : null,
 )
 
+// null means a source-less ("default-value") coupling by design — distinct
+// from an orphaned mapping, where sourceFieldId is a string that no longer
+// resolves against the schema.
+const isDefaultValueCoupling = computed(() => selectedMapping.value?.sourceFieldId === null)
+
 const sourceField = computed(() =>
-  selectedMapping.value
+  selectedMapping.value?.sourceFieldId
     ? (props.sourceSchema.byId(selectedMapping.value.sourceFieldId) ?? null)
     : null,
 )
@@ -43,9 +49,12 @@ const targetField = computed(() =>
     : null,
 )
 
-const analysis = computed(() =>
-  sourceField.value && targetField.value ? analyze(sourceField.value, targetField.value) : null,
-)
+const analysis = computed(() => {
+  if (isDefaultValueCoupling.value) return DEFAULT_VALUE_REQUIRED_ANALYSIS
+  return sourceField.value && targetField.value
+    ? analyze(sourceField.value, targetField.value)
+    : null
+})
 
 const validationStatus = computed(() => analysis.value?.status ?? null)
 
@@ -67,13 +76,50 @@ function mismatchLabel(type: MismatchType): string {
       return 'Type conversie vereist'
     case 'date-format':
       return 'Datumformaat conversie'
+    case 'missing-source':
+      return 'Standaardwaarde vereist, geen bronveld beschikbaar'
   }
 }
 
 function isMismatchResolvedForMapping(type: MismatchType): boolean {
-  return selectedMapping.value
-    ? isMismatchResolved(type, selectedMapping.value.transformations)
-    : false
+  return selectedMapping.value ? isMismatchResolved(type, selectedMapping.value) : false
+}
+
+// Default-value input (source-less couplings only, scalar target types —
+// object/array targets are resolved via a literal JSON value in the JSONata
+// expression editor below instead, see Feature #163's edge case).
+const staticValueDraft = ref('')
+const staticValueError = ref<string | null>(null)
+
+function showsStaticValueInput(): boolean {
+  return (
+    isDefaultValueCoupling.value &&
+    !!targetField.value &&
+    supportsStaticValue(targetField.value.dataType)
+  )
+}
+
+function onStaticValueInput() {
+  if (
+    !selectedMapping.value ||
+    !targetField.value ||
+    !supportsStaticValue(targetField.value.dataType)
+  ) {
+    return
+  }
+  const result = validateStaticValue(staticValueDraft.value, targetField.value.dataType, {
+    maxLength: targetField.value.maxLength,
+  })
+  if (result.valid) {
+    staticValueError.value = null
+    store.setDefaultValue(selectedMapping.value.id, {
+      value: staticValueDraft.value.trim(),
+      dataType: targetField.value.dataType,
+    })
+  } else {
+    staticValueError.value = result.error
+    store.clearDefaultValue(selectedMapping.value.id)
+  }
 }
 
 function isMismatchManuallyResolvedForMapping(type: MismatchType): boolean {
@@ -104,12 +150,15 @@ const isEditingComment = ref(false)
 const commentDraft = ref('')
 const commentMenuOpen = ref(false)
 
-// Reset any in-progress comment edit when the selected Koppeling changes,
-// so leftover draft text from one mapping never leaks into another.
-watch(selectedMapping, () => {
+// Reset any in-progress comment edit and default-value draft when the
+// selected Koppeling changes, so leftover draft state from one mapping never
+// leaks into another.
+watch(selectedMapping, (m) => {
   isEditingComment.value = false
   commentMenuOpen.value = false
   commentDraft.value = ''
+  staticValueDraft.value = m?.defaultValue?.value ?? ''
+  staticValueError.value = null
 })
 
 function startAddComment() {
@@ -193,6 +242,13 @@ function removeComment() {
             >REQ</span
           >
         </div>
+        <p
+          v-else-if="isDefaultValueCoupling"
+          class="text-sm text-slate-400"
+          data-testid="detail-source-dash"
+        >
+          —
+        </p>
         <p v-else class="text-sm text-amber-700">Bronveld ontbreekt</p>
         <p
           v-if="sourceField?.dataType === 'string' && sourceField.maxLength"
@@ -264,8 +320,29 @@ function removeComment() {
         </template>
       </div>
 
+      <!-- Standaardwaarde section (source-less couplings, scalar target types only) -->
+      <div v-if="showsStaticValueInput()" class="mx-4 mb-3">
+        <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Standaardwaarde</p>
+        <input
+          v-model="staticValueDraft"
+          type="text"
+          class="w-full text-sm border rounded px-2 py-1.5 focus:outline-none"
+          :class="staticValueError ? 'border-red-400' : 'border-slate-300 focus:border-indigo-400'"
+          placeholder="Vaste waarde invoeren"
+          data-testid="default-value-input"
+          @input="onStaticValueInput"
+        />
+        <p
+          v-if="staticValueError"
+          class="text-xs text-red-600 mt-1"
+          data-testid="default-value-error"
+        >
+          {{ staticValueError }}
+        </p>
+      </div>
+
       <!-- Transformatieregels section -->
-      <div v-if="sourceField && targetField" class="mx-4 mb-3">
+      <div v-if="targetField && (sourceField || isDefaultValueCoupling)" class="mx-4 mb-3">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Transformatieregels</p>
         <TransformationRuleList
           :rules="selectedMapping.transformations"
@@ -274,7 +351,7 @@ function removeComment() {
       </div>
 
       <!-- Gedetecteerde problemen section -->
-      <div v-if="sourceField && targetField && detectedMismatches.length > 0" class="mx-4 mb-3">
+      <div v-if="targetField && detectedMismatches.length > 0" class="mx-4 mb-3">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">
           Gedetecteerde problemen
         </p>
