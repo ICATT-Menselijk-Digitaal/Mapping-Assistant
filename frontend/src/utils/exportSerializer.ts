@@ -1,5 +1,11 @@
 import type { Schema, SchemaField } from '@/domain/schema'
-import type { FieldMapping, MismatchType, RuleSource, TransformationRule } from '@/types'
+import type {
+  FieldMapping,
+  MismatchType,
+  RuleSource,
+  StaticDefaultValue,
+  TransformationRule,
+} from '@/types'
 
 export interface ExportedSchema {
   name: string
@@ -19,11 +25,14 @@ export interface ExportedTransformationRule {
 }
 
 export interface ExportedFieldMapping {
-  sourceField: string
+  // null for a source-less ("default-value") coupling — a target field with
+  // no source counterpart. Always a string in exports from before Feature #163.
+  sourceField: string | null
   targetField: string
   transformations: ExportedTransformationRule[]
   comment?: string
   commentedAt?: string
+  defaultValue?: StaticDefaultValue
 }
 
 export interface ExportedAIStatistics {
@@ -82,12 +91,16 @@ function exportFieldMapping(
   target: { schema: Schema },
 ): ExportedFieldMapping {
   const out: ExportedFieldMapping = {
-    sourceField: source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId,
+    sourceField:
+      m.sourceFieldId === null
+        ? null
+        : (source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId),
     targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
     transformations: m.transformations.map(exportTransformationRule),
   }
   if (m.comment !== undefined) out.comment = m.comment
   if (m.commentedAt !== undefined) out.commentedAt = m.commentedAt
+  if (m.defaultValue !== undefined) out.defaultValue = m.defaultValue
   return out
 }
 
