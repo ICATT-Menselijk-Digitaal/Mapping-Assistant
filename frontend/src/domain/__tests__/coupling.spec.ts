@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { analyze, isMismatchResolved, isResolved } from '../coupling'
+import {
+  analyze,
+  isMismatchResolved,
+  isResolved,
+  DEFAULT_VALUE_REQUIRED_ANALYSIS,
+} from '../coupling'
 import type { SchemaField } from '@/types'
 import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 
@@ -18,13 +23,17 @@ function rule(overrides: Partial<TransformationRule>): TransformationRule {
   return { id: 'r', expression: '$', label: 'x', source: 'manual', ...overrides }
 }
 
-function mapping(transformations: TransformationRule[] = []): FieldMapping {
+function mapping(
+  transformations: TransformationRule[] = [],
+  overrides: Partial<FieldMapping> = {},
+): FieldMapping {
   return {
     id: '1',
     sourceFieldId: 'src',
     targetFieldId: 'tgt',
     transformations,
     status: 'confirmed',
+    ...overrides,
   }
 }
 
@@ -175,22 +184,22 @@ describe('isMismatchResolved', () => {
         expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
       }),
     ]
-    expect(isMismatchResolved('truncate', rules)).toBe(true)
+    expect(isMismatchResolved('truncate', mapping(rules))).toBe(true)
   })
 
   it('returns false when no rule claims the mismatch', () => {
     const rules = [rule({ resolvesMismatch: 'default', expression: '$ != null ? $ : "x"' })]
-    expect(isMismatchResolved('truncate', rules)).toBe(false)
+    expect(isMismatchResolved('truncate', mapping(rules))).toBe(false)
   })
 
   it('returns false when the matching rule has an empty expression', () => {
     const rules = [rule({ resolvesMismatch: 'truncate', expression: '' })]
-    expect(isMismatchResolved('truncate', rules)).toBe(false)
+    expect(isMismatchResolved('truncate', mapping(rules))).toBe(false)
   })
 
   it('returns false when the matching rule has a whitespace-only expression', () => {
     const rules = [rule({ resolvesMismatch: 'truncate', expression: '   ' })]
-    expect(isMismatchResolved('truncate', rules)).toBe(false)
+    expect(isMismatchResolved('truncate', mapping(rules))).toBe(false)
   })
 
   it('returns true when at least one of multiple rules resolves the mismatch', () => {
@@ -201,20 +210,44 @@ describe('isMismatchResolved', () => {
         expression: '$length($) > 50 ? $substring($, 0, 47) & "..." : $',
       }),
     ]
-    expect(isMismatchResolved('truncate', rules)).toBe(true)
+    expect(isMismatchResolved('truncate', mapping(rules))).toBe(true)
   })
 
-  it('returns true when type is in manuallyResolved', () => {
-    expect(isMismatchResolved('truncate', [], ['truncate'])).toBe(true)
+  // isMismatchResolved deliberately ignores manuallyResolvedMismatches — that
+  // signal is surfaced separately (CouplingDetailPanel keeps the "undo"
+  // control visible for a manually-resolved mismatch) and folded in only by
+  // isResolved, see that describe block below.
+  it('ignores manuallyResolved — returns false even when type is manually resolved', () => {
+    expect(
+      isMismatchResolved('truncate', mapping([], { manuallyResolvedMismatches: ['truncate'] })),
+    ).toBe(false)
   })
 
-  it('returns false when type is not in manuallyResolved', () => {
-    expect(isMismatchResolved('truncate', [], ['default'])).toBe(false)
-  })
-
-  it('returns true when resolved by rule even with empty manuallyResolved', () => {
+  it('returns true when resolved by rule regardless of manuallyResolved', () => {
     const rules = [rule({ resolvesMismatch: 'truncate', expression: '$substring($, 0, 47)' })]
-    expect(isMismatchResolved('truncate', rules, [])).toBe(true)
+    expect(isMismatchResolved('truncate', mapping(rules, { manuallyResolvedMismatches: [] }))).toBe(
+      true,
+    )
+  })
+
+  // Scenario: A JSONata expression does not auto-resolve the problem
+  it('missing-source is NOT resolved by a transformation rule alone, even with resolvesMismatch set', () => {
+    const rules = [rule({ resolvesMismatch: 'missing-source', expression: '"actief"' })]
+    expect(isMismatchResolved('missing-source', mapping(rules))).toBe(false)
+  })
+
+  it('missing-source is resolved by a validated defaultValue', () => {
+    const m = mapping([], { defaultValue: { value: 'actief', dataType: 'string' } })
+    expect(isMismatchResolved('missing-source', m)).toBe(true)
+  })
+
+  it('missing-source ignores manual acknowledgement too — resolved only by isResolved', () => {
+    const m = mapping([], { manuallyResolvedMismatches: ['missing-source'] })
+    expect(isMismatchResolved('missing-source', m)).toBe(false)
+  })
+
+  it('missing-source stays unresolved with neither a defaultValue nor manual resolution', () => {
+    expect(isMismatchResolved('missing-source', mapping([]))).toBe(false)
   })
 })
 
@@ -275,5 +308,28 @@ describe('isResolved', () => {
     const src = field({ dataType: 'object' })
     const tgt = field({ dataType: 'string' })
     expect(isResolved(analyze(src, tgt), mapping([]))).toBe(false)
+  })
+
+  // Scenario: The persistent default-value problem stays visible after being resolved
+  it('a source-less coupling is unresolved with no defaultValue and no manual resolution', () => {
+    expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, mapping([]))).toBe(false)
+  })
+
+  // Scenario: A static value matching the target type resolves the problem
+  it('a source-less coupling resolves once a validated defaultValue is set', () => {
+    const m = mapping([], { defaultValue: { value: '42', dataType: 'number' } })
+    expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, m)).toBe(true)
+  })
+
+  // Scenario: A JSONata expression does not auto-resolve the problem
+  it('a source-less coupling stays unresolved after adding a JSONata expression alone', () => {
+    const rules = [rule({ expression: '{"status": "actief"}', source: 'manual' })]
+    expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, mapping(rules))).toBe(false)
+  })
+
+  it('a source-less coupling resolves once manually marked resolved after a JSONata expression', () => {
+    const rules = [rule({ expression: '{"status": "actief"}', source: 'manual' })]
+    const m = mapping(rules, { manuallyResolvedMismatches: ['missing-source'] })
+    expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, m)).toBe(true)
   })
 })

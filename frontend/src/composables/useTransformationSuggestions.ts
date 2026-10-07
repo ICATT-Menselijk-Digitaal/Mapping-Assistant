@@ -13,6 +13,11 @@ const MISMATCH_LABELS: Record<MismatchType, string> = {
   default: 'Bronveld is optioneel, doelveld is verplicht',
   cast: 'Type conversie vereist',
   'date-format': 'Datumformaat conversie',
+  // Never reached from here: AI transformation suggestions only run on a
+  // real source/target pair (see analyze() below), and missing-source only
+  // ever arises for a source-less coupling, which has no source field to
+  // suggest a transformation for.
+  'missing-source': 'Standaardwaarde vereist, geen bronveld beschikbaar',
 }
 
 function fieldDesc(f: SchemaField): string {

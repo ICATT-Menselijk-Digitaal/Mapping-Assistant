@@ -11,7 +11,12 @@
  * SAME input reference on a no-op (e.g. an unknown id) so callers can skip the
  * write — avoiding a spurious dirty flag, persist, and dirty-gated sync conflict.
  */
-import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
+import type {
+  FieldMapping,
+  MismatchType,
+  StaticDefaultValue,
+  TransformationRule,
+} from '@/types/mapping'
 import type { Schema } from '@/domain/schema'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 
@@ -48,6 +53,68 @@ export function addMapping(
   }
   const created = makeMapping(input)
   return { list: [...list, created], created }
+}
+
+export interface CreateDefaultValueCouplingInput {
+  targetFieldId: string
+}
+
+/** A source-less coupling: a target field with no source, pending a default value or expression. */
+export function makeDefaultValueCoupling(input: CreateDefaultValueCouplingInput): FieldMapping {
+  return {
+    id: crypto.randomUUID(),
+    sourceFieldId: null,
+    targetFieldId: input.targetFieldId,
+    transformations: [],
+    status: 'confirmed',
+  }
+}
+
+export function hasCouplingForTarget(
+  list: readonly FieldMapping[],
+  targetFieldId: string,
+): boolean {
+  return list.some((m) => m.targetFieldId === targetFieldId)
+}
+
+/**
+ * Append a new source-less coupling unless the target field already carries
+ * any coupling — source-bound or source-less (Feature #163 edge case:
+ * double-clicking an already-mapped target performs normal selection
+ * instead).
+ */
+export function addDefaultValueCoupling(
+  list: readonly FieldMapping[],
+  input: CreateDefaultValueCouplingInput,
+): { list: FieldMapping[]; created: FieldMapping | null } {
+  if (hasCouplingForTarget(list, input.targetFieldId)) {
+    return { list: list as FieldMapping[], created: null }
+  }
+  const created = makeDefaultValueCoupling(input)
+  return { list: [...list, created], created }
+}
+
+/** Set (or overwrite) a source-less coupling's validated static default value. */
+export function setDefaultValue(
+  list: readonly FieldMapping[],
+  mappingId: string,
+  defaultValue: StaticDefaultValue,
+): FieldMapping[] {
+  if (!list.some((m) => m.id === mappingId)) return list as FieldMapping[]
+  return list.map((m) => (m.id === mappingId ? { ...m, defaultValue } : m))
+}
+
+export function clearDefaultValue(
+  list: readonly FieldMapping[],
+  mappingId: string,
+): FieldMapping[] {
+  const mapping = list.find((m) => m.id === mappingId)
+  if (!mapping || mapping.defaultValue === undefined) return list as FieldMapping[]
+  return list.map((m) => {
+    if (m.id !== mappingId) return m
+    const { defaultValue: _defaultValue, ...rest } = m
+    return rest
+  })
 }
 
 export function removeMapping(list: readonly FieldMapping[], id: string): FieldMapping[] {
@@ -156,7 +223,11 @@ export function restoreMappings(
   targetSchema: Schema,
 ): FieldMapping[] {
   return exported.map((m) => {
-    const orphaned = !sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)
+    // A source-less coupling (m.sourceField === null) is never orphaned on
+    // its source side — there was never a source field to lose.
+    const orphaned =
+      (m.sourceField !== null && !sourceSchema.has(m.sourceField)) ||
+      !targetSchema.has(m.targetField)
     const mapping: FieldMapping = {
       id: crypto.randomUUID(),
       sourceFieldId: m.sourceField,
@@ -167,6 +238,7 @@ export function restoreMappings(
     if (orphaned) mapping.orphaned = true
     if (m.comment !== undefined) mapping.comment = m.comment
     if (m.commentedAt !== undefined) mapping.commentedAt = m.commentedAt
+    if (m.defaultValue !== undefined) mapping.defaultValue = m.defaultValue
     return mapping
   })
 }

@@ -101,32 +101,56 @@ export function analyze(source: SchemaField, target: SchemaField): FieldPairAnal
 }
 
 /**
- * A mismatch is resolved when a transformation rule with a non-empty
- * expression claims it, or the administrator has manually acknowledged it
- * as fixed.
+ * The persistent analysis for a source-less ("default-value") coupling: a
+ * single `missing-source` mismatch that behaves nothing like a type/length
+ * clash — it's always present (there will never be a source field to
+ * reconcile against) and resolved only via `isMismatchResolved`'s dedicated
+ * branch for this type.
+ */
+export const DEFAULT_VALUE_REQUIRED_ANALYSIS: FieldPairAnalysis = {
+  status: 'constrained',
+  mismatches: ['missing-source'],
+}
+
+/**
+ * Whether `type` is resolved *automatically* — by a transformation rule with
+ * a non-empty expression, or, for `missing-source`, a validated
+ * `defaultValue`. A JSONata expression alone never auto-resolves
+ * `missing-source` (Feature #163 AC: adding an expression to a source-less
+ * coupling does not by itself resolve the problem) — only a static value or
+ * manual acknowledgement does.
+ *
+ * Deliberately excludes manual acknowledgement: callers that need full
+ * resolution semantics (automatic OR manual) use `isResolved`. The
+ * automatic-only signal lets the UI keep showing an "undo" control after a
+ * manual resolution, instead of hiding it the moment the mismatch reads as
+ * resolved.
  */
 export function isMismatchResolved(
   type: MismatchType,
-  transformations: FieldMapping['transformations'],
-  manuallyResolved: readonly MismatchType[] = [],
+  mapping: Pick<FieldMapping, 'transformations' | 'defaultValue'>,
 ): boolean {
-  return (
-    transformations.some((r) => r.resolvesMismatch === type && r.expression.trim() !== '') ||
-    manuallyResolved.includes(type)
+  if (type === 'missing-source') {
+    return mapping.defaultValue !== undefined
+  }
+  return mapping.transformations.some(
+    (r) => r.resolvesMismatch === type && r.expression.trim() !== '',
   )
 }
 
 /**
- * True when every mismatch surfaced by `analyze` is resolved on `mapping`.
- * An incompatible pair is never resolved — no rule reconciles a fundamental
- * type clash.
+ * True when every mismatch surfaced by `analyze` (or
+ * `DEFAULT_VALUE_REQUIRED_ANALYSIS` for a source-less coupling) is resolved
+ * on `mapping` — automatically or by manual acknowledgement. An incompatible
+ * pair is never resolved — no rule reconciles a fundamental type clash.
  */
 export function isResolved(
   analysis: FieldPairAnalysis,
-  mapping: Pick<FieldMapping, 'transformations' | 'manuallyResolvedMismatches'>,
+  mapping: Pick<FieldMapping, 'transformations' | 'manuallyResolvedMismatches' | 'defaultValue'>,
 ): boolean {
   if (analysis.status === 'incompatible') return false
-  return analysis.mismatches.every((type) =>
-    isMismatchResolved(type, mapping.transformations, mapping.manuallyResolvedMismatches),
+  const manuallyResolved = mapping.manuallyResolvedMismatches ?? []
+  return analysis.mismatches.every(
+    (type) => isMismatchResolved(type, mapping) || manuallyResolved.includes(type),
   )
 }

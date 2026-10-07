@@ -3,8 +3,11 @@ import { buildSchema } from '@/domain/schema'
 import type { FieldMapping } from '@/types/mapping'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 import {
+  addDefaultValueCoupling,
   addMapping,
   addRule,
+  clearDefaultValue,
+  hasCouplingForTarget,
   makeMapping,
   MAX_COMMENT_LENGTH,
   removeComment,
@@ -12,6 +15,7 @@ import {
   removeRule,
   restoreMappings,
   setComment,
+  setDefaultValue,
   toggleMismatch,
   updateRule,
 } from '../mappingOps'
@@ -78,6 +82,34 @@ describe('mappingOps', () => {
     const restored = restoreMappings(exported, schema, schema)
     expect(restored[0]!.orphaned).toBeUndefined()
     expect(restored[1]!.orphaned).toBe(true)
+  })
+
+  // A source-less coupling is never orphaned on its source side — it never had one.
+  it('restoreMappings does not flag a source-less coupling as orphaned', () => {
+    const schema = buildSchema('s', [
+      { id: 'a', name: 'a', path: 'a', dataType: 'string', required: false },
+    ])
+    const exported: ExportedFieldMapping[] = [
+      {
+        sourceField: null,
+        targetField: 'a',
+        transformations: [],
+        defaultValue: { value: 'standaard', dataType: 'string' },
+      },
+    ]
+    const [restored] = restoreMappings(exported, schema, schema)
+    expect(restored!.sourceFieldId).toBeNull()
+    expect(restored!.orphaned).toBeUndefined()
+    expect(restored!.defaultValue).toEqual({ value: 'standaard', dataType: 'string' })
+  })
+
+  it('restoreMappings still flags a source-less coupling as orphaned if its target path is gone', () => {
+    const schema = buildSchema('s', [])
+    const exported: ExportedFieldMapping[] = [
+      { sourceField: null, targetField: 'missing', transformations: [] },
+    ]
+    const [restored] = restoreMappings(exported, schema, schema)
+    expect(restored!.orphaned).toBe(true)
   })
 
   // Scenario: Importing an orphaned Koppeling still restores its comment
@@ -172,5 +204,60 @@ describe('mappingOps', () => {
     expect(removeMapping(list, m.id)).not.toBe(list)
     expect(addRule(list, m.id, { expression: '$', label: 'x', source: 'manual' })).not.toBe(list)
     expect(toggleMismatch(list, m.id, 'truncate')).not.toBe(list)
+  })
+
+  describe('addDefaultValueCoupling / setDefaultValue / clearDefaultValue', () => {
+    it('addDefaultValueCoupling appends a coupling with a null sourceFieldId', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(created).not.toBeNull()
+      expect(created!.sourceFieldId).toBeNull()
+      expect(created!.targetFieldId).toBe('t1')
+      expect(list).toHaveLength(1)
+    })
+
+    // Edge Case: Target field already has a coupling
+    it('rejects a target that already has a source-bound coupling', () => {
+      const { list } = addMapping([], { sourceFieldId: 's1', targetFieldId: 't1' })
+      const result = addDefaultValueCoupling(list, { targetFieldId: 't1' })
+      expect(result.created).toBeNull()
+      expect(result.list).toHaveLength(1)
+    })
+
+    it('rejects a target that already has a default-value coupling', () => {
+      const first = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      const second = addDefaultValueCoupling(first.list, { targetFieldId: 't1' })
+      expect(second.created).toBeNull()
+      expect(second.list).toHaveLength(1)
+    })
+
+    it('hasCouplingForTarget reflects both source-bound and source-less couplings', () => {
+      expect(hasCouplingForTarget([], 't1')).toBe(false)
+      const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(hasCouplingForTarget(list, 't1')).toBe(true)
+    })
+
+    it('setDefaultValue sets a validated value on the coupling', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      const updated = setDefaultValue(list, created!.id, { value: 'actief', dataType: 'string' })
+      expect(updated[0]!.defaultValue).toEqual({ value: 'actief', dataType: 'string' })
+    })
+
+    it('clearDefaultValue removes a previously-set value', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      const withValue = setDefaultValue(list, created!.id, { value: 'actief', dataType: 'string' })
+      const cleared = clearDefaultValue(withValue, created!.id)
+      expect(cleared[0]!.defaultValue).toBeUndefined()
+    })
+
+    it('clearDefaultValue is a no-op when there is nothing to clear', () => {
+      const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(clearDefaultValue(list, list[0]!.id)).toBe(list)
+    })
+
+    it('setDefaultValue / clearDefaultValue are no-ops for an unknown id', () => {
+      const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(setDefaultValue(list, 'missing', { value: 'x', dataType: 'string' })).toBe(list)
+      expect(clearDefaultValue(list, 'missing')).toBe(list)
+    })
   })
 })
