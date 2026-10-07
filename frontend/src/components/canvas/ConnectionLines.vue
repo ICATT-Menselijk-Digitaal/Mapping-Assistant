@@ -354,15 +354,15 @@ onUnmounted(() => {
     />
 
     <!-- One dot per source-less ("default-value") coupling's target field
-         (Feature #163) — a distinct colour from both a regular mapping and
-         the AI trace line, since it represents neither. -->
+         (Feature #163) — same blue as a regular connection's dot, since it's
+         still a real, resolved-or-resolvable coupling, just one-sided. -->
     <circle
       v-for="dot in defaultValueDots"
       :key="dot.key"
       :cx="dot.x"
       :cy="dot.y"
       r="4"
-      fill="#0d9488"
+      fill="#6366f1"
       data-testid="default-value-dot"
     />
   </svg>
