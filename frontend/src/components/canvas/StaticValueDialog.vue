@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { SchemaField } from '@/types'
+import type { StaticValueParams } from '@/types/mapping'
 import { useMappings } from '@/composables/useMappings'
 import { validateStaticValue, supportsStaticValue } from '@/utils/validateStaticValue'
+import { buildStaticValueExpression, buildSolutionLabel } from '@/utils/mismatchExpressions'
 import MismatchDialogShell from './MismatchDialogShell.vue'
 
 const props = defineProps<{ mappingId: string; targetField: SchemaField }>()
@@ -16,18 +18,27 @@ const canSave = computed(
   () => value.value.trim() !== '' && supportsStaticValue(props.targetField.dataType),
 )
 
+// Resolved the same way every other detected problem is: a transformation
+// rule tagged with resolvesMismatch, appearing in Transformatieregels where
+// it can be removed (and re-added) exactly like any other mismatch solution.
 function save() {
   if (!supportsStaticValue(props.targetField.dataType)) return
-  const result = validateStaticValue(value.value, props.targetField.dataType, {
+  const dataType = props.targetField.dataType
+  const result = validateStaticValue(value.value, dataType, {
     maxLength: props.targetField.maxLength,
   })
   if (!result.valid) {
     error.value = result.error
     return
   }
-  store.setDefaultValue(props.mappingId, {
-    value: value.value.trim(),
-    dataType: props.targetField.dataType,
+  const trimmed = value.value.trim()
+  const params: StaticValueParams = { type: 'static-value', value: trimmed, dataType }
+  store.addTransformationRule(props.mappingId, {
+    expression: buildStaticValueExpression(trimmed, dataType),
+    label: buildSolutionLabel(params),
+    source: 'mismatch-solution',
+    resolvesMismatch: 'missing-source',
+    solutionParams: params,
   })
   emit('close')
 }

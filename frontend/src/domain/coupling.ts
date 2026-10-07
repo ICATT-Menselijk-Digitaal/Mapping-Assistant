@@ -104,8 +104,9 @@ export function analyze(source: SchemaField, target: SchemaField): FieldPairAnal
  * The persistent analysis for a source-less ("default-value") coupling: a
  * single `missing-source` mismatch that behaves nothing like a type/length
  * clash — it's always present (there will never be a source field to
- * reconcile against) and resolved only via `isMismatchResolved`'s dedicated
- * branch for this type.
+ * reconcile against) and resolved the same way every other mismatch is: a
+ * transformation rule tagged `resolvesMismatch: 'missing-source'` (added via
+ * the "Oplossen" dialog's typed static value), or manual acknowledgement.
  */
 export const DEFAULT_VALUE_REQUIRED_ANALYSIS: FieldPairAnalysis = {
   status: 'constrained',
@@ -114,11 +115,12 @@ export const DEFAULT_VALUE_REQUIRED_ANALYSIS: FieldPairAnalysis = {
 
 /**
  * Whether `type` is resolved *automatically* — by a transformation rule with
- * a non-empty expression, or, for `missing-source`, a validated
- * `defaultValue`. A JSONata expression alone never auto-resolves
- * `missing-source` (Feature #163 AC: adding an expression to a source-less
- * coupling does not by itself resolve the problem) — only a static value or
- * manual acknowledgement does.
+ * a non-empty expression that claims it. A freeform JSONata expression added
+ * without going through a mismatch-solution dialog (`source: 'manual'`, no
+ * `resolvesMismatch`) never counts — including for `missing-source` (Feature
+ * #163 AC: adding an expression to a source-less coupling through the
+ * generic expression editor does not by itself resolve the problem; only the
+ * "Oplossen" dialog's typed static value, or manual acknowledgement, does).
  *
  * Deliberately excludes manual acknowledgement: callers that need full
  * resolution semantics (automatic OR manual) use `isResolved`. The
@@ -128,11 +130,8 @@ export const DEFAULT_VALUE_REQUIRED_ANALYSIS: FieldPairAnalysis = {
  */
 export function isMismatchResolved(
   type: MismatchType,
-  mapping: Pick<FieldMapping, 'transformations' | 'defaultValue'>,
+  mapping: Pick<FieldMapping, 'transformations'>,
 ): boolean {
-  if (type === 'missing-source') {
-    return mapping.defaultValue !== undefined
-  }
   return mapping.transformations.some(
     (r) => r.resolvesMismatch === type && r.expression.trim() !== '',
   )
@@ -146,7 +145,7 @@ export function isMismatchResolved(
  */
 export function isResolved(
   analysis: FieldPairAnalysis,
-  mapping: Pick<FieldMapping, 'transformations' | 'manuallyResolvedMismatches' | 'defaultValue'>,
+  mapping: Pick<FieldMapping, 'transformations' | 'manuallyResolvedMismatches'>,
 ): boolean {
   if (analysis.status === 'incompatible') return false
   const manuallyResolved = mapping.manuallyResolvedMismatches ?? []

@@ -1,12 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type {
-  FieldMapping,
-  MismatchType,
-  StaticDefaultValue,
-  TransformationRule,
-  ValidatedFieldMapping,
-} from '@/types'
+import type { FieldMapping, MismatchType, TransformationRule, ValidatedFieldMapping } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { analyze } from '@/domain/coupling'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
@@ -80,14 +74,6 @@ export const useMappings = defineStore('mappings', () => {
     const { list, created } = ops.addDefaultValueCoupling(mappings.value, input)
     if (created) mappingsResource.write(list)
     return created
-  }
-
-  function setDefaultValue(mappingId: string, defaultValue: StaticDefaultValue): void {
-    commit(ops.setDefaultValue(mappings.value, mappingId, defaultValue))
-  }
-
-  function clearDefaultValue(mappingId: string): void {
-    commit(ops.clearDefaultValue(mappings.value, mappingId))
   }
 
   // Persist only when an op actually changed the list. The ops return the SAME
@@ -167,8 +153,6 @@ export const useMappings = defineStore('mappings', () => {
     hasMapping,
     createMapping,
     createDefaultValueCoupling,
-    setDefaultValue,
-    clearDefaultValue,
     removeMapping,
     selectMapping,
     hoverMapping,

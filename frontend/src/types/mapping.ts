@@ -7,11 +7,6 @@ export type RuleSource = 'manual' | 'mismatch-solution' | 'ai'
 // (see Feature #163's "object or array target field" edge case).
 export type StaticValueDataType = 'string' | 'number' | 'boolean' | 'date'
 
-export interface StaticDefaultValue {
-  value: string
-  dataType: StaticValueDataType
-}
-
 export interface TruncationParams {
   type: 'truncate'
   maxLength: number
@@ -30,7 +25,20 @@ export interface DateFormatParams {
   sourceFormat: string
   targetFormat: string
 }
-export type SolutionParams = TruncationParams | DefaultParams | CastParams | DateFormatParams
+// A typed static value resolving a source-less coupling's missing-source
+// problem — distinct from DefaultParams, which is a source-optional/
+// target-required fallback expressed as a ternary against a real source path.
+export interface StaticValueParams {
+  type: 'static-value'
+  value: string
+  dataType: StaticValueDataType
+}
+export type SolutionParams =
+  | TruncationParams
+  | DefaultParams
+  | CastParams
+  | DateFormatParams
+  | StaticValueParams
 
 export interface TransformationRule {
   id: string
@@ -47,8 +55,9 @@ export type MappingStatus = 'confirmed' | 'rejected'
 export interface FieldMapping {
   id: string
   // null means this is a source-less ("default-value") coupling — a target
-  // field with no source counterpart, resolved via `defaultValue` and/or a
-  // manually-added JSONata expression instead of a source mapping.
+  // field with no source counterpart, resolved via a transformation rule
+  // (a typed static value, or a manually-added JSONata expression) instead
+  // of a source mapping.
   sourceFieldId: string | null
   targetFieldId: string
   transformations: TransformationRule[]
@@ -60,10 +69,6 @@ export interface FieldMapping {
   // True when restored from an import file whose source or target path
   // does not resolve against the imported schemas.
   orphaned?: boolean
-  // A validated static value for a source-less coupling. Presence alone means
-  // "resolved" — it is only ever set after passing validation against the
-  // target field's type (see utils/validateStaticValue.ts).
-  defaultValue?: StaticDefaultValue
 }
 
 export interface ValidatedFieldMapping extends FieldMapping {

@@ -537,6 +537,27 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     )
   })
 
+  // Kim's review of #187: the default value must appear in Transformatieregels
+  // and be removable/re-enterable exactly like resolving any other mismatch —
+  // removing it must flip the status back to "!".
+  it('the static-value rule appears in Transformatieregels and removing it unresolves the problem', async () => {
+    const { wrapper, store, mapping } = mountDefaultValuePanel('tgt-str-short')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('test')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('Standaardwaarde: test')
+    const ruleId = store.mappings.find((m) => m.id === mapping.id)!.transformations[0]!.id
+
+    await wrapper.find(`[data-testid="rule-delete-${ruleId}"]`).trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
+  })
+
   // Scenario: A static value that does not match the target type is rejected
   it('rejects a non-numeric static value for a number target with a clear error, dialog stays open', async () => {
     const { wrapper } = mountDefaultValuePanel('tgt-num')
@@ -610,7 +631,7 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
 
     expect(store.mappings).toHaveLength(1)
     expect(store.mappings[0]!.id).toBe(mapping.id)
-    expect(store.mappings[0]!.defaultValue).toBeUndefined()
+    expect(store.mappings[0]!.transformations).toHaveLength(0)
   })
 
   it('Transformatieregels section is available for a source-less coupling', async () => {

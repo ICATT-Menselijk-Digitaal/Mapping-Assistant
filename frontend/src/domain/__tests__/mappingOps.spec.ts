@@ -6,7 +6,6 @@ import {
   addDefaultValueCoupling,
   addMapping,
   addRule,
-  clearDefaultValue,
   hasCouplingForTarget,
   makeMapping,
   MAX_COMMENT_LENGTH,
@@ -15,7 +14,6 @@ import {
   removeRule,
   restoreMappings,
   setComment,
-  setDefaultValue,
   toggleMismatch,
   updateRule,
 } from '../mappingOps'
@@ -93,14 +91,20 @@ describe('mappingOps', () => {
       {
         sourceField: null,
         targetField: 'a',
-        transformations: [],
-        defaultValue: { value: 'standaard', dataType: 'string' },
+        transformations: [
+          {
+            expression: '"standaard"',
+            label: 'Standaardwaarde: standaard',
+            source: 'mismatch-solution',
+            resolvesMismatch: 'missing-source',
+          },
+        ],
       },
     ]
     const [restored] = restoreMappings(exported, schema, schema)
     expect(restored!.sourceFieldId).toBeNull()
     expect(restored!.orphaned).toBeUndefined()
-    expect(restored!.defaultValue).toEqual({ value: 'standaard', dataType: 'string' })
+    expect(restored!.transformations[0]!.resolvesMismatch).toBe('missing-source')
   })
 
   it('restoreMappings still flags a source-less coupling as orphaned if its target path is gone', () => {
@@ -206,7 +210,7 @@ describe('mappingOps', () => {
     expect(toggleMismatch(list, m.id, 'truncate')).not.toBe(list)
   })
 
-  describe('addDefaultValueCoupling / setDefaultValue / clearDefaultValue', () => {
+  describe('addDefaultValueCoupling', () => {
     it('addDefaultValueCoupling appends a coupling with a null sourceFieldId', () => {
       const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
       expect(created).not.toBeNull()
@@ -236,28 +240,24 @@ describe('mappingOps', () => {
       expect(hasCouplingForTarget(list, 't1')).toBe(true)
     })
 
-    it('setDefaultValue sets a validated value on the coupling', () => {
+    // A default value is resolved the same way any other mismatch is: a
+    // transformation rule. addRule/removeRule need no special-casing for a
+    // source-less coupling — removing the rule makes it unresolved again
+    // exactly like it does for any other mismatch type.
+    it('a default value is set and removed via the generic addRule/removeRule ops', () => {
       const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
-      const updated = setDefaultValue(list, created!.id, { value: 'actief', dataType: 'string' })
-      expect(updated[0]!.defaultValue).toEqual({ value: 'actief', dataType: 'string' })
-    })
+      const withValue = addRule([...list], created!.id, {
+        expression: '"actief"',
+        label: 'Standaardwaarde: actief',
+        source: 'mismatch-solution',
+        resolvesMismatch: 'missing-source',
+      })
+      expect(withValue[0]!.transformations).toHaveLength(1)
+      expect(withValue[0]!.transformations[0]!.resolvesMismatch).toBe('missing-source')
 
-    it('clearDefaultValue removes a previously-set value', () => {
-      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
-      const withValue = setDefaultValue(list, created!.id, { value: 'actief', dataType: 'string' })
-      const cleared = clearDefaultValue(withValue, created!.id)
-      expect(cleared[0]!.defaultValue).toBeUndefined()
-    })
-
-    it('clearDefaultValue is a no-op when there is nothing to clear', () => {
-      const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
-      expect(clearDefaultValue(list, list[0]!.id)).toBe(list)
-    })
-
-    it('setDefaultValue / clearDefaultValue are no-ops for an unknown id', () => {
-      const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
-      expect(setDefaultValue(list, 'missing', { value: 'x', dataType: 'string' })).toBe(list)
-      expect(clearDefaultValue(list, 'missing')).toBe(list)
+      const ruleId = withValue[0]!.transformations[0]!.id
+      const cleared = removeRule(withValue, created!.id, ruleId)
+      expect(cleared[0]!.transformations).toHaveLength(0)
     })
   })
 })

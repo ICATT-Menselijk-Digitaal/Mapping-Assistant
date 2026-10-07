@@ -11,12 +11,7 @@
  * SAME input reference on a no-op (e.g. an unknown id) so callers can skip the
  * write — avoiding a spurious dirty flag, persist, and dirty-gated sync conflict.
  */
-import type {
-  FieldMapping,
-  MismatchType,
-  StaticDefaultValue,
-  TransformationRule,
-} from '@/types/mapping'
+import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 import type { Schema } from '@/domain/schema'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 
@@ -92,29 +87,6 @@ export function addDefaultValueCoupling(
   }
   const created = makeDefaultValueCoupling(input)
   return { list: [...list, created], created }
-}
-
-/** Set (or overwrite) a source-less coupling's validated static default value. */
-export function setDefaultValue(
-  list: readonly FieldMapping[],
-  mappingId: string,
-  defaultValue: StaticDefaultValue,
-): FieldMapping[] {
-  if (!list.some((m) => m.id === mappingId)) return list as FieldMapping[]
-  return list.map((m) => (m.id === mappingId ? { ...m, defaultValue } : m))
-}
-
-export function clearDefaultValue(
-  list: readonly FieldMapping[],
-  mappingId: string,
-): FieldMapping[] {
-  const mapping = list.find((m) => m.id === mappingId)
-  if (!mapping || mapping.defaultValue === undefined) return list as FieldMapping[]
-  return list.map((m) => {
-    if (m.id !== mappingId) return m
-    const { defaultValue: _defaultValue, ...rest } = m
-    return rest
-  })
 }
 
 export function removeMapping(list: readonly FieldMapping[], id: string): FieldMapping[] {
@@ -238,7 +210,6 @@ export function restoreMappings(
     if (orphaned) mapping.orphaned = true
     if (m.comment !== undefined) mapping.comment = m.comment
     if (m.commentedAt !== undefined) mapping.commentedAt = m.commentedAt
-    if (m.defaultValue !== undefined) mapping.defaultValue = m.defaultValue
     return mapping
   })
 }

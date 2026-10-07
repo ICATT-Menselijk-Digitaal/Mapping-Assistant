@@ -251,15 +251,24 @@ describe('serializeMappingSet', () => {
     expect(result.exportedAt).toBe('2026-01-01T00:00:00.000Z')
   })
 
-  // Feature #163: source-less ("default-value") coupling export
-  it('exports a source-less coupling with sourceField null and its defaultValue', () => {
+  // Feature #163: source-less ("default-value") coupling export. Its default
+  // value is a transformation rule, like any other mismatch solution — no
+  // separate field to export.
+  it('exports a source-less coupling with sourceField null, carrying its default-value rule', () => {
     const sourceless: FieldMapping = {
       id: 'm3',
       sourceFieldId: null,
       targetFieldId: 'fullName',
-      transformations: [],
+      transformations: [
+        {
+          id: 'r3',
+          expression: '"onbekend"',
+          label: 'Standaardwaarde: onbekend',
+          source: 'mismatch-solution',
+          resolvesMismatch: 'missing-source',
+        },
+      ],
       status: 'confirmed',
-      defaultValue: { value: 'onbekend', dataType: 'string' },
     }
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: null },
@@ -269,6 +278,6 @@ describe('serializeMappingSet', () => {
     })
     expect(result.fieldMappings[0]!.sourceField).toBeNull()
     expect(result.fieldMappings[0]!.targetField).toBe('fullName')
-    expect(result.fieldMappings[0]!.defaultValue).toEqual({ value: 'onbekend', dataType: 'string' })
+    expect(result.fieldMappings[0]!.transformations[0]!.resolvesMismatch).toBe('missing-source')
   })
 })

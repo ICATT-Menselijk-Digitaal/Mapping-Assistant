@@ -1,11 +1,5 @@
 import type { Schema, SchemaField } from '@/domain/schema'
-import type {
-  FieldMapping,
-  MismatchType,
-  RuleSource,
-  StaticDefaultValue,
-  TransformationRule,
-} from '@/types'
+import type { FieldMapping, MismatchType, RuleSource, TransformationRule } from '@/types'
 
 export interface ExportedSchema {
   name: string
@@ -32,7 +26,6 @@ export interface ExportedFieldMapping {
   transformations: ExportedTransformationRule[]
   comment?: string
   commentedAt?: string
-  defaultValue?: StaticDefaultValue
 }
 
 export interface ExportedAIStatistics {
@@ -100,7 +93,6 @@ function exportFieldMapping(
   }
   if (m.comment !== undefined) out.comment = m.comment
   if (m.commentedAt !== undefined) out.commentedAt = m.commentedAt
-  if (m.defaultValue !== undefined) out.defaultValue = m.defaultValue
   return out
 }
 

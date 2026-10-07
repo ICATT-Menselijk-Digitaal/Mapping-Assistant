@@ -230,23 +230,25 @@ describe('isMismatchResolved', () => {
     )
   })
 
-  // Scenario: A JSONata expression does not auto-resolve the problem
-  it('missing-source is NOT resolved by a transformation rule alone, even with resolvesMismatch set', () => {
+  // Scenario: A static value matching the target type resolves the problem
+  // A static-value rule (added via the "Oplossen" dialog, tagged with
+  // resolvesMismatch) resolves missing-source exactly like any other
+  // mismatch-solution rule — no special-casing needed.
+  it('missing-source is resolved by a static-value rule tagged with resolvesMismatch', () => {
     const rules = [rule({ resolvesMismatch: 'missing-source', expression: '"actief"' })]
+    expect(isMismatchResolved('missing-source', mapping(rules))).toBe(true)
+  })
+
+  // Scenario: A JSONata expression does not auto-resolve the problem
+  // A freeform expression added via the generic editor (source: 'manual', no
+  // resolvesMismatch) never auto-resolves — only the dialog's tagged rule, or
+  // manual acknowledgement (isResolved), does.
+  it('missing-source is NOT resolved by a freeform expression with no resolvesMismatch', () => {
+    const rules = [rule({ expression: '"actief"', source: 'manual', resolvesMismatch: undefined })]
     expect(isMismatchResolved('missing-source', mapping(rules))).toBe(false)
   })
 
-  it('missing-source is resolved by a validated defaultValue', () => {
-    const m = mapping([], { defaultValue: { value: 'actief', dataType: 'string' } })
-    expect(isMismatchResolved('missing-source', m)).toBe(true)
-  })
-
-  it('missing-source ignores manual acknowledgement too — resolved only by isResolved', () => {
-    const m = mapping([], { manuallyResolvedMismatches: ['missing-source'] })
-    expect(isMismatchResolved('missing-source', m)).toBe(false)
-  })
-
-  it('missing-source stays unresolved with neither a defaultValue nor manual resolution', () => {
+  it('missing-source stays unresolved with no rule at all', () => {
     expect(isMismatchResolved('missing-source', mapping([]))).toBe(false)
   })
 })
@@ -311,14 +313,14 @@ describe('isResolved', () => {
   })
 
   // Scenario: The persistent default-value problem stays visible after being resolved
-  it('a source-less coupling is unresolved with no defaultValue and no manual resolution', () => {
+  it('a source-less coupling is unresolved with no rule and no manual resolution', () => {
     expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, mapping([]))).toBe(false)
   })
 
   // Scenario: A static value matching the target type resolves the problem
-  it('a source-less coupling resolves once a validated defaultValue is set', () => {
-    const m = mapping([], { defaultValue: { value: '42', dataType: 'number' } })
-    expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, m)).toBe(true)
+  it('a source-less coupling resolves once a static-value rule is added', () => {
+    const rules = [rule({ resolvesMismatch: 'missing-source', expression: '42' })]
+    expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, mapping(rules))).toBe(true)
   })
 
   // Scenario: A JSONata expression does not auto-resolve the problem

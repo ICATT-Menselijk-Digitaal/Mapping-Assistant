@@ -4,6 +4,7 @@ import {
   buildDefaultExpression,
   buildCastExpression,
   buildDateFormatExpression,
+  buildStaticValueExpression,
   buildSolutionLabel,
 } from '../mismatchExpressions'
 
@@ -59,6 +60,28 @@ describe('buildDateFormatExpression', () => {
   })
 })
 
+describe('buildStaticValueExpression', () => {
+  it('quotes a string value', () => {
+    expect(buildStaticValueExpression('actief', 'string')).toBe('"actief"')
+  })
+
+  it('escapes double quotes in a string value', () => {
+    expect(buildStaticValueExpression('say "hi"', 'string')).toBe('"say \\"hi\\""')
+  })
+
+  it('leaves a number value unquoted', () => {
+    expect(buildStaticValueExpression('42', 'number')).toBe('42')
+  })
+
+  it('leaves a boolean value unquoted', () => {
+    expect(buildStaticValueExpression('true', 'boolean')).toBe('true')
+  })
+
+  it('quotes a date value', () => {
+    expect(buildStaticValueExpression('2026-10-07', 'date')).toBe('"2026-10-07"')
+  })
+})
+
 describe('buildSolutionLabel', () => {
   it('generates Dutch label for truncate', () => {
     expect(buildSolutionLabel({ type: 'truncate', maxLength: 50 })).toBe('Afkappen op 50 tekens')
@@ -67,6 +90,12 @@ describe('buildSolutionLabel', () => {
   it('generates Dutch label for default', () => {
     expect(buildSolutionLabel({ type: 'default', value: 'onbekend' })).toBe(
       'Standaardwaarde: onbekend',
+    )
+  })
+
+  it('generates Dutch label for static-value', () => {
+    expect(buildSolutionLabel({ type: 'static-value', value: 'test', dataType: 'string' })).toBe(
+      'Standaardwaarde: test',
     )
   })
 

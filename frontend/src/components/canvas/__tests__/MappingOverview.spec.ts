@@ -905,7 +905,12 @@ describe('MappingOverview — default-value coupling (Feature #163)', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
 
-    store.setDefaultValue(mapping.id, { value: 'standaard', dataType: 'string' })
+    store.addTransformationRule(mapping.id, {
+      expression: '"standaard"',
+      label: 'Standaardwaarde: standaard',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'missing-source',
+    })
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
   })
