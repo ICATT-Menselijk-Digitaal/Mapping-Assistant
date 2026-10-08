@@ -69,6 +69,13 @@ export const useMappings = defineStore('mappings', () => {
     return created
   }
 
+  /** Create a source-less coupling for a target field with no source counterpart. */
+  function createDefaultValueCoupling(input: { targetFieldId: string }): FieldMapping | null {
+    const { list, created } = ops.addDefaultValueCoupling(mappings.value, input)
+    if (created) mappingsResource.write(list)
+    return created
+  }
+
   // Persist only when an op actually changed the list. The ops return the SAME
   // reference on a no-op (unknown id), so an edit targeting something that
   // doesn't exist won't mark the resource dirty or schedule a spurious persist /
@@ -125,7 +132,7 @@ export const useMappings = defineStore('mappings', () => {
 
   function mappingsWithStatus(sourceSchema: Schema, targetSchema: Schema): ValidatedFieldMapping[] {
     return mappings.value.map((m) => {
-      const sourceField = sourceSchema.byId(m.sourceFieldId)
+      const sourceField = m.sourceFieldId ? sourceSchema.byId(m.sourceFieldId) : undefined
       const targetField = targetSchema.byId(m.targetFieldId)
       const validationStatus =
         sourceField && targetField ? analyze(sourceField, targetField).status : 'constrained'
@@ -145,6 +152,7 @@ export const useMappings = defineStore('mappings', () => {
     acceptRemoteUpdate,
     hasMapping,
     createMapping,
+    createDefaultValueCoupling,
     removeMapping,
     selectMapping,
     hoverMapping,

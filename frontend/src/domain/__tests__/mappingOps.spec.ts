@@ -3,8 +3,10 @@ import { buildSchema } from '@/domain/schema'
 import type { FieldMapping } from '@/types/mapping'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 import {
+  addDefaultValueCoupling,
   addMapping,
   addRule,
+  hasCouplingForTarget,
   makeMapping,
   MAX_COMMENT_LENGTH,
   removeComment,
@@ -33,6 +35,24 @@ describe('mappingOps', () => {
     const second = addMapping(first.list, { sourceFieldId: 's1', targetFieldId: 't1' })
     expect(second.created).toBeNull()
     expect(second.list).toHaveLength(1)
+  })
+
+  // PR #189 review: a target is covered by at most one coupling, so this now
+  // also rejects a DIFFERENT source mapping to an already-covered target —
+  // not just an exact duplicate pair.
+  it('addMapping rejects a different source mapping to an already-mapped target', () => {
+    const first = addMapping([], { sourceFieldId: 's1', targetFieldId: 't1' })
+    const second = addMapping(first.list, { sourceFieldId: 's2', targetFieldId: 't1' })
+    expect(second.created).toBeNull()
+    expect(second.list).toHaveLength(1)
+  })
+
+  it('addMapping rejects a source mapping to a target that already has a default-value coupling', () => {
+    const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+    const result = addMapping(list, { sourceFieldId: 's1', targetFieldId: 't1' })
+    expect(result.created).toBeNull()
+    expect(result.list).toHaveLength(1)
+    expect(result.list[0]!.sourceFieldId).toBeNull()
   })
 
   it('addMapping does not mutate the input list', () => {
@@ -78,6 +98,40 @@ describe('mappingOps', () => {
     const restored = restoreMappings(exported, schema, schema)
     expect(restored[0]!.orphaned).toBeUndefined()
     expect(restored[1]!.orphaned).toBe(true)
+  })
+
+  // A source-less coupling is never orphaned on its source side — it never had one.
+  it('restoreMappings does not flag a source-less coupling as orphaned', () => {
+    const schema = buildSchema('s', [
+      { id: 'a', name: 'a', path: 'a', dataType: 'string', required: false },
+    ])
+    const exported: ExportedFieldMapping[] = [
+      {
+        sourceField: null,
+        targetField: 'a',
+        transformations: [
+          {
+            expression: '"standaard"',
+            label: 'Standaardwaarde: standaard',
+            source: 'mismatch-solution',
+            resolvesMismatch: 'missing-source',
+          },
+        ],
+      },
+    ]
+    const [restored] = restoreMappings(exported, schema, schema)
+    expect(restored!.sourceFieldId).toBeNull()
+    expect(restored!.orphaned).toBeUndefined()
+    expect(restored!.transformations[0]!.resolvesMismatch).toBe('missing-source')
+  })
+
+  it('restoreMappings still flags a source-less coupling as orphaned if its target path is gone', () => {
+    const schema = buildSchema('s', [])
+    const exported: ExportedFieldMapping[] = [
+      { sourceField: null, targetField: 'missing', transformations: [] },
+    ]
+    const [restored] = restoreMappings(exported, schema, schema)
+    expect(restored!.orphaned).toBe(true)
   })
 
   // Scenario: Importing an orphaned Koppeling still restores its comment
@@ -172,5 +226,62 @@ describe('mappingOps', () => {
     expect(removeMapping(list, m.id)).not.toBe(list)
     expect(addRule(list, m.id, { expression: '$', label: 'x', source: 'manual' })).not.toBe(list)
     expect(toggleMismatch(list, m.id, 'truncate')).not.toBe(list)
+  })
+
+  describe('addDefaultValueCoupling', () => {
+    it('addDefaultValueCoupling appends a coupling with a null sourceFieldId', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(created).not.toBeNull()
+      expect(created!.sourceFieldId).toBeNull()
+      expect(created!.targetFieldId).toBe('t1')
+      expect(list).toHaveLength(1)
+    })
+
+    // Edge Case: Target field already has a coupling
+    it('rejects a target that already has a source-bound coupling', () => {
+      const { list } = addMapping([], { sourceFieldId: 's1', targetFieldId: 't1' })
+      const result = addDefaultValueCoupling(list, { targetFieldId: 't1' })
+      expect(result.created).toBeNull()
+      expect(result.list).toHaveLength(1)
+    })
+
+    it('rejects a target that already has a default-value coupling', () => {
+      const first = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      const second = addDefaultValueCoupling(first.list, { targetFieldId: 't1' })
+      expect(second.created).toBeNull()
+      expect(second.list).toHaveLength(1)
+    })
+
+    it('hasCouplingForTarget reflects both source-bound and source-less couplings', () => {
+      expect(hasCouplingForTarget([], 't1')).toBe(false)
+      const { list } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(hasCouplingForTarget(list, 't1')).toBe(true)
+    })
+
+    // Scenario: Removing a default-value coupling returns the target field to unmapped
+    it('removeMapping deletes a source-less coupling just like a regular one', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      expect(removeMapping(list, created!.id)).toEqual([])
+    })
+
+    // A default value is resolved the same way any other mismatch is: a
+    // transformation rule. addRule/removeRule need no special-casing for a
+    // source-less coupling — removing the rule makes it unresolved again
+    // exactly like it does for any other mismatch type.
+    it('a default value is set and removed via the generic addRule/removeRule ops', () => {
+      const { list, created } = addDefaultValueCoupling([], { targetFieldId: 't1' })
+      const withValue = addRule([...list], created!.id, {
+        expression: '"actief"',
+        label: 'Standaardwaarde: actief',
+        source: 'mismatch-solution',
+        resolvesMismatch: 'missing-source',
+      })
+      expect(withValue[0]!.transformations).toHaveLength(1)
+      expect(withValue[0]!.transformations[0]!.resolvesMismatch).toBe('missing-source')
+
+      const ruleId = withValue[0]!.transformations[0]!.id
+      const cleared = removeRule(withValue, created!.id, ruleId)
+      expect(cleared[0]!.transformations).toHaveLength(0)
+    })
   })
 })

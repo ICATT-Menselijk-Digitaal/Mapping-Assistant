@@ -19,6 +19,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'field-click': [fieldId: string]
+  'field-dblclick': [fieldId: string]
 }>()
 
 const mappingsStore = useMappings()
@@ -68,7 +69,8 @@ const filterStatus = ref<'all' | 'mapped' | 'unmapped'>('all')
 const mappedFieldIds = computed(() => {
   const ids = new Set<string>()
   for (const m of mappings.value) {
-    ids.add(m.sourceFieldId)
+    // A source-less coupling has no sourceFieldId to add.
+    if (m.sourceFieldId) ids.add(m.sourceFieldId)
     ids.add(m.targetFieldId)
   }
   return ids
@@ -89,7 +91,9 @@ const highlightedFieldIds = computed(() => {
   const hoveredMapping = hoveredMappingId.value
   if (hoveredMapping) {
     const m = mappings.value.find((m) => m.id === hoveredMapping)
-    if (m) ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+    // A source-less coupling has no sourceFieldId to highlight on this side.
+    const counterpartId = m && (scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+    if (counterpartId) ids.add(counterpartId)
   }
 
   const hovered = hoveredFieldId.value
@@ -102,7 +106,8 @@ const highlightedFieldIds = computed(() => {
         const hoveredMatches =
           hoveredSide === 'source' ? m.sourceFieldId === hovered : m.targetFieldId === hovered
         if (hoveredMatches) {
-          ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+          const counterpartId = scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId
+          if (counterpartId) ids.add(counterpartId)
         }
       }
     }
@@ -117,6 +122,9 @@ function isFieldHighlighted(fieldId: string): boolean {
 
 function onFieldClick(fieldId: string): void {
   emit('field-click', fieldId)
+}
+function onFieldDoubleClick(fieldId: string): void {
+  emit('field-dblclick', fieldId)
 }
 function onHoverEnter(fieldId: string): void {
   mappingsStore.hoverField(fieldId, scopeSide.value)
@@ -505,6 +513,7 @@ defineExpose({ scrollToField })
             :is-description-open="isDescriptionOpen"
             :toggle-description="toggleDescription"
             :on-field-click="onFieldClick"
+            :on-field-double-click="onFieldDoubleClick"
             :on-hover-enter="onHoverEnter"
             :on-hover-leave="onHoverLeave"
           />

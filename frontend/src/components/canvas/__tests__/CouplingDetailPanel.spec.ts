@@ -47,6 +47,16 @@ const tgtNodes: SchemaFieldNode[] = [
     required: false,
   },
   { id: 'tgt-num', name: 'nummer', path: 'nummer', dataType: 'number', required: false },
+  { id: 'tgt-bool', name: 'actief', path: 'actief', dataType: 'boolean', required: false },
+  { id: 'tgt-date', name: 'datum', path: 'datum', dataType: 'date', required: false },
+  {
+    id: 'tgt-object',
+    name: 'adresgegevens',
+    path: 'adresgegevens',
+    dataType: 'object',
+    required: false,
+  },
+  { id: 'tgt-array', name: 'labels', path: 'labels', dataType: 'array', required: false },
 ]
 const sourceSchema = buildSchema('bron', srcNodes)
 const targetSchema = buildSchema('doel', tgtNodes)
@@ -54,6 +64,16 @@ const targetSchema = buildSchema('doel', tgtNodes)
 function mountPanel(srcId = 'src-str-long', tgtId = 'tgt-str-short') {
   const store = useMappings()
   const mapping = store.createMapping({ sourceFieldId: srcId, targetFieldId: tgtId })!
+  store.selectMapping(mapping.id)
+  const wrapper = mount(CouplingDetailPanel, {
+    props: { sourceSchema, targetSchema },
+  })
+  return { wrapper, store, mapping }
+}
+
+function mountDefaultValuePanel(tgtId = 'tgt-str-short') {
+  const store = useMappings()
+  const mapping = store.createDefaultValueCoupling({ targetFieldId: tgtId })!
   store.selectMapping(mapping.id)
   const wrapper = mount(CouplingDetailPanel, {
     props: { sourceSchema, targetSchema },
@@ -497,5 +517,172 @@ describe('CouplingDetailPanel — opmerking', () => {
 
     expect(wrapper.find('[data-testid="coupling-detail-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="opmerking-text"]').text()).toBe('Overleefde de import')
+  })
+})
+
+describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => {
+  // Scenario: The Koppelingspaneel and transformation panel show "—" as the source
+  it('shows "—" as the source and the full target path as the target', async () => {
+    const { wrapper } = mountDefaultValuePanel('tgt-str-short')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="detail-source-dash"]').text()).toBe('—')
+    expect(wrapper.find('[data-testid="detail-target-field"]').text()).toContain('doelveld')
+  })
+
+  // Scenario: The persistent default-value problem stays visible after being resolved
+  // PR #189 review (Youri): this card's unresolved badge reads "●", same as
+  // every other mismatch card — the "!" in Feature #163's AC describes the
+  // Koppelingspaneel row's status icon, not this card.
+  it('shows a persistent "missing-source" problem card, unresolved like any other mismatch card', async () => {
+    const { wrapper } = mountDefaultValuePanel()
+    await wrapper.vm.$nextTick()
+
+    const status = wrapper.find('[data-testid="mismatch-status-missing-source"]')
+    expect(status.exists()).toBe(true)
+    expect(status.text()).toContain('●')
+  })
+
+  // Scenario: A static value matching the target type resolves the problem
+  // The "Oplossen" button on the missing-source card opens StaticValueDialog
+  // — the exact same pattern every other detected problem already uses.
+  it('a valid static value entered via "Oplossen" resolves the problem, turning the icon to "✓"', async () => {
+    const { wrapper } = mountDefaultValuePanel('tgt-str-short')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('standaardtekst')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain(
+      '✓ Opgelost',
+    )
+  })
+
+  // PR #189 review: "007" passes validation (it's a finite number) but is
+  // not a valid JSONata literal as typed — the stored rule must use the
+  // canonicalized form ("7"), not the raw input, so the export MIG receives
+  // is actually parseable.
+  // PR #189 review: "007" passes isFinite(Number(...)) but is not a valid
+  // JSONata number literal. Rejected outright rather than silently rewritten.
+  it('rejects a non-canonical number that JSONata cannot parse as a literal', async () => {
+    const { wrapper, store, mapping } = mountDefaultValuePanel('tgt-num')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('007')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(true)
+    const stored = store.mappings.find((m) => m.id === mapping.id)!
+    expect(stored.transformations).toHaveLength(0)
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
+  })
+
+  // Kim's review of #187: the default value must appear in Transformatieregels
+  // and be removable/re-enterable exactly like resolving any other mismatch —
+  // removing it must flip the status back to "!".
+  it('the static-value rule appears in Transformatieregels and removing it unresolves the problem', async () => {
+    const { wrapper, store, mapping } = mountDefaultValuePanel('tgt-str-short')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('test')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('Standaardwaarde: test')
+    const ruleId = store.mappings.find((m) => m.id === mapping.id)!.transformations[0]!.id
+
+    await wrapper.find(`[data-testid="rule-delete-${ruleId}"]`).trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
+  })
+
+  // Scenario: A static value that does not match the target type is rejected
+  it('rejects a non-numeric static value for a number target with a clear error, dialog stays open', async () => {
+    const { wrapper } = mountDefaultValuePanel('tgt-num')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('hello')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
+  })
+
+  it('offers "Oplossen" for boolean and date targets too', async () => {
+    const boolPanel = mountDefaultValuePanel('tgt-bool')
+    await boolPanel.wrapper.vm.$nextTick()
+    expect(boolPanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      true,
+    )
+
+    const datePanel = mountDefaultValuePanel('tgt-date')
+    await datePanel.wrapper.vm.$nextTick()
+    expect(datePanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      true,
+    )
+  })
+
+  // Edge Case: Default value for an object or array target field
+  it('does not offer "Oplossen" for object or array targets — only the JSONata path applies', async () => {
+    const objectPanel = mountDefaultValuePanel('tgt-object')
+    await objectPanel.wrapper.vm.$nextTick()
+    expect(objectPanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      false,
+    )
+
+    const arrayPanel = mountDefaultValuePanel('tgt-array')
+    await arrayPanel.wrapper.vm.$nextTick()
+    expect(arrayPanel.wrapper.find('[data-testid="mismatch-solve-missing-source"]').exists()).toBe(
+      false,
+    )
+  })
+
+  // Scenario: A JSONata expression does not auto-resolve the problem
+  it('adding a JSONata expression alone does not resolve the problem; manual resolve does', async () => {
+    const { wrapper, store, mapping } = mountDefaultValuePanel('tgt-object')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="add-expression-btn"]').trigger('click')
+    await wrapper.find('[data-testid="expression-input"]').setValue('{"status": "actief"}')
+    await wrapper.find('[data-testid="expression-save-btn"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
+
+    store.toggleManualMismatchResolution(mapping.id, 'missing-source')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain(
+      '✓ Opgelost',
+    )
+  })
+
+  // Edge Case: Closing without configuring a value
+  it('closing the detail view without configuring a value leaves the coupling and its problem in place', async () => {
+    const { wrapper, store, mapping } = mountDefaultValuePanel()
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="detail-close"]').trigger('click')
+
+    expect(store.mappings).toHaveLength(1)
+    expect(store.mappings[0]!.id).toBe(mapping.id)
+    expect(store.mappings[0]!.transformations).toHaveLength(0)
+  })
+
+  it('Transformatieregels section is available for a source-less coupling', async () => {
+    const { wrapper } = mountDefaultValuePanel()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('Transformatieregels')
   })
 })

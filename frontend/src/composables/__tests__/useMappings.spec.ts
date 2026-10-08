@@ -45,13 +45,16 @@ describe('useMappings', () => {
     expect(store.mappings).toHaveLength(2)
   })
 
-  it('allows multiple source fields to map to the same target field', () => {
+  // PR #189 review: a target is covered by at most one coupling — a second
+  // source can no longer silently attach to an already-mapped target. The
+  // canvas offers an explicit replace-with-confirmation flow for this instead.
+  it('rejects a second source field mapping to an already-mapped target field', () => {
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
     const second = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
 
-    expect(second).not.toBeNull()
-    expect(store.mappings).toHaveLength(2)
+    expect(second).toBeNull()
+    expect(store.mappings).toHaveLength(1)
   })
 
   it('returns null for an exact duplicate source-target pair', () => {

@@ -21,6 +21,7 @@ Domain terms used across the Mapping Assistant's specs and issues. See `docs/ste
 ## Coupling
 
 - **Coupling** — the pairing of a source field with a target field, along with any transformation rules that reconcile them. Modelled in code as `FieldMapping`; UI already refers to it as *koppeling* (e.g. `CouplingDetailPanel`). A future refactor will align the code type name with this term.
+- **Source-less coupling (default-value coupling)** — a coupling for a target field that has no source counterpart: `sourceFieldId` is `null`, and a value is supplied instead via a typed static value or a JSONata expression. Shown on the canvas as a single dot (no connection line) and as "—" for the source in the Koppelingspaneel and transformation panel. Introduced in [#163](../../issues/163).
 - **Mapping side** — either endpoint of a coupling: the *source* (fields being mapped from) or the *target* (fields being mapped to). Encoded in code as `MappingSide = 'source' | 'target'`. Introduced during the schema-side composable refactor (no issue).
 - **Field pair analysis** — the per-coupling result of `analyze(source, target)`: a `status` (`compatible` | `constrained` | `incompatible`) plus the list of mismatches that still need a transformation rule. Status is derived from mismatches so the two can never disagree — a change from the earlier split where date→date could report `compatible` and a `date-format` mismatch at the same time. Introduced during the coupling-module refactor (no issue).
 

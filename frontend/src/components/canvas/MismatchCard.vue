@@ -1,17 +1,29 @@
 <script setup lang="ts">
 import type { MismatchType } from '@/types/mapping'
 
-const props = defineProps<{
-  type: MismatchType
-  resolved: boolean
-  manuallyResolved: boolean
-  label: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    type: MismatchType
+    resolved: boolean
+    manuallyResolved: boolean
+    label: string
+    // False when there's no dialog to solve this instance with — e.g. a
+    // missing-source card on an object/array target field, where a static
+    // value input doesn't apply and the JSONata editor is the only path.
+    solvable?: boolean
+  }>(),
+  { solvable: true },
+)
 
 const emit = defineEmits<{
   solve: []
   'toggle-manual-resolution': []
 }>()
+
+// Every mismatch type's card reads "●" the same way when unresolved —
+// Feature #163's "!" icon describes the Koppelingspaneel row's status icon
+// (MappingOverview.statusIcon), not this per-problem card (PR #189 review
+// from Youri: this card must stay visually consistent with every other one).
 </script>
 
 <template>
@@ -32,7 +44,7 @@ const emit = defineEmits<{
         <span class="text-xs text-slate-700">{{ props.label }}</span>
         <div v-if="!props.resolved" class="flex items-center gap-1.5 mt-1.5">
           <button
-            v-if="!props.manuallyResolved"
+            v-if="!props.manuallyResolved && props.solvable"
             class="inline-flex items-center h-6 text-xs text-blue-600 border border-blue-300 rounded px-2 hover:bg-blue-50 transition-colors"
             :data-testid="`mismatch-solve-${props.type}`"
             @click="emit('solve')"

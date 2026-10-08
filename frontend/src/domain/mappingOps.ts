@@ -30,23 +30,64 @@ export function makeMapping(input: CreateMappingInput): FieldMapping {
   }
 }
 
-export function isDuplicate(
+/** True when `targetFieldId` already carries any coupling — source-bound or source-less. */
+export function hasCouplingForTarget(
   list: readonly FieldMapping[],
-  sourceFieldId: string,
   targetFieldId: string,
 ): boolean {
-  return list.some((m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === targetFieldId)
+  return list.some((m) => m.targetFieldId === targetFieldId)
 }
 
-/** Append a new mapping unless an identical source→target pair already exists. */
+/**
+ * Append a new mapping unless the target field already carries any coupling —
+ * a target is covered by at most one `FieldMapping` at a time (PR #189
+ * review: this used to dedupe only on the exact source+target pair, which let
+ * two different sources both map to the same target, or a source-bound
+ * mapping silently coexist with an already-resolved default-value coupling).
+ * Replacing an existing coupling with a new one is a UI-level decision
+ * (`MappingCanvas`'s replace-confirmation) — this function only enforces that
+ * "at most one" never gets silently violated, regardless of caller.
+ */
 export function addMapping(
   list: readonly FieldMapping[],
   input: CreateMappingInput,
 ): { list: FieldMapping[]; created: FieldMapping | null } {
-  if (isDuplicate(list, input.sourceFieldId, input.targetFieldId)) {
+  if (hasCouplingForTarget(list, input.targetFieldId)) {
     return { list: list as FieldMapping[], created: null }
   }
   const created = makeMapping(input)
+  return { list: [...list, created], created }
+}
+
+export interface CreateDefaultValueCouplingInput {
+  targetFieldId: string
+}
+
+/** A source-less coupling: a target field with no source, pending a default value or expression. */
+export function makeDefaultValueCoupling(input: CreateDefaultValueCouplingInput): FieldMapping {
+  return {
+    id: crypto.randomUUID(),
+    sourceFieldId: null,
+    targetFieldId: input.targetFieldId,
+    transformations: [],
+    status: 'confirmed',
+  }
+}
+
+/**
+ * Append a new source-less coupling unless the target field already carries
+ * any coupling — source-bound or source-less (Feature #163 edge case:
+ * double-clicking an already-mapped target performs normal selection
+ * instead).
+ */
+export function addDefaultValueCoupling(
+  list: readonly FieldMapping[],
+  input: CreateDefaultValueCouplingInput,
+): { list: FieldMapping[]; created: FieldMapping | null } {
+  if (hasCouplingForTarget(list, input.targetFieldId)) {
+    return { list: list as FieldMapping[], created: null }
+  }
+  const created = makeDefaultValueCoupling(input)
   return { list: [...list, created], created }
 }
 
@@ -156,7 +197,11 @@ export function restoreMappings(
   targetSchema: Schema,
 ): FieldMapping[] {
   return exported.map((m) => {
-    const orphaned = !sourceSchema.has(m.sourceField) || !targetSchema.has(m.targetField)
+    // A source-less coupling (m.sourceField === null) is never orphaned on
+    // its source side — there was never a source field to lose.
+    const orphaned =
+      (m.sourceField !== null && !sourceSchema.has(m.sourceField)) ||
+      !targetSchema.has(m.targetField)
     const mapping: FieldMapping = {
       id: crypto.randomUUID(),
       sourceFieldId: m.sourceField,

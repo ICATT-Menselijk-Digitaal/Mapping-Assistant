@@ -36,6 +36,7 @@ const props = defineProps<{
   isDescriptionOpen: (fieldId: string) => boolean
   toggleDescription: (field: SchemaField) => void
   onFieldClick: (fieldId: string) => void
+  onFieldDoubleClick?: (fieldId: string) => void
   onHoverEnter: (fieldId: string) => void
   onHoverLeave: () => void
 }>()
@@ -148,6 +149,7 @@ const childOfAttr = computed(() =>
         :is-description-open="isDescriptionOpen"
         :toggle-description="toggleDescription"
         :on-field-click="onFieldClick"
+        :on-field-double-click="onFieldDoubleClick"
         :on-hover-enter="onHoverEnter"
         :on-hover-leave="onHoverLeave"
       />
@@ -169,6 +171,7 @@ const childOfAttr = computed(() =>
         fieldRowClass(field.id),
       ]"
       @click="onFieldClick(field.id)"
+      @dblclick="onFieldDoubleClick?.(field.id)"
       @mouseenter="onHoverEnter(field.id)"
       @mouseleave="onHoverLeave()"
     >

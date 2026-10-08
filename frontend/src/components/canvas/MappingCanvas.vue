@@ -5,6 +5,8 @@ import type { Schema } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
+import DefaultValueConfirmDialog from './DefaultValueConfirmDialog.vue'
+import ReplaceCouplingConfirmDialog from './ReplaceCouplingConfirmDialog.vue'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 
@@ -72,7 +74,7 @@ watch(selectionNonce, async () => {
   const mapping = mappings.value.find((m) => m.id === id)
   if (!mapping) return
   await nextTick()
-  sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
+  if (mapping.sourceFieldId) sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
   targetPanelRef.value?.scrollToField(mapping.targetFieldId)
 })
 
@@ -94,7 +96,10 @@ watch(traceSelectionNonce, async () => {
 })
 
 const sourceCounter = computed(() => {
-  const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
+  // A source-less coupling has no sourceFieldId to count.
+  const mappedIds = new Set(
+    mappingsStore.mappings.map((m) => m.sourceFieldId).filter((id): id is string => id !== null),
+  )
   return { mapped: mappedIds.size, total: props.sourceSchema.all().length }
 })
 
@@ -110,23 +115,112 @@ function onSourceFieldClick(fieldId: string) {
   selectedSourceId.value = selectedSourceId.value === fieldId ? null : fieldId
 }
 
-function onTargetFieldClick(fieldId: string) {
-  if (!selectedSourceId.value) return
-
+// Creates a source-bound mapping and emits FieldMappingCreated — shared by
+// the direct-create path below and the replace-confirmation's confirm action.
+function createMappingAndEmit(sourceFieldId: string, targetFieldId: string) {
   const mapping = mappingsStore.createMapping({
-    sourceFieldId: selectedSourceId.value,
-    targetFieldId: fieldId,
+    sourceFieldId,
+    targetFieldId,
     schemas: { source: props.sourceSchema, target: props.targetSchema },
   })
 
-  if (mapping) {
+  // sourceFieldId is always set here — this path always supplies one above —
+  // the guard only satisfies FieldMapping's more general nullable type.
+  if (mapping && mapping.sourceFieldId) {
     emit('FieldMappingCreated', {
       sourceFieldId: mapping.sourceFieldId,
       targetFieldId: mapping.targetFieldId,
     })
   }
+}
 
+// PR #189 review: a target is covered by at most one coupling. Mapping a
+// source onto a target that already carries one (source-bound or
+// default-value) no longer silently creates a second coupling — it asks for
+// explicit confirmation to replace the existing one first.
+const pendingReplace = ref<{
+  existingId: string
+  existingSourceFieldId: string | null
+  newSourceFieldId: string
+  targetFieldId: string
+} | null>(null)
+
+const pendingReplaceLabels = computed(() => {
+  if (!pendingReplace.value) return null
+  const { existingSourceFieldId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  const target = props.targetSchema.byId(targetFieldId)
+  const existingSource = existingSourceFieldId
+    ? props.sourceSchema.byId(existingSourceFieldId)
+    : null
+  const newSource = props.sourceSchema.byId(newSourceFieldId)
+  return {
+    targetPath: target?.path ?? targetFieldId,
+    existingSourcePath: existingSource?.path ?? '—',
+    newSourcePath: newSource?.path ?? newSourceFieldId,
+  }
+})
+
+function onTargetFieldClick(fieldId: string) {
+  if (!selectedSourceId.value) return
+  const sourceFieldId = selectedSourceId.value
   selectedSourceId.value = null
+
+  const existing = mappingsStore.mappings.find((m) => m.targetFieldId === fieldId)
+  if (existing) {
+    pendingReplace.value = {
+      existingId: existing.id,
+      existingSourceFieldId: existing.sourceFieldId,
+      newSourceFieldId: sourceFieldId,
+      targetFieldId: fieldId,
+    }
+    return
+  }
+
+  createMappingAndEmit(sourceFieldId, fieldId)
+}
+
+function confirmReplaceCoupling() {
+  if (!pendingReplace.value) return
+  const { existingId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  mappingsStore.removeMapping(existingId)
+  createMappingAndEmit(newSourceFieldId, targetFieldId)
+  pendingReplace.value = null
+}
+
+function cancelReplaceCoupling() {
+  pendingReplace.value = null
+}
+
+// Feature #163: double-clicking an unmapped target field opens a confirmation
+// dialogue before creating a source-less ("default-value") coupling. A
+// target that already carries any coupling just selects it instead (Edge
+// Case: "Target field already has a coupling").
+const pendingDefaultValueFieldId = ref<string | null>(null)
+const pendingDefaultValueField = computed(() =>
+  pendingDefaultValueFieldId.value
+    ? (props.targetSchema.byId(pendingDefaultValueFieldId.value) ?? null)
+    : null,
+)
+
+function onTargetFieldDoubleClick(fieldId: string) {
+  const existing = mappingsStore.mappings.find((m) => m.targetFieldId === fieldId)
+  if (existing) {
+    mappingsStore.selectMapping(existing.id)
+    return
+  }
+  pendingDefaultValueFieldId.value = fieldId
+}
+
+function confirmDefaultValueCoupling() {
+  const fieldId = pendingDefaultValueFieldId.value
+  if (!fieldId) return
+  const created = mappingsStore.createDefaultValueCoupling({ targetFieldId: fieldId })
+  if (created) mappingsStore.selectMapping(created.id)
+  pendingDefaultValueFieldId.value = null
+}
+
+function cancelDefaultValueCoupling() {
+  pendingDefaultValueFieldId.value = null
 }
 
 function onSourceFileChange(event: Event) {
@@ -320,11 +414,44 @@ function onTargetUrlSubmit() {
           :schema="targetSchema"
           side="target"
           @field-click="onTargetFieldClick"
+          @field-dblclick="onTargetFieldDoubleClick"
         />
       </div>
 
       <!-- SVG connection line overlay -->
       <ConnectionLines :source-schema="sourceSchema" :target-schema="targetSchema" />
+    </div>
+
+    <!-- Default-value coupling confirmation (Feature #163) -->
+    <div
+      v-if="pendingDefaultValueField"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="default-value-confirm-overlay"
+    >
+      <div class="bg-white rounded-lg shadow-lg max-w-sm w-full mx-4">
+        <DefaultValueConfirmDialog
+          :field="pendingDefaultValueField"
+          @close="cancelDefaultValueCoupling"
+          @confirm="confirmDefaultValueCoupling"
+        />
+      </div>
+    </div>
+
+    <!-- Replace-coupling confirmation (PR #189 review) -->
+    <div
+      v-if="pendingReplaceLabels"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="replace-coupling-confirm-overlay"
+    >
+      <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+        <ReplaceCouplingConfirmDialog
+          :target-path="pendingReplaceLabels.targetPath"
+          :existing-source-path="pendingReplaceLabels.existingSourcePath"
+          :new-source-path="pendingReplaceLabels.newSourcePath"
+          @close="cancelReplaceCoupling"
+          @confirm="confirmReplaceCoupling"
+        />
+      </div>
     </div>
   </div>
 </template>

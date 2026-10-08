@@ -364,7 +364,7 @@ describe('MappingOverview', () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
-    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-2' }) // incompatible — distinct target: a target can carry at most one coupling
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findAll('[data-testid="validation-status"]')).toHaveLength(2)
@@ -506,7 +506,7 @@ describe('MappingOverview', () => {
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible ✓
     store.createMapping({ sourceFieldId: 'src-long', targetFieldId: 'tgt-short' }) // constrained ! (unresolved)
-    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible ✕
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-2' }) // incompatible ✕ — distinct target
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(3)
@@ -546,7 +546,7 @@ describe('MappingOverview', () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-num', targetFieldId: 'tgt-str' }) // compatible
-    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-str' }) // incompatible
+    store.createMapping({ sourceFieldId: 'src-obj', targetFieldId: 'tgt-2' }) // incompatible — distinct target
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
@@ -677,6 +677,7 @@ describe('MappingOverview', () => {
         required: false,
       },
       { id: 'n-flat', name: 'naam', path: 'naam', dataType: 'string', required: false },
+      { id: 'n-decoy', name: 'overig', path: 'overig', dataType: 'string', required: false },
     ]
     const schema = buildSchema('', nestedNodes)
     const wrapper = mount(MappingOverview, {
@@ -685,7 +686,9 @@ describe('MappingOverview', () => {
     })
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'n-zaak-id', targetFieldId: 'n-flat' })
-    store.createMapping({ sourceFieldId: 'n-flat', targetFieldId: 'n-flat' })
+    // Decoy row — must not match the search below. Targets a different field
+    // than the mapping above: a target can carry at most one coupling.
+    store.createMapping({ sourceFieldId: 'n-decoy', targetFieldId: 'n-decoy' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="search-input"]').setValue('zaak')
@@ -740,6 +743,7 @@ describe('MappingOverview', () => {
         required: false,
       },
       { id: 'n-flat', name: 'naam', path: 'naam', dataType: 'string', required: false },
+      { id: 'n-decoy', name: 'overig', path: 'overig', dataType: 'string', required: false },
     ]
     const schema = buildSchema('', nestedNodes)
     const wrapper = mount(MappingOverview, {
@@ -748,7 +752,9 @@ describe('MappingOverview', () => {
     })
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'n-zaak-id', targetFieldId: 'n-flat' })
-    store.createMapping({ sourceFieldId: 'n-flat', targetFieldId: 'n-flat' })
+    // Decoy row — must not match the search below. Targets a different field
+    // than the mapping above: a target can carry at most one coupling.
+    store.createMapping({ sourceFieldId: 'n-decoy', targetFieldId: 'n-decoy' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="search-input"]').setValue('identificatie')
@@ -876,6 +882,53 @@ describe('MappingOverview — opmerking', () => {
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
 
     store.removeComment(withComment.id)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+})
+
+describe('MappingOverview — default-value coupling (Feature #163)', () => {
+  // Scenario: The Koppelingspaneel and transformation panel show "—" as the source
+  it('shows "—" as the source for a source-less coupling, not the raw id or "null"', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createDefaultValueCoupling({ targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    expect(row.text()).toContain('—')
+    expect(row.text()).not.toContain('null')
+    expect(row.find('[data-testid="orphan-indicator"]').exists()).toBe(false)
+  })
+
+  // PR #189 review clarification (Kim): Feature #163's "!" icon describes
+  // this row-level status icon, not the detail panel's mismatch card (which
+  // uses "●" like every other card — see CouplingDetailPanel.spec.ts).
+  it('shows the generic "!" row status icon for an unresolved source-less coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createDefaultValueCoupling({ targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="validation-status"]').text()).toBe('!')
+  })
+
+  it('does not count a source-less coupling as actie vereist once it has a valid default value', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const mapping = store.createDefaultValueCoupling({ targetFieldId: 'tgt-str' })!
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    store.addTransformationRule(mapping.id, {
+      expression: '"standaard"',
+      label: 'Standaardwaarde: standaard',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'missing-source',
+    })
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
   })
