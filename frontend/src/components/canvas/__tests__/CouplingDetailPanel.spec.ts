@@ -537,6 +537,28 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     )
   })
 
+  // PR #189 review: "007" passes validation (it's a finite number) but is
+  // not a valid JSONata literal as typed — the stored rule must use the
+  // canonicalized form ("7"), not the raw input, so the export MIG receives
+  // is actually parseable.
+  // PR #189 review: "007" passes isFinite(Number(...)) but is not a valid
+  // JSONata number literal. Rejected outright rather than silently rewritten.
+  it('rejects a non-canonical number that JSONata cannot parse as a literal', async () => {
+    const { wrapper, store, mapping } = mountDefaultValuePanel('tgt-num')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('007')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(true)
+    const stored = store.mappings.find((m) => m.id === mapping.id)!
+    expect(stored.transformations).toHaveLength(0)
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
+  })
+
   // Kim's review of #187: the default value must appear in Transformatieregels
   // and be removable/re-enterable exactly like resolving any other mismatch —
   // removing it must flip the status back to "!".

@@ -39,6 +39,34 @@ describe('validateStaticValue', () => {
     expect(validateStaticValue('2026-10-07', 'date')).toEqual({ valid: true, error: null })
   })
 
+  it('accepts a leap-day date in a leap year', () => {
+    expect(validateStaticValue('2024-02-29', 'date').valid).toBe(true)
+  })
+
+  // PR #189 review: Date.parse silently rolls these over into the next valid
+  // calendar date instead of rejecting them.
+  it('rejects a day that does not exist in the given month', () => {
+    const result = validateStaticValue('2026-02-30', 'date')
+    expect(result.valid).toBe(false)
+    expect(result.error).toBeTruthy()
+  })
+
+  it('rejects February 29 in a non-leap year', () => {
+    expect(validateStaticValue('2026-02-29', 'date').valid).toBe(false)
+  })
+
+  it('rejects a month number above 12', () => {
+    expect(validateStaticValue('2026-13-01', 'date').valid).toBe(false)
+  })
+
+  it('rejects a month number of 00', () => {
+    expect(validateStaticValue('2026-00-15', 'date').valid).toBe(false)
+  })
+
+  it('rejects a day number of 00', () => {
+    expect(validateStaticValue('2026-10-00', 'date').valid).toBe(false)
+  })
+
   // Scenario: A static value that does not match the target type is rejected
   it('rejects a non-numeric value for a number target', () => {
     const result = validateStaticValue('hello', 'number')
@@ -68,5 +96,24 @@ describe('validateStaticValue', () => {
     const result = validateStaticValue('   ', 'string')
     expect(result.valid).toBe(false)
     expect(result.error).toBeTruthy()
+  })
+
+  // PR #189 review: these all pass isFinite(Number(...)) but are not
+  // themselves valid JSONata number literals — rejected outright rather than
+  // silently rewritten, so what the Technical Administrator sees is always
+  // exactly what gets stored and exported.
+  it('rejects number forms that are not valid JSONata literals', () => {
+    for (const input of ['1.', '.5', '+5', '007', '0x1A']) {
+      const result = validateStaticValue(input, 'number')
+      expect(result.valid).toBe(false)
+      expect(result.error).toBeTruthy()
+    }
+  })
+
+  it('accepts negative numbers and exponent notation', () => {
+    expect(validateStaticValue('-5', 'number').valid).toBe(true)
+    expect(validateStaticValue('0', 'number').valid).toBe(true)
+    expect(validateStaticValue('1e10', 'number').valid).toBe(true)
+    expect(validateStaticValue('1.5e-3', 'number').valid).toBe(true)
   })
 })
