@@ -901,6 +901,18 @@ describe('MappingOverview — default-value coupling (Feature #163)', () => {
     expect(row.find('[data-testid="orphan-indicator"]').exists()).toBe(false)
   })
 
+  // PR #189 review clarification (Kim): Feature #163's "!" icon describes
+  // this row-level status icon, not the detail panel's mismatch card (which
+  // uses "●" like every other card — see CouplingDetailPanel.spec.ts).
+  it('shows the generic "!" row status icon for an unresolved source-less coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createDefaultValueCoupling({ targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="validation-status"]').text()).toBe('!')
+  })
+
   it('does not count a source-less coupling as actie vereist once it has a valid default value', async () => {
     const wrapper = mountOverview()
     const store = useMappings()

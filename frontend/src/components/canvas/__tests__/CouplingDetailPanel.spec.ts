@@ -510,13 +510,16 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
   })
 
   // Scenario: The persistent default-value problem stays visible after being resolved
-  it('shows a persistent "missing-source" problem card with a "!" icon while unresolved', async () => {
+  // PR #189 review (Youri): this card's unresolved badge reads "●", same as
+  // every other mismatch card — the "!" in Feature #163's AC describes the
+  // Koppelingspaneel row's status icon, not this card.
+  it('shows a persistent "missing-source" problem card, unresolved like any other mismatch card', async () => {
     const { wrapper } = mountDefaultValuePanel()
     await wrapper.vm.$nextTick()
 
     const status = wrapper.find('[data-testid="mismatch-status-missing-source"]')
     expect(status.exists()).toBe(true)
-    expect(status.text()).toContain('!')
+    expect(status.text()).toContain('●')
   })
 
   // Scenario: A static value matching the target type resolves the problem
@@ -556,7 +559,7 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(true)
     const stored = store.mappings.find((m) => m.id === mapping.id)!
     expect(stored.transformations).toHaveLength(0)
-    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
   })
 
   // Kim's review of #187: the default value must appear in Transformatieregels
@@ -577,7 +580,7 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     await wrapper.find(`[data-testid="rule-delete-${ruleId}"]`).trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
   })
 
   // Scenario: A static value that does not match the target type is rejected
@@ -592,7 +595,7 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
 
     expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
   })
 
   it('offers "Oplossen" for boolean and date targets too', async () => {
@@ -634,7 +637,7 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     await wrapper.find('[data-testid="expression-save-btn"]').trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('!')
+    expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain('●')
 
     store.toggleManualMismatchResolution(mapping.id, 'missing-source')
     await wrapper.vm.$nextTick()

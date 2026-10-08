@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { MismatchType } from '@/types/mapping'
 
 const props = withDefaults(
@@ -21,9 +20,10 @@ const emit = defineEmits<{
   'toggle-manual-resolution': []
 }>()
 
-// missing-source's unresolved badge reads "!" per Feature #163's AC,
-// distinct from every other mismatch type's "●".
-const unresolvedSymbol = computed(() => (props.type === 'missing-source' ? '!' : '●'))
+// Every mismatch type's card reads "●" the same way when unresolved —
+// Feature #163's "!" icon describes the Koppelingspaneel row's status icon
+// (MappingOverview.statusIcon), not this per-problem card (PR #189 review
+// from Youri: this card must stay visually consistent with every other one).
 </script>
 
 <template>
@@ -37,9 +37,7 @@ const unresolvedSymbol = computed(() => (props.type === 'missing-source' ? '!' :
         :class="props.resolved || props.manuallyResolved ? 'text-emerald-600' : 'text-amber-600'"
         class="text-[10px] font-medium shrink-0"
         :data-testid="`mismatch-status-${props.type}`"
-        >{{
-          props.resolved || props.manuallyResolved ? '✓ Opgelost' : `${unresolvedSymbol} Vereist`
-        }}</span
+        >{{ props.resolved || props.manuallyResolved ? '✓ Opgelost' : '● Vereist' }}</span
       >
       <!-- Right column: label + buttons indented together -->
       <div class="min-w-0 flex-1">
