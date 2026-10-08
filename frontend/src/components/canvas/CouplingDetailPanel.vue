@@ -103,6 +103,7 @@ async function requestAiSuggestion() {
 const isEditingComment = ref(false)
 const commentDraft = ref('')
 const commentMenuOpen = ref(false)
+const isConfirmingCommentRemoval = ref(false)
 
 // Reset any in-progress comment edit when the selected Koppeling changes,
 // so leftover draft text from one mapping never leaks into another.
@@ -110,6 +111,7 @@ watch(selectedMapping, () => {
   isEditingComment.value = false
   commentMenuOpen.value = false
   commentDraft.value = ''
+  isConfirmingCommentRemoval.value = false
 })
 
 function startAddComment() {
@@ -141,10 +143,19 @@ function saveComment() {
   commentDraft.value = ''
 }
 
-function removeComment() {
+function requestRemoveComment() {
+  commentMenuOpen.value = false
+  isConfirmingCommentRemoval.value = true
+}
+
+function confirmRemoveComment() {
   if (!selectedMapping.value) return
   store.removeComment(selectedMapping.value.id)
-  commentMenuOpen.value = false
+  isConfirmingCommentRemoval.value = false
+}
+
+function cancelRemoveComment() {
+  isConfirmingCommentRemoval.value = false
 }
 </script>
 
@@ -428,7 +439,7 @@ function removeComment() {
             <button
               class="block w-full text-left px-3 py-1.5 hover:bg-slate-50 text-red-600"
               data-testid="opmerking-remove"
-              @click="removeComment"
+              @click="requestRemoveComment"
             >
               Verwijderen
             </button>
@@ -437,5 +448,33 @@ function removeComment() {
       </div>
     </div>
     <!-- end scrollable body -->
+
+    <!-- Opmerking delete confirmation overlay -->
+    <div
+      v-if="isConfirmingCommentRemoval"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="opmerking-delete-confirmation"
+    >
+      <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-xs w-full mx-4">
+        <div class="text-sm text-slate-700 mb-4">
+          <p>Weet je zeker dat je deze opmerking wilt verwijderen?</p>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button
+            class="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
+            @click="cancelRemoveComment"
+          >
+            Annuleren
+          </button>
+          <button
+            class="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
+            data-testid="opmerking-confirm-delete"
+            @click="confirmRemoveComment"
+          >
+            Verwijderen
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

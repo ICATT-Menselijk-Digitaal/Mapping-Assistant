@@ -360,7 +360,7 @@ describe('CouplingDetailPanel — opmerking', () => {
   })
 
   // Scenario: Removing an existing comment
-  it('removes an existing comment via the overflow menu', async () => {
+  it('asks for confirmation before removing a comment, then removes it on confirm', async () => {
     const { wrapper, store, mapping } = mountPanel()
     store.setComment(mapping.id, 'Weg ermee')
     await wrapper.vm.$nextTick()
@@ -369,8 +369,29 @@ describe('CouplingDetailPanel — opmerking', () => {
     await wrapper.find('[data-testid="opmerking-remove"]').trigger('click')
     await wrapper.vm.$nextTick()
 
+    expect(wrapper.find('[data-testid="opmerking-delete-confirmation"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="opmerking-card"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="opmerking-confirm-delete"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-delete-confirmation"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="opmerking-card"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="opmerking-add-button"]').exists()).toBe(true)
+  })
+
+  it('keeps the comment when the removal confirmation is cancelled', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    store.setComment(mapping.id, 'Blijft staan')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="opmerking-menu-toggle"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-remove"]').trigger('click')
+    await wrapper.find('[data-testid="opmerking-delete-confirmation"] button').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="opmerking-delete-confirmation"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="opmerking-text"]').text()).toBe('Blijft staan')
   })
 
   // PR #182 review: saving blank/whitespace-only text left an inconsistent
