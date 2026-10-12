@@ -3,7 +3,12 @@ import { computed, ref, watch } from 'vue'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
 import { useTransformationSuggestions } from '@/composables/useTransformationSuggestions'
-import { analyze, isMismatchResolved, DEFAULT_VALUE_REQUIRED_ANALYSIS } from '@/domain/coupling'
+import {
+  analyze,
+  isMismatchResolved,
+  isResolved,
+  DEFAULT_VALUE_REQUIRED_ANALYSIS,
+} from '@/domain/coupling'
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
@@ -58,6 +63,14 @@ const analysis = computed(() => {
 })
 
 const validationStatus = computed(() => analysis.value?.status ?? null)
+
+// Same completeness check the Koppelingspaneel row uses, so the badge turns
+// green exactly when the row's status icon does.
+const isAnalysisResolved = computed(() =>
+  analysis.value && selectedMapping.value
+    ? isResolved(analysis.value, selectedMapping.value)
+    : false,
+)
 
 const incompatibilityReason = computed(() =>
   sourceField.value && targetField.value && analysis.value?.status === 'incompatible'
@@ -124,9 +137,11 @@ const commentDraft = ref('')
 const commentMenuOpen = ref(false)
 const isConfirmingCommentRemoval = ref(false)
 
-// Reset any in-progress comment edit when the selected Koppeling changes, so
-// leftover draft text from one mapping never leaks into another.
+// Reset any in-progress comment edit or open mismatch dialog when the
+// selected Koppeling changes, so leftover draft input from one mapping never
+// leaks into another.
 watch(selectedMapping, () => {
+  activeDialog.value = null
   isEditingComment.value = false
   commentMenuOpen.value = false
   commentDraft.value = ''
@@ -277,11 +292,13 @@ function cancelRemoveComment() {
 
       <!-- Validation badge -->
       <div
-        v-if="sourceField && targetField"
+        v-if="targetField && (sourceField || isDefaultValueCoupling)"
         class="mx-4 mb-3 rounded px-3 py-2 text-sm"
         :class="{
-          'bg-emerald-50 text-emerald-700': validationStatus === 'compatible',
-          'bg-amber-50 text-amber-700': validationStatus === 'constrained',
+          'bg-emerald-50 text-emerald-700':
+            validationStatus === 'compatible' ||
+            (validationStatus === 'constrained' && isAnalysisResolved),
+          'bg-amber-50 text-amber-700': validationStatus === 'constrained' && !isAnalysisResolved,
           'bg-red-50 text-red-700': validationStatus === 'incompatible',
         }"
         role="status"
@@ -289,6 +306,9 @@ function cancelRemoveComment() {
       >
         <template v-if="validationStatus === 'compatible'">
           <span class="font-medium">✓ Koppeling is compatibel.</span>
+        </template>
+        <template v-else-if="validationStatus === 'constrained' && isAnalysisResolved">
+          <span class="font-medium">✓ Alle problemen opgelost</span>
         </template>
         <template v-else-if="validationStatus === 'incompatible'">
           <span class="font-medium">✕ {{ incompatibilityReason }}</span>
