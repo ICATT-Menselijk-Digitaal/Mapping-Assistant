@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { parseOpenApiSchema } from '@/utils/openApiParser'
 import { useMappings } from '@/composables/useMappings'
 import { useSuggestionScope } from '@/composables/useSuggestionScope'
 
@@ -1243,13 +1244,35 @@ describe('SourceSchemaPanel — enum fields', () => {
     )
   })
 
-  // Scenario: Malformed enum (empty/absent values) renders without crashing
-  it('still renders without the enum badge when enumValues is absent', () => {
-    const nodes: SchemaFieldNode[] = [
-      node({ name: 'odd', path: 'odd', id: 'odd', dataType: 'string' }),
-    ]
-    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+  // Scenario: Malformed enum (empty values) renders as a regular field
+  // Feeds `enum: []` through the real OpenAPI parser so this exercises the
+  // empty-enum code path end-to-end, not a hand-built SchemaField that was
+  // never an enum.
+  it('renders an empty-enum property as a regular field — no enum badge, no "Can contain" line', async () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: { title: 'EmptyEnum', version: '1.0' },
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: {
+              odd: { type: 'string', enum: [] },
+            },
+          },
+        },
+      },
+    }
+    const schema = parseOpenApiSchema(spec)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema } })
+
     expect(wrapper.find('[data-testid="field-enum-badge-odd"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('odd')
+    expect(wrapper.text()).toContain('str')
+
+    const toggle = wrapper.find('[data-testid="field-description-toggle-odd"]')
+    expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
+    await toggle.trigger('click')
+    expect(wrapper.find('[data-testid="field-description-odd"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Can contain')
   })
 })
