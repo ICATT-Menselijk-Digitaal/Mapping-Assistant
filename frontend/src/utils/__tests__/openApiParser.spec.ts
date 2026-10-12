@@ -704,3 +704,73 @@ describe('parseOpenApiSchemaForName', () => {
     expect(schema.all().find((f) => f.name === 'name')?.dataType).toBe('string')
   })
 })
+
+describe('parseOpenApiSchema — enum fields', () => {
+  const enumSpec = {
+    openapi: '3.0.0',
+    info: { title: 'Enum', version: '1.0' },
+    components: {
+      schemas: {
+        Zaak: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['open', 'closed', 'pending'],
+              description: 'Current status',
+            },
+            flag: { type: 'string', enum: ['yes', 'no'] },
+            singleValue: { enum: ['active'] },
+            malformedEnum: { type: 'string', enum: [] },
+          },
+        },
+      },
+    },
+  }
+
+  it('extracts enum values and keeps the base dataType', () => {
+    const schema = parseOpenApiSchema(enumSpec)
+    const status = schema.all().find((f) => f.name === 'status')
+    expect(status?.dataType).toBe('string')
+    expect(status?.enumValues).toEqual(['open', 'closed', 'pending'])
+  })
+
+  it('defaults enum base type to string when "type" is omitted', () => {
+    const schema = parseOpenApiSchema(enumSpec)
+    const single = schema.all().find((f) => f.name === 'singleValue')
+    expect(single?.dataType).toBe('string')
+    expect(single?.enumValues).toEqual(['active'])
+  })
+
+  it('ignores an empty enum array (does not mark the field as enum)', () => {
+    const schema = parseOpenApiSchema(enumSpec)
+    const malformed = schema.all().find((f) => f.name === 'malformedEnum')
+    expect(malformed?.enumValues).toBeUndefined()
+  })
+
+  it('does not expand children for enum properties', () => {
+    const enumWithProps = {
+      openapi: '3.0.0',
+      info: { title: 'Enum', version: '1.0' },
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: {
+              status: {
+                type: 'object',
+                enum: ['open', 'closed'],
+                properties: { nested: { type: 'string' } },
+              },
+            },
+          },
+        },
+      },
+    }
+    const schema = parseOpenApiSchema(enumWithProps)
+    const status = schema.all().find((f) => f.name === 'status')
+    expect(status).toBeDefined()
+    expect(schema.childrenOf(status!.id)).toHaveLength(0)
+    expect(schema.all().some((f) => f.name === 'nested')).toBe(false)
+  })
+})

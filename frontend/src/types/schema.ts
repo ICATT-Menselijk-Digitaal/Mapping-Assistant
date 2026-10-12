@@ -8,6 +8,11 @@ export interface SchemaField {
   required: boolean
   maxLength?: number
   description?: string
+  // Allowed values when the OpenAPI property declares `enum`. Presence of a
+  // non-empty array is what marks a field as enum-typed; dataType stays the
+  // base scalar (e.g. 'string') so sorting/display logic doesn't need a new
+  // branch.
+  enumValues?: string[]
 }
 
 export interface SourceSystem {

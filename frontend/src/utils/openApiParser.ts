@@ -14,6 +14,39 @@ function mapType(prop: Record<string, unknown>): DataType {
   return map[prop.type as string] ?? 'unknown'
 }
 
+function extractEnumValues(prop: Record<string, unknown>): string[] | undefined {
+  const raw = prop.enum
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  return raw.map((v) => String(v))
+}
+
+// Build a leaf/node SchemaFieldNode from a resolved property schema. Centralises
+// the enum handling: an enum property keeps its base scalar dataType (JSON
+// Schema convention: `type` is often omitted next to `enum`, in which case we
+// fall back to 'string' rather than leaving it 'unknown'), and its allowed
+// values are carried on the node for the schema panel to render.
+function buildFieldNode(
+  propName: string,
+  path: string,
+  display: Record<string, unknown>,
+  required: readonly string[],
+): SchemaFieldNode {
+  const enumValues = extractEnumValues(display)
+  const baseType = mapType(display)
+  const dataType: DataType = enumValues && baseType === 'unknown' ? 'string' : baseType
+  const field: SchemaFieldNode = {
+    id: path,
+    name: propName,
+    path,
+    dataType,
+    required: required.includes(propName),
+    description: display.description as string | undefined,
+    maxLength: display.maxLength as number | undefined,
+  }
+  if (enumValues) field.enumValues = enumValues
+  return field
+}
+
 function resolveRef(ref: string, schemas: Record<string, unknown>): Record<string, unknown> | null {
   // Handles local $ref: '#/components/schemas/Foo' or '#/definitions/Foo'
   const parts = ref.split('/')
@@ -169,6 +202,10 @@ function childrenFor(
   // self-referencing field (e.g. Document.vorigeVersie -> Document) would
   // recurse forever rebuilding the same subtree.
   if (resolved.hitCycle) return undefined
+  // An enum property is a leaf, regardless of what shape its underlying
+  // schema would otherwise suggest — allowed values take precedence over any
+  // nested structure.
+  if (extractEnumValues(resolved.schema)) return undefined
   if (resolved.schema.properties) {
     return extractChildren(resolved.schema, allSchemas, path, resolved.visitedRefs)
   }
@@ -199,15 +236,7 @@ function extractChildren(
     // come from the target/merged schema
     const display = resolveSchema(p, allSchemas, visitedRefs).schema
 
-    const field: SchemaFieldNode = {
-      id: path,
-      name: propName,
-      path,
-      dataType: mapType(display),
-      required: required.includes(propName),
-      description: display.description as string | undefined,
-      maxLength: display.maxLength as number | undefined,
-    }
+    const field = buildFieldNode(propName, path, display, required)
 
     const nested = childrenFor(p, allSchemas, path, visitedRefs)
     if (nested) field.children = nested
@@ -253,15 +282,7 @@ function parseOpenApiTree(spec: unknown): SchemaFieldNode[] {
       // come from the target/merged schema
       const display = resolveSchema(p, schemas).schema
 
-      const field: SchemaFieldNode = {
-        id: path,
-        name: propName,
-        path,
-        dataType: mapType(display),
-        required: required.includes(propName),
-        description: display.description as string | undefined,
-        maxLength: display.maxLength as number | undefined,
-      }
+      const field = buildFieldNode(propName, path, display, required)
 
       const children = childrenFor(p, schemas, path)
       if (children) field.children = children
@@ -314,15 +335,7 @@ export function parseOpenApiSchemaFiltered(spec: unknown, allowedNames: string[]
       const p = prop as Record<string, unknown>
       const path = multiSchema ? `${schemaName}.${propName}` : propName
       const display = resolveSchema(p, allSchemas).schema
-      const field: SchemaFieldNode = {
-        id: path,
-        name: propName,
-        path,
-        dataType: mapType(display),
-        required: required.includes(propName),
-        description: display.description as string | undefined,
-        maxLength: display.maxLength as number | undefined,
-      }
+      const field = buildFieldNode(propName, path, display, required)
       const children = childrenFor(p, allSchemas, path)
       if (children) field.children = children
       fields.push(field)
@@ -446,15 +459,7 @@ function parseSchemaDefinition(
     const p = prop as Record<string, unknown>
     const path = `${schemaName}.${propName}`
     const display = resolveSchema(p, allSchemas).schema
-    const field: SchemaFieldNode = {
-      id: path,
-      name: propName,
-      path,
-      dataType: mapType(display),
-      required: required.includes(propName),
-      description: display.description as string | undefined,
-      maxLength: display.maxLength as number | undefined,
-    }
+    const field = buildFieldNode(propName, path, display, required)
     const children = childrenFor(p, allSchemas, path)
     if (children) field.children = children
     fields.push(field)

@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
+import { parseOpenApiSchema } from '@/utils/openApiParser'
 import { useMappings } from '@/composables/useMappings'
 import { useSuggestionScope } from '@/composables/useSuggestionScope'
 
@@ -1139,5 +1140,139 @@ describe('Search term highlighting', () => {
     expect(wrapper.find('[data-testid="field-children-address"]').isVisible()).toBe(true)
     wrapper.unmount()
     div.remove()
+  })
+})
+
+describe('SourceSchemaPanel — enum fields', () => {
+  // Scenario: Enum field shows an "enum" tag alongside its base type
+  it('shows the "enum" badge next to the base-type badge on an enum field', () => {
+    const enumNodes: SchemaFieldNode[] = [
+      node({
+        name: 'status',
+        path: 'status',
+        id: 'status',
+        dataType: 'string',
+        enumValues: ['open', 'closed'],
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(enumNodes) } })
+    expect(wrapper.find('[data-testid="field-enum-badge-status"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="field-enum-badge-status"]').text()).toBe('enum')
+    expect(wrapper.text()).toContain('str')
+    expect(wrapper.text()).not.toContain('obj')
+  })
+
+  it('does not render the enum badge on a non-enum field', () => {
+    const plainNodes: SchemaFieldNode[] = [
+      node({ name: 'title', path: 'title', id: 'title', dataType: 'string' }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(plainNodes) } })
+    expect(wrapper.find('[data-testid="field-enum-badge-title"]').exists()).toBe(false)
+  })
+
+  it('renders enum fields as non-expandable even if children exist on the node', () => {
+    const enumWithChildren: SchemaFieldNode[] = [
+      node({
+        name: 'status',
+        path: 'status',
+        id: 'status',
+        dataType: 'string',
+        enumValues: ['open', 'closed'],
+        children: [node({ name: 'ignored', path: 'status.ignored', id: 'status.ignored' })],
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(enumWithChildren) } })
+    expect(wrapper.find('[data-testid="field-toggle-status"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="field-children-status"]').exists()).toBe(false)
+  })
+
+  // Scenario: Enum with its own description shows values below the description
+  it('shows the description text followed by "Can contain" values when opened', async () => {
+    const nodes: SchemaFieldNode[] = [
+      node({
+        name: 'status',
+        path: 'status',
+        id: 'status',
+        dataType: 'string',
+        description: 'Current status of the request',
+        enumValues: ['open', 'closed', 'pending'],
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+    await wrapper.find('[data-testid="field-description-toggle-status"]').trigger('click')
+    const desc = wrapper.find('[data-testid="field-description-status"]')
+    expect(desc.exists()).toBe(true)
+    expect(desc.text()).toContain('Current status of the request')
+    expect(desc.text()).toContain("Can contain 'open', 'closed', 'pending'")
+  })
+
+  // Scenario: Enum without its own description shows only the allowed values
+  it('shows only the "Can contain" line when the enum field has no description', async () => {
+    const nodes: SchemaFieldNode[] = [
+      node({
+        name: 'flag',
+        path: 'flag',
+        id: 'flag',
+        dataType: 'string',
+        enumValues: ['yes', 'no'],
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+    const toggle = wrapper.find('[data-testid="field-description-toggle-flag"]')
+    expect((toggle.element as HTMLButtonElement).disabled).toBe(false)
+    await toggle.trigger('click')
+    const desc = wrapper.find('[data-testid="field-description-flag"]')
+    expect(desc.exists()).toBe(true)
+    expect(desc.text()).toBe("Can contain 'yes', 'no'")
+  })
+
+  // Scenario: Single allowed value renders without trailing comma
+  it('renders a single enum value without a trailing comma', async () => {
+    const nodes: SchemaFieldNode[] = [
+      node({
+        name: 'mode',
+        path: 'mode',
+        id: 'mode',
+        dataType: 'string',
+        enumValues: ['active'],
+      }),
+    ]
+    const wrapper = mount(SourceSchemaPanel, { props: { schema: schemaOf(nodes) } })
+    await wrapper.find('[data-testid="field-description-toggle-mode"]').trigger('click')
+    expect(wrapper.find('[data-testid="field-description-mode"]').text()).toBe(
+      "Can contain 'active'",
+    )
+  })
+
+  // Scenario: Malformed enum (empty values) renders as a regular field
+  // Feeds `enum: []` through the real OpenAPI parser so this exercises the
+  // empty-enum code path end-to-end, not a hand-built SchemaField that was
+  // never an enum.
+  it('renders an empty-enum property as a regular field — no enum badge, no "Can contain" line', async () => {
+    const spec = {
+      openapi: '3.0.0',
+      info: { title: 'EmptyEnum', version: '1.0' },
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: {
+              odd: { type: 'string', enum: [] },
+            },
+          },
+        },
+      },
+    }
+    const schema = parseOpenApiSchema(spec)
+    const wrapper = mount(SourceSchemaPanel, { props: { schema } })
+
+    expect(wrapper.find('[data-testid="field-enum-badge-odd"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('str')
+
+    const toggle = wrapper.find('[data-testid="field-description-toggle-odd"]')
+    expect((toggle.element as HTMLButtonElement).disabled).toBe(true)
+    await toggle.trigger('click')
+    expect(wrapper.find('[data-testid="field-description-odd"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Can contain')
   })
 })
