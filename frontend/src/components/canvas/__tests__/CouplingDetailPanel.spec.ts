@@ -194,6 +194,22 @@ describe('CouplingDetailPanel — mismatch detection', () => {
     expect(wrapper.find('[data-testid="mismatch-status-truncate"]').text()).toBe('✓ Opgelost')
   })
 
+  it('turns the validation badge from "Transformatie vereist" to resolved once every mismatch is resolved', async () => {
+    const { wrapper, store, mapping } = mountPanel()
+    await wrapper.vm.$nextTick()
+    const badge = () => wrapper.find('[data-testid="detail-validation-section"]').text()
+    expect(badge()).toContain('Transformatie vereist')
+
+    store.addTransformationRule(mapping.id, {
+      expression: '$substring($, 0, 47) & "..."',
+      label: 'Afkappen',
+      source: 'mismatch-solution',
+      resolvesMismatch: 'truncate',
+    })
+    await wrapper.vm.$nextTick()
+    expect(badge()).toContain('Alle problemen opgelost')
+  })
+
   it('does not show mismatch cards section when no mismatches are detected', async () => {
     const { wrapper } = mountPanel('src-compatible', 'tgt-compatible')
     await wrapper.vm.$nextTick()
@@ -530,6 +546,29 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     expect(wrapper.find('[data-testid="detail-target-field"]').text()).toContain('doelveld')
   })
 
+  it('closes an unsaved static-value dialog when a newly created coupling gets selected', async () => {
+    const { wrapper, store } = mountDefaultValuePanel('tgt-str-short')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="mismatch-solve-missing-source"]').trigger('click')
+    await wrapper.find('[data-testid="default-value-input"]').setValue('nog niet opgeslagen')
+
+    const next = store.createDefaultValueCoupling({ targetFieldId: 'tgt-num' })!
+    store.selectMapping(next.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="detail-target-field"]').text()).toContain('nummer')
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(false)
+  })
+
+  it('shows the "Transformatie vereist" validation badge, like any constrained coupling', async () => {
+    const { wrapper } = mountDefaultValuePanel()
+    await wrapper.vm.$nextTick()
+
+    const badge = wrapper.find('[data-testid="detail-validation-section"]')
+    expect(badge.exists()).toBe(true)
+    expect(badge.text()).toContain('Transformatie vereist')
+  })
+
   // Scenario: The persistent default-value problem stays visible after being resolved
   // PR #189 review (Youri): this card's unresolved badge reads "●", same as
   // every other mismatch card — the "!" in Feature #163's AC describes the
@@ -558,6 +597,9 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="mismatch-status-missing-source"]').text()).toContain(
       '✓ Opgelost',
+    )
+    expect(wrapper.find('[data-testid="detail-validation-section"]').text()).toContain(
+      'Alle problemen opgelost',
     )
   })
 
