@@ -20,6 +20,12 @@ const BADGES: Record<string, FieldTypeBadge> = {
   array: { bg: 'bg-cyan-50', text: 'text-cyan-600', label: 'arr' },
 }
 
+export const ENUM_BADGE: FieldTypeBadge = {
+  bg: 'bg-indigo-50',
+  text: 'text-indigo-600',
+  label: 'enum',
+}
+
 export function fieldTypeBadge(dataType: string): FieldTypeBadge {
   return BADGES[dataType] ?? FALLBACK_BADGE
 }

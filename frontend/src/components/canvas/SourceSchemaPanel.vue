@@ -306,6 +306,10 @@ function isFieldExpanded(fieldId: string) {
 const openDescriptions = ref<Record<string, boolean>>({})
 
 function hasDescription(field: SchemaField): boolean {
+  // Enum fields always expose a description section — even without their own
+  // description text, the collapsible holds the "Can contain '…'" line of
+  // allowed values.
+  if (field.enumValues && field.enumValues.length > 0) return true
   const desc = field.description?.trim()
   if (!desc) return false
   // A description that just echoes the field's own name adds no information

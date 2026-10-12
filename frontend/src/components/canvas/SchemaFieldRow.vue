@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
-import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
+import { ENUM_BADGE, fieldTypeBadge } from '@/utils/fieldTypeBadge'
+import { enumValuesLine } from '@/utils/enumDescription'
 import { highlightHtml } from '@/utils/highlightSegments'
 
 // Recursively renders one schema field row, and — when it has children —
@@ -41,7 +42,17 @@ const props = defineProps<{
   onHoverLeave: () => void
 }>()
 
-const hasChildren = computed(() => props.schema.childrenOf(props.field.id).length > 0)
+// Enum fields are leaves even when the underlying OpenAPI shape has
+// properties (the parser already drops those children). isEnum controls both
+// the extra "enum" badge next to the base-type badge and the appended "Can
+// contain '…'" line in the description section.
+const isEnum = computed(
+  () => Array.isArray(props.field.enumValues) && props.field.enumValues.length > 0,
+)
+const enumLine = computed(() => enumValuesLine(props.field.enumValues))
+const hasChildren = computed(
+  () => !isEnum.value && props.schema.childrenOf(props.field.id).length > 0,
+)
 const childOfAttr = computed(() =>
   props.parentFieldId ? `${props.side}:${props.parentFieldId}` : undefined,
 )
@@ -225,18 +236,36 @@ const childOfAttr = computed(() =>
         {{ fieldTypeBadge(field.dataType).label }}
       </span>
       <span
+        v-if="isEnum"
+        :data-testid="`field-enum-badge-${field.id}`"
+        :class="[
+          'text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0',
+          ENUM_BADGE.bg,
+          ENUM_BADGE.text,
+        ]"
+      >
+        {{ ENUM_BADGE.label }}
+      </span>
+      <span
         v-if="field.required"
         data-testid="req-badge"
         class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
         >REQ</span
       >
     </div>
-    <p
+    <div
       v-if="isDescriptionOpen(field.id) && hasDescription(field)"
       :data-testid="`field-description-${field.id}`"
       class="text-xs text-slate-600 break-words px-3 py-1.5 border-b border-slate-100 bg-slate-50"
     >
-      {{ field.description }}
-    </p>
+      <p v-if="field.description">{{ field.description }}</p>
+      <p
+        v-if="enumLine"
+        :data-testid="`field-enum-values-${field.id}`"
+        :class="field.description ? 'mt-1' : ''"
+      >
+        {{ enumLine }}
+      </p>
+    </div>
   </template>
 </template>
