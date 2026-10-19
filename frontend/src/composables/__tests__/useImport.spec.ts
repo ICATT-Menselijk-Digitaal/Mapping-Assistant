@@ -7,8 +7,7 @@ import { useSchemaSide } from '../useSchemaSide'
 import type { MappingSetExport } from '@/utils/exportSerializer'
 
 const exportPayload: MappingSetExport = {
-  version: '1.1',
-  exportedAt: '2026-06-04T00:00:00.000Z',
+  metadata: { exportVersion: 7, exportedAt: '2026-06-04T00:00:00.000Z' },
   sourceSchema: {
     name: 'Source',
     sourceUrl: null,
@@ -103,7 +102,7 @@ describe('useImport', () => {
     expect(importer.lastEvent.value).not.toBeNull()
     expect(importer.lastEvent.value?.type).toBe('MappingSetImported')
     expect(importer.lastEvent.value?.timestamp).toBeTruthy()
-    expect(importer.lastEvent.value?.payload.version).toBe('1.1')
+    expect(importer.lastEvent.value?.payload.metadata.exportVersion).toBe(7)
   })
 
   it('preserves resolvesMismatch on transformation rules so the mismatch stays resolved', async () => {
@@ -265,23 +264,23 @@ describe('useImport', () => {
       const tgt = useSchemaSide('target')
       const importer = useImport()
 
-      const payload = { ...exportPayload, version: '2.0' }
-      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+      const payload = { ...exportPayload, metadata: { exportVersion: 'drie' } }
+      await importer.importMappingSet(jsonFile(payload), src, tgt)
       expect(importer.warnings.value.length).toBeGreaterThan(0)
 
       importer.clearWarnings()
       expect(importer.warnings.value).toEqual([])
     })
 
-    it('surfaces deserializer warnings (unknown version)', async () => {
+    it('surfaces deserializer warnings (unreadable export version)', async () => {
       const src = useSchemaSide('source')
       const tgt = useSchemaSide('target')
       const importer = useImport()
 
-      const payload = { ...exportPayload, version: '2.0' }
-      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+      const payload = { ...exportPayload, metadata: { exportVersion: 'drie' } }
+      await importer.importMappingSet(jsonFile(payload), src, tgt)
 
-      expect(importer.warnings.value.some((w) => /version/i.test(w))).toBe(true)
+      expect(importer.warnings.value.some((w) => /exportversie/i.test(w))).toBe(true)
     })
   })
 })

@@ -39,9 +39,22 @@ export interface ExportStatistics {
   ai: ExportedAIStatistics
 }
 
-export interface MappingSetExport {
-  version: '1.1'
+/** Which export this file is, and when it was produced. */
+export interface ExportMetadata {
+  /** Running count of exports of this coupling set; 1 on the first export. */
+  exportVersion: number
+  /** ISO 8601, UTC. */
   exportedAt: string
+}
+
+/** Persisted export metadata. A workspace that was never exported has no timestamp. */
+export interface ExportMetaState {
+  exportVersion: number
+  exportedAt: string | null
+}
+
+export interface MappingSetExport {
+  metadata: ExportMetadata
   sourceSchema: ExportedSchema
   targetSchema: ExportedSchema
   fieldMappings: ExportedFieldMapping[]
@@ -53,6 +66,9 @@ export interface SerializeInput {
   target: { schema: Schema; sourceUrl: string | null }
   mappings: FieldMapping[]
   aiStats: ExportedAIStatistics
+  // Optional so tests that don't care about versioning can omit it; a standalone
+  // serialisation counts as a first export. useExport always passes it.
+  exportVersion?: number
   exportedAt?: string
 }
 
@@ -99,8 +115,10 @@ function exportFieldMapping(
 export function serializeMappingSet(input: SerializeInput): MappingSetExport {
   const { source, target, mappings, aiStats } = input
   return {
-    version: '1.1',
-    exportedAt: input.exportedAt ?? new Date().toISOString(),
+    metadata: {
+      exportVersion: input.exportVersion ?? 1,
+      exportedAt: input.exportedAt ?? new Date().toISOString(),
+    },
     sourceSchema: serializeSchema(source.schema, source.sourceUrl),
     targetSchema: serializeSchema(target.schema, target.sourceUrl),
     fieldMappings: mappings.map((m) => exportFieldMapping(m, source, target)),

@@ -56,15 +56,38 @@ const mappings: FieldMapping[] = [
 const emptyAiStats = { totalGenerated: 0, accepted: 0, rejected: 0, rejectedPairs: [] }
 
 describe('serializeMappingSet', () => {
-  it('produces version 1.1 exports with an ISO timestamp', () => {
+  // Scenario: The export records the exact moment it was produced
+  it('writes the export version and an ISO timestamp into a metadata block', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: 'https://example.com/src.json' },
       target: { schema: targetSchema, sourceUrl: 'https://example.com/tgt.json' },
       mappings,
       aiStats: emptyAiStats,
+      exportVersion: 3,
     })
-    expect(result.version).toBe('1.1')
-    expect(result.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(result.metadata.exportVersion).toBe(3)
+    expect(result.metadata.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  })
+
+  it('replaces the former top-level version and exportedAt fields', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
+    expect(result).not.toHaveProperty('version')
+    expect(result).not.toHaveProperty('exportedAt')
+  })
+
+  it('defaults to export version 1 when no version is supplied', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [],
+      aiStats: emptyAiStats,
+    })
+    expect(result.metadata.exportVersion).toBe(1)
   })
 
   it('serialises schemas as URL only (no fields key) when sourceUrl is present', () => {
@@ -246,9 +269,9 @@ describe('serializeMappingSet', () => {
       target: { schema: targetSchema, sourceUrl: null },
       mappings: [],
       aiStats: emptyAiStats,
-      exportedAt: '2026-01-01T00:00:00.000Z',
+      exportedAt: '2026-10-14T09:32:00.000Z',
     })
-    expect(result.exportedAt).toBe('2026-01-01T00:00:00.000Z')
+    expect(result.metadata.exportedAt).toBe('2026-10-14T09:32:00.000Z')
   })
 
   // Feature #163: source-less ("default-value") coupling export. Its default

@@ -22,7 +22,7 @@ beforeEach(() => {
 })
 
 describe('useExport', () => {
-  it('returns a v1.1 export with schemas, mappings, and statistics block', () => {
+  it('returns an export with metadata, schemas, mappings, and statistics block', () => {
     const mappings = useMappings()
     mappings.createMapping({ sourceFieldId: 'customerId', targetFieldId: 'id' })
 
@@ -32,7 +32,7 @@ describe('useExport', () => {
       { schema: targetSchema, sourceUrl: 'https://tgt' },
     )
 
-    expect(result.version).toBe('1.1')
+    expect(result.metadata.exportVersion).toBe(1)
     expect(result.sourceSchema).toEqual({ name: 'Source', sourceUrl: 'https://src' })
     expect(result.targetSchema).toEqual({ name: 'Target', sourceUrl: 'https://tgt' })
     expect(result.fieldMappings).toHaveLength(1)
@@ -73,7 +73,7 @@ describe('useExport', () => {
     expect(event).not.toBeNull()
     expect(event?.type).toBe('MappingSetExported')
     expect(event?.timestamp).toBeTruthy()
-    expect(event?.payload.version).toBe('1.1')
+    expect(event?.payload.metadata.exportVersion).toBe(1)
   })
 
   it('produces an export with empty fieldMappings when no mappings exist', () => {
