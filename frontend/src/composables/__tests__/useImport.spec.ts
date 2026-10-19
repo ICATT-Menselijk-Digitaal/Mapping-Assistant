@@ -223,6 +223,23 @@ describe('useImport', () => {
       expect(exportAgain().metadata.exportVersion).toBe(1)
     })
 
+    // Scenario: Importing a file with an unreadable export version
+    it('imports with a warning and restarts the count at 1 when the export version is unreadable', async () => {
+      exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
+      const unreadable = { ...exportPayload, metadata: { exportVersion: 'drie' } }
+
+      const importer = useImport()
+      await importer.importMappingSet(
+        jsonFile(unreadable),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(importer.error.value).toBeNull()
+      expect(importer.warnings.value.some((w) => /exportversie/i.test(w))).toBe(true)
+      expect(exportAgain().metadata.exportVersion).toBe(1)
+    })
+
     it('leaves the count untouched when the import fails', async () => {
       exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
 
