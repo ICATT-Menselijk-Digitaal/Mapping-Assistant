@@ -28,6 +28,8 @@ Domain terms used across the Mapping Assistant's specs and issues. See `docs/ste
 ## Migration
 
 - **MIG (Migration Tool)** — an external tool that consumes a coupling set export produced by the Mapping Assistant and executes the actual data migration. Developed and maintained independently; the Mapping Assistant's seam with MIG is the export file. Introduced in [#155](../../issues/155).
+- **Coupling set** — everything that is exported and imported together as one file: the source and target schema, all couplings, and the AI statistics. UI term: *koppelingsset*; code calls it a mapping set (`MappingSetExport`, `MappingSetExported`). Formalised in [#198](../../issues/198).
+- **Export version** — the running count of how many times a coupling set has been exported, stored with the export time in the export file's `metadata` block. Starts at 1, continues from the imported file's version after an import, and counts an older export without one as version 0. Replaces the former top-level format `version`. Introduced in [#198](../../issues/198).
 
 ## Trial environment
 
