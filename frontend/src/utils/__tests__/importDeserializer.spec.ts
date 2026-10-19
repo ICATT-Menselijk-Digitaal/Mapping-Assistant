@@ -54,6 +54,12 @@ describe('deserializeMappingSet', () => {
     },
   )
 
+  it('keeps a readable export version when the export time is missing', () => {
+    const result = deserializeMappingSet({ ...minimal, metadata: { exportVersion: 7 } })
+    expect(result.exportMeta).toEqual({ exportVersion: 7, exportedAt: null })
+    expect(result.warnings).toEqual([])
+  })
+
   it('no longer requires a top-level version field', () => {
     expect(() => deserializeMappingSet(withoutMetadata)).not.toThrow()
   })
