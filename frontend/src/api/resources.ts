@@ -7,7 +7,7 @@ import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
 import { buildSchemaFromFields } from '@/utils/schemaFromFields'
 import type { SchemaField } from '@/types/schema'
 import type { FieldMapping } from '@/types/mapping'
-import type { ExportedAIStatistics } from '@/utils/exportSerializer'
+import type { ExportedAIStatistics, ExportMetaState } from '@/utils/exportSerializer'
 import { queryKeys } from '@/composables/queries/queryKeys'
 import { defineRemoteResource, type ResourceCodec } from './resource'
 
@@ -70,4 +70,11 @@ export const aiStatsResource = defineRemoteResource<ExportedAIStatistics>({
   key: queryKeys.aiStats,
   storageKey: 'aiStats',
   initial: emptyAiStats,
+})
+
+/** The last export's version and time, so the next export continues the count. */
+export const exportMetaResource = defineRemoteResource<ExportMetaState>({
+  key: queryKeys.exportMeta,
+  storageKey: 'exportMeta',
+  initial: () => ({ exportVersion: 0, exportedAt: null }),
 })

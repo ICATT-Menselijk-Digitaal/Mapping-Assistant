@@ -9,4 +9,5 @@ export const queryKeys = {
     target: ['schemas', 'target'] as const,
   },
   aiStats: ['ai', 'stats'] as const,
+  exportMeta: ['export', 'meta'] as const,
 } as const
