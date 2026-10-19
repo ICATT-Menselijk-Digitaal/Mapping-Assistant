@@ -1,6 +1,7 @@
 import { ref } from 'vue'
+import { exportMetaResource } from '@/api/resources'
 import type { MappingSetImported } from '@/domain/events/MappingSetImported'
-import type { MappingSetExport } from '@/utils/exportSerializer'
+import type { ExportMetaState, MappingSetExport } from '@/utils/exportSerializer'
 import { deserializeMappingSet, ImportFormatError } from '@/utils/importDeserializer'
 import { useMappings } from './useMappings'
 import { useAISuggestions } from './useAISuggestions'
@@ -31,9 +32,11 @@ export function useImport() {
     }
 
     let payload: MappingSetExport
+    let exportMeta: ExportMetaState
     try {
       const result = deserializeMappingSet(parsed)
       payload = result.payload
+      exportMeta = result.exportMeta
       warnings.value = result.warnings
     } catch (e) {
       if (e instanceof ImportFormatError) {
@@ -51,6 +54,8 @@ export function useImport() {
 
     const aiStore = useAISuggestions()
     aiStore.restoreStatistics(payload.statistics.ai)
+
+    exportMetaResource.write(exportMeta)
 
     lastEvent.value = {
       type: 'MappingSetImported',

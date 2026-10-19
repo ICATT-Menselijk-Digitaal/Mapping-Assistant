@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { exportMetaResource } from '@/api/resources'
+import { useExport } from '../useExport'
 import { useImport } from '../useImport'
 import { useMappings } from '../useMappings'
 import { useAISuggestions } from '../useAISuggestions'
@@ -165,6 +167,73 @@ describe('useImport', () => {
     expect(ai.accepted).toBe(3)
     expect(ai.rejected).toBe(2)
     expect([...ai.rejectedPairs]).toEqual(['a::b', 'c::d'])
+  })
+
+  describe('export version', () => {
+    const exportAgain = () => {
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
+      return useExport().exportMappingSet(
+        { schema: src.schema.value, sourceUrl: null },
+        { schema: tgt.schema.value, sourceUrl: null },
+      )
+    }
+
+    // Scenario: Re-importing an exported file preserves its export version
+    it('continues the count from the imported export version', async () => {
+      await useImport().importMappingSet(
+        jsonFile(exportPayload),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(exportMetaResource.current()).toEqual({
+        exportVersion: 7,
+        exportedAt: '2026-06-04T00:00:00.000Z',
+      })
+      expect(exportAgain().metadata.exportVersion).toBe(8)
+    })
+
+    it('replaces a higher local count with the imported one', async () => {
+      exportMetaResource.write({ exportVersion: 12, exportedAt: '2026-10-01T00:00:00.000Z' })
+
+      await useImport().importMappingSet(
+        jsonFile(exportPayload),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(exportAgain().metadata.exportVersion).toBe(8)
+    })
+
+    // Scenario: Importing an older export without an export version starts the count again
+    it('restarts the count at 1 after importing an older export', async () => {
+      exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
+      const { metadata: _m, ...rest } = exportPayload
+      const legacy = { version: '1.1', exportedAt: '2026-06-04T00:00:00.000Z', ...rest }
+
+      const importer = useImport()
+      await importer.importMappingSet(
+        jsonFile(legacy),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(importer.error.value).toBeNull()
+      expect(exportAgain().metadata.exportVersion).toBe(1)
+    })
+
+    it('leaves the count untouched when the import fails', async () => {
+      exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
+
+      await useImport().importMappingSet(
+        new File(['{not-json'], 'broken.json', { type: 'application/json' }),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(exportMetaResource.current().exportVersion).toBe(4)
+    })
   })
 
   it('replaces existing state on import (does not merge)', async () => {
