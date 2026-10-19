@@ -15,7 +15,10 @@
       "Bash(git fetch *)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git -C /c/Users/Youri/source/repos/Mapping-Assistant add frontend/src/api/localBackend.ts frontend/src/api/__tests__/localBackend.spec.ts)",
+      "Bash(git -C /c/Users/Youri/source/repos/Mapping-Assistant commit -m ' *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }

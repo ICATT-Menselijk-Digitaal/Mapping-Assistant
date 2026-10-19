@@ -1,0 +1,1941 @@
+{
+  "version": "1.1",
+  "exportedAt": "2026-10-07T00:00:00.000Z",
+  "sourceSchema": {
+    "name": "esuite-data-extractie",
+    "sourceUrl": "https://raw.githubusercontent.com/NL-AMS-LOCGOV/esuite-data-extractie/refs/heads/main/openapi-spec/OpenAPI.yaml"
+  },
+  "targetSchema": {
+    "name": "Zaken API",
+    "sourceUrl": "https://openzaak.dev.kiss-demo.nl/zaken/api/v1/openapi.json"
+  },
+  "fieldMappings": [
+    {
+      "sourceField": "Zaak.functioneleIdentificatie",
+      "targetField": "ZaakRequest.identificatie",
+      "transformations": [],
+      "comment": "Migratie faalt bij > 40 tekens",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.omschrijving",
+      "targetField": "ZaakRequest.omschrijving",
+      "transformations": [
+        {
+          "expression": "$length(Zaak.omschrijving) > 80 ? $substring(Zaak.omschrijving, 0, 77) & \"...\" : Zaak.omschrijving",
+          "label": "Afkappen op 80 tekens",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "truncate"
+        }
+      ]
+    },
+    {
+      "sourceField": "Zaak.startdatum",
+      "targetField": "ZaakRequest.startdatum",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.creatieDatumTijd",
+      "targetField": "ZaakRequest.registratiedatum",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.redenStart",
+      "targetField": "ZaakRequest.toelichting",
+      "transformations": [
+        {
+          "expression": "$length(Zaak.redenStart) > 1000 ? $substring(Zaak.redenStart, 0, 997) & \"...\" : Zaak.redenStart",
+          "label": "Afkappen op 1000 tekens",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "truncate"
+        }
+      ],
+      "comment": "Leeg indien null",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.kanaal.naam",
+      "targetField": "ZaakRequest.communicatiekanaalNaam",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.streefdatum",
+      "targetField": "ZaakRequest.einddatumGepland",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.fataledatum",
+      "targetField": "ZaakRequest.uiterlijkeEinddatumAfdoening",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.bewaartermijnEinddatum",
+      "targetField": "ZaakRequest.archiefactiedatum",
+      "transformations": [],
+      "comment": "Computed: faalt als ook overbrengenOp gevuld is",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overbrengenOp",
+      "targetField": "ZaakRequest.archiefactiedatum",
+      "transformations": [],
+      "comment": "Computed: alleen gebruikt als bewaartermijnEinddatum leeg is",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.transactieDatum",
+      "targetField": "ZaakRequest.laatsteBetaaldatum",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.externeIdentificatie",
+      "targetField": "ZaakRequest.kenmerken.kenmerk",
+      "transformations": [],
+      "comment": "Alleen toegevoegd indien niet leeg",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "ZaakRequest.kenmerken.bron",
+      "transformations": [
+        {
+          "expression": "\"e-Suite\"",
+          "label": "Standaardwaarde: e-Suite",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ]
+    },
+    {
+      "sourceField": "Zaak.vertrouwelijk",
+      "targetField": "ZaakRequest.vertrouwelijkheidaanduiding",
+      "transformations": [],
+      "comment": "Lookup via VertrouwelijkheidMapping",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "ZaakRequest.bronorganisatie",
+      "transformations": [
+        {
+          "expression": "\"123456782\"",
+          "label": "Standaardwaarde: 123456782",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ],
+      "comment": "RSIN uit globale configuratie; voorbeeldwaarde",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "ZaakRequest.verantwoordelijkeOrganisatie",
+      "transformations": [
+        {
+          "expression": "\"123456782\"",
+          "label": "Standaardwaarde: 123456782",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ],
+      "comment": "RSIN uit globale configuratie; voorbeeldwaarde",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "ZaakRequest.betalingsindicatie",
+      "transformations": [
+        {
+          "expression": "\"nvt\"",
+          "label": "Standaardwaarde: nvt",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ],
+      "comment": "In code altijd \"\"; voorbeeldwaarde",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "ZaakRequest.archiefstatus",
+      "transformations": [
+        {
+          "expression": "\"nog_te_archiveren\"",
+          "label": "Standaardwaarde: nog_te_archiveren",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ]
+    },
+    {
+      "sourceField": "Zaak.resultaat.naam",
+      "targetField": "ResultaatRequest.resultaattype",
+      "transformations": [],
+      "comment": "Lookup via ResultaattypeMapping; overgeslagen indien niet gemapt",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "ResultaatRequest.toelichting",
+      "transformations": [
+        {
+          "expression": "\"Resultaat gemigreerd vanuit e-Suite\"",
+          "label": "Standaardwaarde: Resultaat gemigreerd vanuit e-Suite",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ]
+    },
+    {
+      "sourceField": "Zaak.zaakStatus.naam",
+      "targetField": "StatusRequest.statustype",
+      "transformations": [],
+      "comment": "Lookup via StatusMapping; overgeslagen indien niet gemapt",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.einddatum",
+      "targetField": "StatusRequest.datumStatusGezet",
+      "transformations": [],
+      "comment": "Zaak.einddatum; faalt indien leeg",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "StatusRequest.statustoelichting",
+      "transformations": [
+        {
+          "expression": "\"Status gemigreerd vanuit e-Suite\"",
+          "label": "Standaardwaarde: Status gemigreerd vanuit e-Suite",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ]
+    },
+    {
+      "sourceField": "Zaak.behandelaar",
+      "targetField": "RolMedewerkerRequest.betrokkeneIdentificatie.identificatie",
+      "transformations": [],
+      "comment": "Behandelaar (medewerker); overgeslagen indien leeg of roltype niet gemapt",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": null,
+      "targetField": "Base_RolSerializerRequest.betrokkeneType",
+      "transformations": [
+        {
+          "expression": "\"medewerker\"",
+          "label": "Standaardwaarde: medewerker",
+          "source": "mismatch-solution",
+          "resolvesMismatch": "missing-source"
+        }
+      ],
+      "comment": "Behandelaar: altijd medewerker",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.initiator.burgerServiceNummer",
+      "targetField": "RolNatuurlijkPersoonRequest.betrokkeneIdentificatie.inpBsn",
+      "transformations": [],
+      "comment": "Initiator Persoon -> natuurlijk_persoon",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.burgerServiceNummer",
+      "targetField": "RolNatuurlijkPersoonRequest.betrokkeneIdentificatie.inpBsn",
+      "transformations": [],
+      "comment": "Per betrokkene, zelfde Persoon/Bedrijf-logica als initiator",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.typeBetrokkenheid",
+      "targetField": "Base_RolSerializerRequest.roltype",
+      "transformations": [],
+      "comment": "Lookup via RoltypeMapping (of alleen_pdf); betrokkene vervalt indien niet gemapt",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.typeBetrokkenheid",
+      "targetField": "Base_RolSerializerRequest.indicatieMachtiging",
+      "transformations": [
+        {
+          "expression": "Zaak.betrokkenen.typeBetrokkenheid = \"gemachtigde\" ? \"gemachtigde\"",
+          "label": "Alleen gemachtigde",
+          "source": "mismatch-solution"
+        }
+      ],
+      "comment": "Alleen gevuld bij gemachtigde, anders null",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.functioneleIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": [],
+      "comment": "PDF: FunctioneleIdentificatie (Bestandsnaam/Identificatie/Titel van de zaakgegevens-PDF)",
+      "commentedAt": "2026-10-07T00:00:00.000Z"
+    },
+    {
+      "sourceField": "Zaak.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.aangemaaktDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.afdeling",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.groep",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.behandelaar",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.externeIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.organisatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.redenStart",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.startdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.streefdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.fataledatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.einddatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.opschorttermijnStartdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.opschorttermijnEinddatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.creatieDatumTijd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.wijzigDatumTijd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.ztc1MigratiedatumTijd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaakStatus.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.resultaat.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.open",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.intake",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.notificeerbaar",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.geautoriseerdVoorMedewerkers",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.heropend",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.vertrouwelijk",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.vernietiging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.procesGestart",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.geolocatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaaktype.functioneleIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaaktype.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaaktype.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaaktype.actief",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.bedrag",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.betaalstatus",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.kenmerk",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.transactieDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.transactieId",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.origineleStatusCode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betaalgegevens.ncerror",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.bewaartermijnEinddatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.bewaartermijnWaardering",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overbrengenOp",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overbrengenDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overbrengenNaar",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overbrengenType",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.selectielijstItemNaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.zaaktypeNaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overgebrachteGegevens.overgebrachtOp",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overgebrachteGegevens.overgebrachtDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.archiveerGegevens.overgebrachteGegevens.overgebrachtNaar",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.kanaal.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.kanaal.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.gekoppeldeZaken.gekoppeldeZaak",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.gekoppeldeZaken.relatietype",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.gekoppeldeZaken.dossierEigenaar",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.notities.medewerker",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.notities.datumTijd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.notities.notitie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.typeBetrokkenheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.startdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.indCorrespondentie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.toelichting",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.bagObjecten.bagObjectId",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.functioneleIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.besluittype.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.besluittype.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.besluittype.actief",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.besluitDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.ingangsdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.vervaldatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.publicatiedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.reactiedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.toelichting",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.besluiten.procestermijnInMaanden",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaakdata.type",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaakdata.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.zaakdata.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.taaktype",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.processtap",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.startdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.streefdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.fataledatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.einddatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.afgehandeldDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.indicatieExternToegankelijk",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.vestigingsnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.kvkNummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.toekenningEmail",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.historie.typeWijziging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.historie.gewijzigdDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.historie.wijzigingDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.historie.oudeWaarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.historie.nieuweWaarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.historie.toelichting",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.typeWijziging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.gewijzigdDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.wijzigingDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.oudeWaarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.nieuweWaarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.toelichting",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.historie.nieuweWaardeExtern",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.titel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.kenmerk",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.beschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.publicatieniveau",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentrichting",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.geautoriseerdVoorMedewerkers",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.taal.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentVorm.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.ontvangstDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.verzendDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentVersturenDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentVersturen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.locatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.aanvraagDocument",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentInhoudID",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.versienummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.bestandsnaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.mimetype",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.creatiedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.auteur",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.afzender",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.documentgrootte",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.pdfaDocumentversie.compressed",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documenttype.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documenttype.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documenttype.documentcategorie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documenttype.publicatieniveau",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentstatus.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentstatus.omschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.versienummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.bestandsnaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.mimetype",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.creatiedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.auteur",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.afzender",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.documentgrootte",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.compressed",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.ondertekeningen.documentTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.ondertekeningen.ondertekenaar",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.ondertekeningen.ondertekenDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.ondertekeningen.creatieDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.ondertekeningen.gemandateerd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentversies.ondertekeningen.opmerking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentMetadata.metadataElement.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentMetadata.metadataElement.label",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentMetadata.metadataElement.type",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.documentMetadata.waarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.publicaties.bestemming",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.publicaties.publicatiedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.historie.typeWijziging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.historie.gewijzigdDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.historie.wijzigingDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.historie.oudeWaarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.historie.nieuweWaarde",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.documenten.historie.toelichting",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.subjecttype",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.identifier",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.telefoonnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.telefoonnummerAlternatief",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.rekeningnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.emailadres",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.ontvangenZaakNotificaties",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.toestemmingZaakNotificatiesAlleenDigitaal",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.handmatigToegevoegd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.burgerServiceNummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.voornamen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.voorletters",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geslachtsNaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.voorvoegsel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geslacht",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.aanhefAanschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adelijkeTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.preAcademischeTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.postAcademischeTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.naamgebruik",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geslachtsNaamPartner",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.voorvoegselPartner",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geboortedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geboortedatumVolledig",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geboorteplaats",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geboorteland.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.overlijdensdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.overlijdensdatumVolledig",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.overlijdensplaats",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.overlijdensland.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.aNummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.opschortingsReden",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.opschortingsDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.geblokkeerd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.curateleRegister",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.inOnderzoek",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.beperkingVerstrekking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.nietIngezeteneAanduiding",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.afnemerIndicatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.anpIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.gemeentecode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.burgerlijkeStaat.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.type",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.straatnaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.huisnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.huisletter",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.huisnummertoevoeging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.huisnummeraanduiding",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.postcode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.plaatsnaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.buitenlandsAdres",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.adresbuitenland1",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.adresbuitenland2",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.adresbuitenland3",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.adressen.land.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.nationaliteiten.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.nationaliteiten.gbaCode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.nationaliteiten.redenVerkrijging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.nationaliteiten.datumVerkrijging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.gbaCode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.reisdocumentnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.uitgiftedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.einddatumGeldigheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.indicatieOnttrekking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.autoriteitOntrekking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.indicatieVervallen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.autoriteitVervallen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.reisdocumenten.autoriteitUitgifte",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.type",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.soortVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.datumSluitingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.plaatsSluitingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.landSluitingVerbintenis.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.datumOntbindingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.redenOntbindingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.plaatsOntbindingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.landOntbindingVerbintenis.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.relaties.identifierPersoon",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.titel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.inhoud",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.aangemaaktDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.aangemaaktOp",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.afdeling",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.groep",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.ingangsdatumGeldigheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.initiator.notities.einddatumGeldigheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.subjecttype",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.identifier",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.telefoonnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.telefoonnummerAlternatief",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.rekeningnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.emailadres",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.ontvangenZaakNotificaties",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.toestemmingZaakNotificatiesAlleenDigitaal",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.handmatigToegevoegd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.burgerServiceNummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.voornamen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.voorletters",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geslachtsNaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.voorvoegsel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geslacht",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.aanhefAanschrijving",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adelijkeTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.preAcademischeTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.postAcademischeTitel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.naamgebruik",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geslachtsNaamPartner",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.voorvoegselPartner",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geboortedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geboortedatumVolledig",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geboorteplaats",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geboorteland.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.overlijdensdatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.overlijdensdatumVolledig",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.overlijdensplaats",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.overlijdensland.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.aNummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.opschortingsReden",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.opschortingsDatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.geblokkeerd",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.curateleRegister",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.inOnderzoek",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.beperkingVerstrekking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.nietIngezeteneAanduiding",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.afnemerIndicatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.anpIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.gemeentecode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.burgerlijkeStaat.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.type",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.straatnaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.huisnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.huisletter",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.huisnummertoevoeging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.huisnummeraanduiding",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.postcode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.plaatsnaam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.buitenlandsAdres",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.adresbuitenland1",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.adresbuitenland2",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.adresbuitenland3",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.adressen.land.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.nationaliteiten.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.nationaliteiten.gbaCode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.nationaliteiten.redenVerkrijging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.nationaliteiten.datumVerkrijging",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.gbaCode",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.reisdocumentnummer",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.uitgiftedatum",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.einddatumGeldigheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.indicatieOnttrekking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.autoriteitOntrekking",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.indicatieVervallen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.autoriteitVervallen",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.reisdocumenten.autoriteitUitgifte",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.type",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.soortVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.datumSluitingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.plaatsSluitingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.landSluitingVerbintenis.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.datumOntbindingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.redenOntbindingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.plaatsOntbindingVerbintenis",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.landOntbindingVerbintenis.naam",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.relaties.identifierPersoon",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.titel",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.inhoud",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.aangemaaktDoor",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.aangemaaktOp",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.afdeling",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.groep",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.ingangsdatumGeldigheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.betrokkenen.betrokkene.notities.einddatumGeldigheid",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    },
+    {
+      "sourceField": "Zaak.taken.functioneelIdentificatie",
+      "targetField": "KlantContactRequest.zaak",
+      "transformations": []
+    }
+  ],
+  "statistics": {
+    "ai": {
+      "totalGenerated": 0,
+      "accepted": 0,
+      "rejected": 0,
+      "rejectedPairs": []
+    }
+  }
+}

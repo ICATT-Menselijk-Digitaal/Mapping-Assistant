@@ -7,11 +7,6 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import App from './App.vue'
 import router from './router'
 import { queryClient } from './api/queryClient'
-import { bootstrapBackend } from './api/remoteBackend'
-
-// Point the remote backend at the persisted (or freshly minted) workspace code
-// before any query runs.
-bootstrapBackend()
 
 const app = createApp(App)
 

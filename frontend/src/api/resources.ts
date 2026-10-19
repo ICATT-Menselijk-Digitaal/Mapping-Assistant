@@ -71,3 +71,13 @@ export const aiStatsResource = defineRemoteResource<ExportedAIStatistics>({
   storageKey: 'aiStats',
   initial: emptyAiStats,
 })
+
+/** Hydrate every resource from localStorage — call once on app mount. */
+export async function loadAll(): Promise<void> {
+  await Promise.all([
+    mappingsResource.load(),
+    sourceSchemaResource.load(),
+    targetSchemaResource.load(),
+    aiStatsResource.load(),
+  ])
+}
