@@ -308,6 +308,88 @@ describe('ConnectionLines', () => {
     expect(store.selectedMappingId).not.toBe(store.mappings[0]!.id)
   })
 
+  describe('moving the pointer between fields and lines (Feature #195)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function mountThreeLines() {
+      for (const [id, side] of [
+        ['src-1', 'source'],
+        ['tgt-1', 'target'],
+        ['src-2', 'source'],
+        ['tgt-2', 'target'],
+        ['src-3', 'source'],
+        ['tgt-3', 'target'],
+      ] as const) {
+        const el = document.createElement('div')
+        el.setAttribute('data-field-id', id)
+        el.setAttribute('data-field-side', side)
+        document.body.appendChild(el)
+      }
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+      store.createMapping({ sourceFieldId: 'src-3', targetFieldId: 'tgt-3' })
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+      const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+      return { wrapper, store, groups }
+    }
+
+    // Scenario: Moving to the next field does not flicker the connection lines
+    it('keeps the other lines dimmed while the pointer moves from one coupled field to the next', async () => {
+      const { wrapper, store, groups } = await mountThreeLines()
+      store.hoverField('src-1', 'source')
+      await wrapper.vm.$nextTick()
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+
+      // mouseleave on the first field — Vue renders before the next mouseenter
+      store.leaveHover()
+      await wrapper.vm.$nextTick()
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+
+      store.hoverField('src-2', 'source')
+      await wrapper.vm.$nextTick()
+      vi.advanceTimersToNextFrame()
+      await wrapper.vm.$nextTick()
+      expect(groups[0]!.attributes('data-dimmed')).toBe('true')
+      expect(groups[1]!.attributes('data-dimmed')).toBe('false')
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+    })
+
+    it('keeps the other lines dimmed while the pointer moves from one line onto the next', async () => {
+      const { wrapper, groups } = await mountThreeLines()
+      await groups[0]!.trigger('mouseenter')
+
+      await groups[0]!.trigger('mouseleave')
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+
+      await groups[1]!.trigger('mouseenter')
+      vi.advanceTimersToNextFrame()
+      await wrapper.vm.$nextTick()
+      expect(groups[0]!.attributes('data-dimmed')).toBe('true')
+      expect(groups[1]!.attributes('data-dimmed')).toBe('false')
+    })
+
+    // Scenario: Leaving the schemas clears all highlighting
+    it('un-dims every line once the pointer leaves', async () => {
+      const { wrapper, store, groups } = await mountThreeLines()
+      store.hoverField('src-1', 'source')
+      await wrapper.vm.$nextTick()
+
+      store.leaveHover()
+      vi.advanceTimersToNextFrame()
+      await wrapper.vm.$nextTick()
+
+      for (const group of groups) expect(group.attributes('data-dimmed')).toBe('false')
+    })
+  })
+
   // Scenario: No active mapping shows the normal empty state
   it('dims and highlights nothing when no mapping is selected or hovered', async () => {
     const srcEl = document.createElement('div')

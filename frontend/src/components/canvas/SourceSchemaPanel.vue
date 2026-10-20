@@ -130,7 +130,7 @@ function onHoverEnter(fieldId: string): void {
   mappingsStore.hoverField(fieldId, scopeSide.value)
 }
 function onHoverLeave(): void {
-  mappingsStore.hoverField(null)
+  mappingsStore.leaveHover()
 }
 
 // The field currently used to start a manual mapping (source-first

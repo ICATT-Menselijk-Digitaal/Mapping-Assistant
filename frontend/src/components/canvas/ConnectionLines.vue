@@ -300,7 +300,7 @@ onUnmounted(() => {
       data-testid="connection-line-group"
       :data-dimmed="line.dimmed"
       @mouseenter="mappingsStore.hoverMapping(line.id)"
-      @mouseleave="mappingsStore.hoverMapping(null)"
+      @mouseleave="mappingsStore.leaveHover()"
       @click.stop="mappingsStore.selectMapping(line.id)"
     >
       <!-- Wider invisible hit area so thin lines are easy to hover and click -->
@@ -380,7 +380,7 @@ onUnmounted(() => {
       data-testid="default-value-dot-group"
       :data-dimmed="dot.dimmed"
       @mouseenter="mappingsStore.hoverMapping(dot.id)"
-      @mouseleave="mappingsStore.hoverMapping(null)"
+      @mouseleave="mappingsStore.leaveHover()"
       @click.stop="mappingsStore.selectMapping(dot.id)"
     >
       <!-- Wider invisible hit area so the dot is easy to hover and click -->
