@@ -1,8 +1,11 @@
-// Measures field hover responsiveness (Feature #195) in a real Chromium.
-// Builds and serves the app, imports a coupling set from test-data/perf/,
-// opens every group, moves the mouse over a fixed set of field rows and reads
-// Chrome's Event Timing entries: the time from a hover event until the next
-// frame is painted. Not part of CI; results go into the PR description.
+// Measures field hover and scroll responsiveness (Feature #195) in a real
+// Chromium. Builds and serves the app, imports a coupling set from
+// test-data/perf/ and opens every group. Then:
+// - hover: moves the mouse over a fixed set of field rows and reads Chrome's
+//   Event Timing entries — the time from a hover event until the next paint;
+// - scroll: scrolls the source panel steadily and counts frames slower than
+//   50 ms (Chrome's Long Animation Frames).
+// Not part of CI; results go into the PR description.
 //
 // Usage (from frontend/): npm run perf:hover [-- <dataset.json> ...]
 import { resolve } from 'node:path'
@@ -14,6 +17,8 @@ const OUT_DIR = 'node_modules/.cache/perf-dist'
 const SCROLL_STOPS = [0, 1 / 3, 2 / 3]
 const ROWS_PER_STOP = 20
 const BUDGET_MS = 100
+const SCROLL_FRAMES = 60
+const SCROLL_STEP_PX = 40
 // 1 = this machine as-is; 4 = DevTools' "4× slowdown", a stand-in for a
 // typical office laptop. Override with PERF_CPU_THROTTLE=1,4,6 etc.
 const CPU_THROTTLES = (process.env.PERF_CPU_THROTTLE ?? '1,4').split(',').map(Number)
@@ -38,6 +43,12 @@ function initPage() {
       window.__eventTimings.push({ name: e.name, startTime: e.startTime, duration: e.duration })
     }
   }).observe({ type: 'event', durationThreshold: 16 })
+  window.__longFrames = []
+  new PerformanceObserver((list) => {
+    for (const e of list.getEntries()) {
+      window.__longFrames.push({ startTime: e.startTime, duration: e.duration })
+    }
+  }).observe({ type: 'long-animation-frame' })
 }
 
 // Answers the remote-storage backend in memory, so measuring never depends on
@@ -127,6 +138,34 @@ async function hoverRows(page) {
   return { starts, labels }
 }
 
+/** Scrolls the source panel SCROLL_STEP_PX per frame, like a steady wheel scroll. */
+async function scrollSourcePanel(page) {
+  await page.mouse.move(0, 0)
+  await nextPaint(page)
+  const start = await page.evaluate(
+    ({ frames, step }) =>
+      new Promise((done) => {
+        const container = document.querySelectorAll('[data-scroll-container]')[0]
+        container.scrollTop = 0
+        requestAnimationFrame(() => {
+          const t0 = performance.now()
+          let i = 0
+          const tick = () => {
+            container.scrollTop += step
+            if (++i < frames) requestAnimationFrame(tick)
+            else setTimeout(() => done(t0), 300)
+          }
+          requestAnimationFrame(tick)
+        })
+      }),
+    { frames: SCROLL_FRAMES, step: SCROLL_STEP_PX },
+  )
+  return page.evaluate(
+    (t0) => window.__longFrames.filter((f) => f.startTime >= t0).map((f) => f.duration),
+    start,
+  )
+}
+
 /** Worst hover-event duration per mouse move; 0 means under 16 ms (not reported). */
 function perHoverDurations(starts, timings) {
   return starts.map((start, i) => {
@@ -138,7 +177,7 @@ function perHoverDurations(starts, timings) {
   })
 }
 
-function summarize(dataset, cpu, durations) {
+function summarize(dataset, cpu, durations, longScrollFrames) {
   const sorted = [...durations].sort((a, b) => a - b)
   const pct = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]
   const fmt = (ms) => (ms < 16 ? '<16' : String(Math.round(ms)))
@@ -150,6 +189,9 @@ function summarize(dataset, cpu, durations) {
     p95: fmt(pct(0.95)),
     max: fmt(sorted.at(-1) ?? 0),
     overBudget: durations.filter((d) => d > BUDGET_MS).length,
+    longScrollFrames: longScrollFrames.length,
+    slowestScrollFrame:
+      longScrollFrames.length > 0 ? String(Math.round(Math.max(...longScrollFrames))) : '<50',
   }
 }
 
@@ -168,6 +210,7 @@ async function measure(browser, url, dataset, cpu) {
   const { starts, labels } = await hoverRows(page)
   await page.waitForTimeout(500)
   const timings = await page.evaluate(() => window.__eventTimings)
+  const longScrollFrames = await scrollSourcePanel(page)
   await page.close()
   const durations = perHoverDurations(starts, timings)
   // PERF_DEBUG=1 lists which hovers went over budget, to find patterns.
@@ -176,7 +219,7 @@ async function measure(browser, url, dataset, cpu) {
       if (d > BUDGET_MS) console.log(`  ${dataset} ${cpu}×: ${labels[i]}: ${Math.round(d)} ms`)
     })
   }
-  return summarize(dataset, cpu, durations)
+  return summarize(dataset, cpu, durations, longScrollFrames)
 }
 
 const datasets = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_DATASETS
@@ -197,10 +240,18 @@ try {
   for (const dataset of datasets) {
     for (const cpu of CPU_THROTTLES) results.push(await measure(browser, url, dataset, cpu))
   }
-  console.log('\n| Dataset | CPU | Hovers | Median (ms) | p95 (ms) | Max (ms) | Over 100 ms |')
+  console.log('\nHover (event until next paint):\n')
+  console.log('| Dataset | CPU | Hovers | Median (ms) | p95 (ms) | Max (ms) | Over 100 ms |')
   console.log('|---|---|---|---|---|---|---|')
   for (const r of results) {
     const row = [r.dataset, `${r.cpu}×`, r.hovers, r.median, r.p95, r.max, r.overBudget]
+    console.log(`| ${row.join(' | ')} |`)
+  }
+  console.log(`\nScroll (${SCROLL_FRAMES} frames of ${SCROLL_STEP_PX} px in the source panel):\n`)
+  console.log('| Dataset | CPU | Frames over 50 ms | Slowest frame (ms) |')
+  console.log('|---|---|---|---|')
+  for (const r of results) {
+    const row = [r.dataset, `${r.cpu}×`, r.longScrollFrames, r.slowestScrollFrame]
     console.log(`| ${row.join(' | ')} |`)
   }
 } finally {
