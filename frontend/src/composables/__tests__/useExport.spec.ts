@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { queryClient } from '@/api/queryClient'
-import { exportMetaResource } from '@/api/resources'
+import { exportMetaResource, loadAll } from '@/api/resources'
 import { useExport } from '../useExport'
 import { useMappings } from '../useMappings'
 import { useAISuggestions } from '../useAISuggestions'
@@ -121,7 +121,7 @@ describe('useExport', () => {
 
       queryClient.clear() // a reload starts from an empty cache…
       expect(exportMetaResource.current().exportVersion).toBe(0)
-      await exportMetaResource.load() // …and hydrates from storage
+      await loadAll() // …and hydrates every resource from storage, like app start
 
       expect(exportOnce().metadata.exportVersion).toBe(3)
     })
