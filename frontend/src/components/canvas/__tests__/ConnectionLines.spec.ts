@@ -504,6 +504,49 @@ describe('ConnectionLines', () => {
     panelEl.remove()
   })
 
+  // Every group starts collapsed after an import, so this is the anchor most
+  // lines attach to on a freshly loaded coupling set.
+  it('keeps a line visible, anchored at the group header, when its field is inside a collapsed group', async () => {
+    const panelEl = document.createElement('div')
+    panelEl.setAttribute('data-scroll-container', '')
+    panelEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 300, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(panelEl)
+
+    // Hidden field directly under a collapsed group: no parent field, so
+    // only the group header can anchor it.
+    const hiddenFieldEl = document.createElement('div')
+    hiddenFieldEl.setAttribute('data-field-id', 'Zaak.omschrijving')
+    hiddenFieldEl.setAttribute('data-field-side', 'source')
+    hiddenFieldEl.setAttribute('data-field-in-group', 'source:Zaak')
+    panelEl.appendChild(hiddenFieldEl)
+
+    const groupHeaderEl = document.createElement('div')
+    groupHeaderEl.setAttribute('data-anchor-group', 'source:Zaak')
+    groupHeaderEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 30, right: 200, width: 200, height: 20 }) as DOMRect
+    panelEl.appendChild(groupHeaderEl)
+
+    const tgtEl = document.createElement('div')
+    tgtEl.setAttribute('data-field-id', 'tgt-1')
+    tgtEl.setAttribute('data-field-side', 'target')
+    document.body.appendChild(tgtEl)
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'Zaak.omschrijving', targetFieldId: 'tgt-1' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const paths = wrapper.findAll('[data-testid="connection-path"]')
+    expect(paths).toHaveLength(1)
+    // At the panel's right edge, level with the middle of the group header.
+    expect(paths[0]!.attributes('d')).toMatch(/^M 300 40 /)
+
+    panelEl.remove()
+  })
+
   // Scenario: Collapsing an object replaces its mapped fields' connection lines with a single dot
   it('draws no line but a dot on each side when both endpoints are inside collapsed objects', async () => {
     const sourcePanelEl = document.createElement('div')
