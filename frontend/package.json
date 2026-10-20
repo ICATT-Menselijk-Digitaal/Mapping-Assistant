@@ -18,7 +18,9 @@
     "lint:ci:oxlint": "oxlint .",
     "lint:ci:eslint": "eslint .",
     "format": "prettier --write --experimental-cli src/",
-    "format:ci": "prettier --check --experimental-cli src/"
+    "format:ci": "prettier --check --experimental-cli src/",
+    "perf:datasets": "node scripts/perf/run.mjs scripts/perf/generate-datasets.ts",
+    "perf:hover": "node scripts/perf/measure-hover.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
