@@ -25,7 +25,7 @@ From `frontend/`:
 npm run perf:hover
 ```
 
-This builds the app, imports each dataset in headless Google Chrome, moves the mouse over 120 field rows and reports how long each hover takes until the highlight is painted (Chrome's Event Timing), at 1× and 4× CPU throttling. Set `PERF_CPU_THROTTLE` (e.g. `1,4,6`) or `PERF_BROWSER_CHANNEL` (e.g. `msedge`) to change this.
+This builds the app, imports each dataset in headless Google Chrome and opens every group. It then moves the mouse over 120 field rows and reports how long each hover takes until the highlight is painted (Chrome's Event Timing), and scrolls the source panel for 60 frames and counts frames slower than 50 ms (Chrome's Long Animation Frames). Both run at 1× and 4× CPU throttling; 4× stands in for a typical office laptop. Set `PERF_CPU_THROTTLE` (e.g. `1,4,6`) or `PERF_BROWSER_CHANNEL` (e.g. `msedge`) to change this.
 
 ## Sources and licence
 
