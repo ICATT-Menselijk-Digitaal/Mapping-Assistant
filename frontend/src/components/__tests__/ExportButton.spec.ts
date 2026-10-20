@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { enableAutoUnmount, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ExportButton from '../ExportButton.vue'
 import { useMappings } from '@/composables/useMappings'
@@ -46,6 +46,9 @@ beforeEach(() => {
   setActivePinia(createPinia())
   mockDownload.mockReset()
 })
+
+// Toast tests attach to <body>; unmounting removes them again.
+enableAutoUnmount(afterEach)
 
 const defaultProps = {
   sourceSchema: loadedSource,
@@ -123,6 +126,71 @@ describe('ExportButton', () => {
     ]
     expect(payload.sourceSchema.sourceUrl).toBe('https://example.com/src.json')
     expect(payload.targetSchema.sourceUrl).toBe('https://example.com/tgt.json')
+  })
+
+  // Scenario: The Technical Administrator sees which version was just exported
+  describe('export confirmation', () => {
+    const toast = () => document.body.querySelector('[data-testid="export-toast"]')
+    const exportedAt = new Date('2026-10-14T09:32:00.000Z')
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(exportedAt)
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('shows no confirmation before anything is exported', () => {
+      mount(ExportButton, { props: defaultProps, attachTo: document.body })
+      expect(toast()).toBeNull()
+    })
+
+    it('confirms the export version and the export date and time', async () => {
+      const wrapper = mount(ExportButton, { props: defaultProps, attachTo: document.body })
+      await wrapper.find('button').trigger('click')
+
+      expect(toast()).not.toBeNull()
+      expect(toast()!.getAttribute('role')).toBe('status')
+      expect(toast()!.textContent).toContain('Koppelingsset geëxporteerd: versie 1')
+      expect(toast()!.textContent).toContain(
+        exportedAt.toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' }),
+      )
+    })
+
+    it('shows the new version after each subsequent export', async () => {
+      const wrapper = mount(ExportButton, { props: defaultProps, attachTo: document.body })
+      await wrapper.find('button').trigger('click')
+      await wrapper.find('button').trigger('click')
+
+      expect(toast()!.textContent).toContain('versie 2')
+    })
+
+    it('closes when the close button is clicked', async () => {
+      const wrapper = mount(ExportButton, { props: defaultProps, attachTo: document.body })
+      await wrapper.find('button').trigger('click')
+
+      const dismiss = document.body.querySelector<HTMLElement>(
+        '[data-testid="export-toast-dismiss"]',
+      )
+      dismiss!.click()
+      await wrapper.vm.$nextTick()
+
+      expect(toast()).toBeNull()
+    })
+
+    it('closes by itself after 8 seconds', async () => {
+      const wrapper = mount(ExportButton, { props: defaultProps, attachTo: document.body })
+      await wrapper.find('button').trigger('click')
+
+      vi.advanceTimersByTime(7999)
+      await wrapper.vm.$nextTick()
+      expect(toast()).not.toBeNull()
+
+      vi.advanceTimersByTime(1)
+      await wrapper.vm.$nextTick()
+      expect(toast()).toBeNull()
+    })
   })
 
   // Scenario: Export button available without mappings

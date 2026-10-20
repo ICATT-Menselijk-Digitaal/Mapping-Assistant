@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { exportMetaResource } from '@/api/resources'
 import type { Schema } from '@/domain/schema'
 import type { MappingSetExported } from '@/domain/events/MappingSetExported'
 import type { MappingSetExport } from '@/utils/exportSerializer'
@@ -31,7 +32,9 @@ export function useExport() {
         rejected: aiStore.rejected,
         rejectedPairs: [...aiStore.rejectedPairs],
       },
+      exportVersion: exportMetaResource.current().exportVersion + 1,
     })
+    exportMetaResource.write({ ...payload.metadata })
 
     lastEvent.value = {
       type: 'MappingSetExported',

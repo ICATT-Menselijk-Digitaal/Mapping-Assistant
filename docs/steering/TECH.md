@@ -78,6 +78,7 @@ User-facing Dutch domain terms live in [VISION.md](VISION.md#bounded-contexts). 
 | AI suggestion | `src/types/ai.ts` + `src/composables/useAISuggestions.ts` | Claude API-backed candidate mapping (source field → target field, confidence score). |
 | `MappingSetExported` | `src/domain/events/MappingSetExported.ts` | Domain event fired when a mapping set is exported. |
 | `MappingSetImported` | `src/domain/events/MappingSetImported.ts` | Domain event fired when a mapping set is imported. |
+| `ExportMetadata` | `src/utils/exportSerializer.ts` | The export file's `metadata` block: `exportVersion` (running count, 1 on first export) and `exportedAt` (ISO 8601, UTC). The last one is persisted as `exportMetaResource` so the count survives reload and is restored on import ([#198](../../issues/198)). |
 | `LocalResource<T>` | `src/api/resource.ts` | The persistence seam every stored entity (mappings, schemas, AI stats) uses: a Vue Query cache entry is the source of truth, with optimistic local writes persisted asynchronously to IndexedDB via `localBackend`. |
 
 ### Architectural seams
