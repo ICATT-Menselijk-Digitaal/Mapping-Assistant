@@ -106,18 +106,25 @@ async function visibleRowCenters(page, side, stop) {
 
 async function hoverRows(page) {
   const starts = []
+  const labels = []
   for (const side of ['source', 'target']) {
     for (const stop of SCROLL_STOPS) {
+      // Park the pointer outside the panels before scrolling: content sliding
+      // under a still pointer fires hover events whose frame also carries the
+      // scroll's line recalculation — that is scroll cost, not hover cost.
+      await page.mouse.move(0, 0)
+      await nextPaint(page)
       const rows = await visibleRowCenters(page, side, stop)
       await nextPaint(page)
-      for (const { x, y } of rows) {
+      for (const [i, { x, y }] of rows.entries()) {
         starts.push(await page.evaluate(() => performance.now()))
+        labels.push(`${side} @${Math.round(stop * 100)}% row ${i}`)
         await page.mouse.move(x, y)
         await nextPaint(page)
       }
     }
   }
-  return starts
+  return { starts, labels }
 }
 
 /** Worst hover-event duration per mouse move; 0 means under 16 ms (not reported). */
@@ -158,11 +165,18 @@ async function measure(browser, url, dataset, cpu) {
   await expandAll(page)
   await page.waitForTimeout(500)
 
-  const starts = await hoverRows(page)
+  const { starts, labels } = await hoverRows(page)
   await page.waitForTimeout(500)
   const timings = await page.evaluate(() => window.__eventTimings)
   await page.close()
-  return summarize(dataset, cpu, perHoverDurations(starts, timings))
+  const durations = perHoverDurations(starts, timings)
+  // PERF_DEBUG=1 lists which hovers went over budget, to find patterns.
+  if (process.env.PERF_DEBUG) {
+    durations.forEach((d, i) => {
+      if (d > BUDGET_MS) console.log(`  ${dataset} ${cpu}×: ${labels[i]}: ${Math.round(d)} ms`)
+    })
+  }
+  return summarize(dataset, cpu, durations)
 }
 
 const datasets = process.argv.length > 2 ? process.argv.slice(2) : DEFAULT_DATASETS
