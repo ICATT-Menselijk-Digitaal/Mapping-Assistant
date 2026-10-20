@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import ExportButton from '@/components/ExportButton.vue'
 import ImportButton from '@/components/ImportButton.vue'
 import ResizableSplit from '@/components/ResizableSplit.vue'
-import { loadAll } from '@/api/resources'
+import {
+  loadAll,
+  mappingsResource,
+  sourceSchemaResource,
+  targetSchemaResource,
+  aiStatsResource,
+} from '@/api/resources'
 import { isLocalStorageAvailable } from '@/api/localBackend'
 import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
@@ -43,6 +49,13 @@ const {
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
 const storageUnavailable = ref(!isLocalStorageAvailable())
+const storageWriteError = computed(
+  () =>
+    mappingsResource.error.value ||
+    sourceSchemaResource.error.value ||
+    targetSchemaResource.error.value ||
+    aiStatsResource.error.value,
+)
 
 // Feature #154: ConnectionLines.vue already recalculates on this event
 // (used today for collapse/expand); reusing it here means a resize-drag
@@ -81,6 +94,14 @@ async function onImportFileSelected(file: File) {
     >
       Lokale opslag is niet beschikbaar. Wijzigingen worden niet bewaard na het sluiten van de
       browser.
+    </div>
+    <div
+      v-if="storageWriteError"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg shadow"
+      data-testid="storage-write-error-banner"
+    >
+      Lokale opslag is vol. Wijzigingen worden niet bewaard. Verwijder browsergegevens of gebruik
+      een andere browser.
     </div>
     <div
       v-if="sourceError || targetError"

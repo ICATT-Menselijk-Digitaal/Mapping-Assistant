@@ -35,14 +35,6 @@ function safeRead(key: string): unknown {
   }
 }
 
-function safeWrite(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(PREFIX + key, JSON.stringify(value))
-  } catch (e) {
-    console.warn(`[localBackend] Failed to write "${key}" to localStorage:`, e)
-  }
-}
-
 export function getVersioned<T>(key: string): Promise<Versioned<T | null>> {
   const raw = safeRead(key)
   if (isEnvelope(raw)) return Promise.resolve(raw as Versioned<T | null>)
@@ -51,8 +43,12 @@ export function getVersioned<T>(key: string): Promise<Versioned<T | null>> {
 
 export function setVersioned<T>(key: string, data: T): Promise<Versioned<T>> {
   const env: Versioned<T> = { rev: nextRev(), updatedAt: Date.now(), data }
-  safeWrite(key, env)
-  return Promise.resolve(env)
+  try {
+    localStorage.setItem(PREFIX + key, JSON.stringify(env))
+    return Promise.resolve(env)
+  } catch (e) {
+    return Promise.reject(e)
+  }
 }
 
 /** Returns true when localStorage is readable and writable in this browser context. */

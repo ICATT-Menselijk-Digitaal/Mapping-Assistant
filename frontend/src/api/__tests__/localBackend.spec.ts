@@ -51,13 +51,11 @@ describe('setVersioned', () => {
     expect(localStorage.getItem('mapping-assistent:mappings')).not.toBeNull()
   })
 
-  it('silently swallows a write failure and logs a warning', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('rejects when localStorage.setItem throws (e.g. QuotaExceededError)', async () => {
     vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
       throw new DOMException('QuotaExceededError')
     })
-    await expect(setVersioned('k-fail', 'x')).resolves.toBeDefined()
-    warnSpy.mockRestore()
+    await expect(setVersioned('k-fail', 'x')).rejects.toBeInstanceOf(DOMException)
   })
 })
 

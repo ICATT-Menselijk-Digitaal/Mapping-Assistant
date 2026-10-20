@@ -9,7 +9,7 @@ import type { SchemaField } from '@/types/schema'
 import type { FieldMapping } from '@/types/mapping'
 import type { ExportedAIStatistics } from '@/utils/exportSerializer'
 import { queryKeys } from '@/composables/queries/queryKeys'
-import { defineRemoteResource, type ResourceCodec } from './resource'
+import { defineRemoteResource, type LocalResource, type ResourceCodec } from './resource'
 
 /** Flat, serialisable form of a loaded schema (the runtime Schema has methods). */
 export interface StoredSchema {
@@ -46,38 +46,48 @@ export function emptyAiStats(): ExportedAIStatistics {
   return { totalGenerated: 0, accepted: 0, rejected: 0, rejectedPairs: [] }
 }
 
-export const mappingsResource = defineRemoteResource<FieldMapping[]>({
-  key: queryKeys.mappings,
-  storageKey: 'mappings',
-  initial: () => [],
-})
+const _registry: LocalResource<unknown>[] = []
 
-export const sourceSchemaResource = defineRemoteResource<SchemaSnapshot, StoredSchema>({
-  key: queryKeys.schemas.source,
-  storageKey: 'sourceSchema',
-  initial: emptySnapshot,
-  codec: schemaCodec,
-})
+function reg<TDomain>(resource: LocalResource<TDomain>): LocalResource<TDomain> {
+  _registry.push(resource as LocalResource<unknown>)
+  return resource
+}
 
-export const targetSchemaResource = defineRemoteResource<SchemaSnapshot, StoredSchema>({
-  key: queryKeys.schemas.target,
-  storageKey: 'targetSchema',
-  initial: emptySnapshot,
-  codec: schemaCodec,
-})
+export const mappingsResource = reg(
+  defineRemoteResource<FieldMapping[]>({
+    key: queryKeys.mappings,
+    storageKey: 'mappings',
+    initial: () => [],
+  }),
+)
 
-export const aiStatsResource = defineRemoteResource<ExportedAIStatistics>({
-  key: queryKeys.aiStats,
-  storageKey: 'aiStats',
-  initial: emptyAiStats,
-})
+export const sourceSchemaResource = reg(
+  defineRemoteResource<SchemaSnapshot, StoredSchema>({
+    key: queryKeys.schemas.source,
+    storageKey: 'sourceSchema',
+    initial: emptySnapshot,
+    codec: schemaCodec,
+  }),
+)
+
+export const targetSchemaResource = reg(
+  defineRemoteResource<SchemaSnapshot, StoredSchema>({
+    key: queryKeys.schemas.target,
+    storageKey: 'targetSchema',
+    initial: emptySnapshot,
+    codec: schemaCodec,
+  }),
+)
+
+export const aiStatsResource = reg(
+  defineRemoteResource<ExportedAIStatistics>({
+    key: queryKeys.aiStats,
+    storageKey: 'aiStats',
+    initial: emptyAiStats,
+  }),
+)
 
 /** Hydrate every resource from localStorage — call once on app mount. */
 export async function loadAll(): Promise<void> {
-  await Promise.all([
-    mappingsResource.load(),
-    sourceSchemaResource.load(),
-    targetSchemaResource.load(),
-    aiStatsResource.load(),
-  ])
+  await Promise.all(_registry.map((r) => r.load()))
 }
