@@ -495,6 +495,24 @@ describe('SourceSchemaPanel', () => {
       )
     })
 
+    // Scenario: A field selected for coupling keeps its selected look while hovered
+    it('keeps the selected look, not the hover highlight, on a hovered field selected for coupling', async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const sourceWrapper = mount(SourceSchemaPanel, {
+        global: { plugins: [pinia] },
+        props: { schema: schemaOf(sourceNodes), side: 'source', selectedFieldId: 'cityName' },
+      })
+
+      await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseenter')
+
+      const row = sourceWrapper.find('[data-field-id="cityName"]')
+      expect(row.attributes('data-highlighted')).toBe('true')
+      expect(row.attributes('data-selected')).toBe('true')
+      expect(row.classes()).toContain('bg-blue-50')
+      expect(row.classes()).not.toContain('bg-indigo-100')
+    })
+
     it('setting hoveredFieldId and hoveredFieldSide on mouseenter and clearing on mouseleave', async () => {
       const { sourceWrapper, store } = mountBothPanels()
 
