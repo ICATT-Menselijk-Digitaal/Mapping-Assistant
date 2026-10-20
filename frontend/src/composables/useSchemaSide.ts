@@ -34,7 +34,7 @@ export function useSchemaSide(side: MappingSide) {
   const method = side === 'source' ? 'get' : 'post'
   const role = side === 'source' ? 'response' : 'request'
 
-  const rawSpec = ref<unknown | null>(null)
+  const rawSpec = computed<unknown | null>(() => resource.state.value.rawSpec)
 
   const operationSchemasInfo = computed<OperationSchemas | null>(() => {
     if (!rawSpec.value) return null
@@ -52,30 +52,33 @@ export function useSchemaSide(side: MappingSide) {
     return parseOpenApiSchemaFiltered(rawSpec.value, names)
   })
 
-  function applySchema(nextSchema: Schema, nextSourceUrl: string | null): void {
-    resource.write({ schema: nextSchema, sourceUrl: nextSourceUrl })
+  function applySchema(
+    nextSchema: Schema,
+    nextSourceUrl: string | null,
+    nextRawSpec: unknown | null = null,
+  ): void {
+    resource.write({ schema: nextSchema, sourceUrl: nextSourceUrl, rawSpec: nextRawSpec })
   }
 
-  function parseContent(content: string): Schema {
+  function parseContent(content: string): { schema: Schema; rawSpec: unknown } {
     let spec: unknown
     try {
       spec = yaml.load(content)
     } catch {
       throw new Error('Ongeldig bestand: geen geldige YAML, JSON of OpenAPI-spec')
     }
-    rawSpec.value = spec
-    return parseOpenApiSchema(spec)
+    return { schema: parseOpenApiSchema(spec), rawSpec: spec }
   }
 
   async function loadFromFile(file: File): Promise<void> {
     isLoading.value = true
     error.value = null
     try {
-      const parsed = parseContent(await file.text())
-      applySchema(parsed, null)
+      const { schema, rawSpec: spec } = parseContent(await file.text())
+      applySchema(schema, null, spec)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon bestand niet verwerken'
-      applySchema(EMPTY_SCHEMA, null)
+      applySchema(EMPTY_SCHEMA, null, null)
     } finally {
       isLoading.value = false
     }
@@ -87,11 +90,11 @@ export function useSchemaSide(side: MappingSide) {
     try {
       const response = await fetch(url)
       if (!response.ok) throw new Error(`Kon URL niet ophalen (${response.status})`)
-      const parsed = parseContent(await response.text())
-      applySchema(parsed, url)
+      const { schema, rawSpec: spec } = parseContent(await response.text())
+      applySchema(schema, url, spec)
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Kon URL niet ophalen'
-      applySchema(EMPTY_SCHEMA, null)
+      applySchema(EMPTY_SCHEMA, null, null)
     } finally {
       isLoading.value = false
     }
@@ -102,7 +105,7 @@ export function useSchemaSide(side: MappingSide) {
       await loadFromUrl(exported.sourceUrl)
       return
     }
-    applySchema(buildSchemaFromFields(exported.name, exported.fields ?? []), null)
+    applySchema(buildSchemaFromFields(exported.name, exported.fields ?? []), null, null)
     error.value = null
   }
 

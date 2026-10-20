@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import ExportButton from '@/components/ExportButton.vue'
 import ImportButton from '@/components/ImportButton.vue'
-import WorkspaceCode from '@/components/WorkspaceCode.vue'
-import RemoteUpdateBanner from '@/components/RemoteUpdateBanner.vue'
 import ResizableSplit from '@/components/ResizableSplit.vue'
-import { loadAll, startSync, stopSync } from '@/api/sync'
+import { loadAll } from '@/api/resources'
+import { getRegistry } from '@/api/resource'
+import { isStorageAvailable, getStorageInfo, type StorageInfo } from '@/api/localBackend'
 import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
-import { useWorkspace } from '@/composables/useWorkspace'
 import { useImport } from '@/composables/useImport'
 import { usePanelWidth } from '@/composables/usePanelWidth'
 
@@ -34,7 +33,6 @@ const {
   loadFromUrl: loadTargetFromUrl,
 } = target
 const mappingsStore = useMappings()
-const workspace = useWorkspace()
 const {
   importMappingSet,
   error: importError,
@@ -45,6 +43,12 @@ const {
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
+const STORAGE_WARN_THRESHOLD = 0.8
+
+const storageUnavailable = ref(false)
+const storageInfo = ref<StorageInfo | null>(null)
+const storageNearlyFull = computed(() => (storageInfo.value?.ratio ?? 0) >= STORAGE_WARN_THRESHOLD)
+const storageWriteError = computed(() => getRegistry().some((r) => r.error.value))
 
 // Feature #154: ConnectionLines.vue already recalculates on this event
 // (used today for collapse/expand); reusing it here means a resize-drag
@@ -53,31 +57,16 @@ function notifySchemaPanelResized(): void {
   window.dispatchEvent(new Event('schema-panel-toggle'))
 }
 
-// Hydrate every resource and start polling for cross-device updates. Data
-// orchestration lives in the data layer (loadAll + the workspace store re-loads
-// on code change), so the view only loads on mount, polls while visible, and
-// resets its own selection when the workspace changes.
-let mounted = true
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 onMounted(async () => {
+  storageUnavailable.value = !(await isStorageAvailable())
   await loadAll()
-  // If the view unmounted while loadAll() was in flight, onUnmounted already ran
-  // stopSync() — don't start an orphaned polling interval here.
-  if (mounted) startSync()
+  storageInfo.value = await getStorageInfo()
 })
-onUnmounted(() => {
-  mounted = false
-  stopSync()
-})
-watch(
-  () => workspace.code,
-  () => {
-    mappingsStore.selectMapping(null)
-    // Fresh workspace hydrates fresh schemas; drop any stale load error so the
-    // red banner from the previous workspace doesn't linger.
-    sourceError.value = null
-    targetError.value = null
-  },
-)
 
 async function onSourceFileSelected(file: File) {
   await loadSourceFromFile(file)
@@ -98,6 +87,31 @@ async function onImportFileSelected(file: File) {
 
 <template>
   <main class="flex h-full gap-4 p-4 bg-slate-100 overflow-hidden">
+    <div
+      v-if="storageUnavailable"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-2 rounded-lg shadow"
+      data-testid="storage-unavailable-banner"
+    >
+      Lokale opslag is niet beschikbaar. Wijzigingen worden niet bewaard na het sluiten van de
+      browser.
+    </div>
+    <div
+      v-if="storageWriteError"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg shadow"
+      data-testid="storage-write-error-banner"
+    >
+      Lokale opslag is vol. Wijzigingen worden niet bewaard. Verwijder browsergegevens of gebruik
+      een andere browser.
+    </div>
+    <div
+      v-if="storageNearlyFull && !storageWriteError"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-2 rounded-lg shadow"
+      data-testid="storage-nearly-full-banner"
+    >
+      Lokale opslag raakt vol ({{ formatBytes(storageInfo!.usage) }} van
+      {{ formatBytes(storageInfo!.quota) }} gebruikt). Overweeg browsergegevens te verwijderen om
+      ruimte vrij te maken.
+    </div>
     <div
       v-if="sourceError || targetError"
       class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg shadow"
@@ -148,8 +162,6 @@ async function onImportFileSelected(file: File) {
             class="flex-1 min-h-0"
           />
           <div class="shrink-0 flex flex-col items-end gap-2">
-            <RemoteUpdateBanner />
-            <WorkspaceCode />
             <ImportButton
               :error="importError"
               :warnings="importWarnings"
