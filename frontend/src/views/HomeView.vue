@@ -6,13 +6,8 @@ import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import ExportButton from '@/components/ExportButton.vue'
 import ImportButton from '@/components/ImportButton.vue'
 import ResizableSplit from '@/components/ResizableSplit.vue'
-import {
-  loadAll,
-  mappingsResource,
-  sourceSchemaResource,
-  targetSchemaResource,
-  aiStatsResource,
-} from '@/api/resources'
+import { loadAll } from '@/api/resources'
+import { getRegistry } from '@/api/resource'
 import { isStorageAvailable, getStorageInfo, type StorageInfo } from '@/api/localBackend'
 import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
@@ -53,13 +48,7 @@ const STORAGE_WARN_THRESHOLD = 0.8
 const storageUnavailable = ref(false)
 const storageInfo = ref<StorageInfo | null>(null)
 const storageNearlyFull = computed(() => (storageInfo.value?.ratio ?? 0) >= STORAGE_WARN_THRESHOLD)
-const storageWriteError = computed(
-  () =>
-    mappingsResource.error.value ||
-    sourceSchemaResource.error.value ||
-    targetSchemaResource.error.value ||
-    aiStatsResource.error.value,
-)
+const storageWriteError = computed(() => getRegistry().some((r) => r.error.value))
 
 // Feature #154: ConnectionLines.vue already recalculates on this event
 // (used today for collapse/expand); reusing it here means a resize-drag

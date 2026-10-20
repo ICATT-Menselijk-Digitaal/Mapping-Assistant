@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { defineRemoteResource } from '../resource'
 import { getVersioned, setVersioned } from '../localBackend'
+import * as localBackend from '../localBackend'
 
 // Each resource is a singleton keyed on its cache key, so give every test a
 // fresh key to keep them independent (the global setup clears the cache between
@@ -62,5 +63,17 @@ describe('defineRemoteResource', () => {
 
     await resource.load()
     expect(resource.state.value).toEqual([5, 6, 7])
+  })
+
+  it('sets error when setVersioned rejects (e.g. quota exceeded)', async () => {
+    const { resource } = makeResource()
+    vi.spyOn(localBackend, 'setVersioned').mockRejectedValueOnce(
+      new DOMException('QuotaExceededError'),
+    )
+
+    resource.write([1])
+    await flush()
+
+    expect(resource.error.value).toBeInstanceOf(DOMException)
   })
 })

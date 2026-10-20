@@ -7,11 +7,18 @@
  *
  * Writes are optimistic and synchronous: `write`/`update` set the cache (which
  * notifies synchronously, preserving the "create then use the result" contract)
- * and persist to localStorage in the background.
+ * and persist to IndexedDB in the background.
  */
 import { shallowRef, type Ref } from 'vue'
 import { queryClient } from './queryClient'
 import { getVersioned, setVersioned } from './localBackend'
+
+const _registry: LocalResource<unknown>[] = []
+
+/** Every resource defined via `defineRemoteResource` — used by `loadAll()` and storage-error reporting. */
+export function getRegistry(): readonly LocalResource<unknown>[] {
+  return _registry
+}
 
 export interface ResourceCodec<TDomain, TStored> {
   encode: (value: TDomain) => TStored
@@ -21,7 +28,7 @@ export interface ResourceCodec<TDomain, TStored> {
 export interface ResourceConfig<TDomain, TStored> {
   /** vue-query cache key (the source of truth). */
   key: readonly unknown[]
-  /** localStorage key (without the mapping-assistent: prefix). */
+  /** IndexedDB key in the kv object store. */
   storageKey: string
   /** Fresh empty value; must return a NEW instance each call. */
   initial: () => TDomain
@@ -41,7 +48,7 @@ export interface LocalResource<TDomain> {
   write: (next: TDomain) => void
   /** Functional optimistic update; returns the new value synchronously. */
   update: (fn: (current: TDomain) => TDomain) => TDomain
-  /** Hydrate from localStorage. */
+  /** Hydrate from IndexedDB. */
   load: () => Promise<TDomain>
 }
 
@@ -118,7 +125,7 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
     return value
   }
 
-  return {
+  const resource: LocalResource<TDomain> = {
     state,
     isDirty: () => dirty,
     error,
@@ -127,6 +134,8 @@ export function defineRemoteResource<TDomain, TStored = TDomain>(
     update,
     load,
   }
+  _registry.push(resource as LocalResource<unknown>)
+  return resource
 }
 
 // Keep old export name for composables that haven't been updated yet.
