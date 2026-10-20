@@ -308,6 +308,43 @@ describe('ConnectionLines', () => {
     expect(store.selectedMappingId).not.toBe(store.mappings[0]!.id)
   })
 
+  // Scenario: Scrolling a large coupling set stays smooth
+  // Every scroll event re-positions all lines. Looking each endpoint up with
+  // its own page-wide search made that cost grow with lines × page size
+  // (Feature #195); a recalculation must search the page a fixed number of
+  // times, however many lines there are.
+  it('searches the page a fixed number of times per recalculation, however many lines there are', async () => {
+    const LINE_COUNT = 50
+    for (let i = 0; i < LINE_COUNT; i++) {
+      for (const side of ['source', 'target'] as const) {
+        const el = document.createElement('div')
+        el.setAttribute('data-field-id', `${side}-${i}`)
+        el.setAttribute('data-field-side', side)
+        document.body.appendChild(el)
+      }
+    }
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    for (let i = 0; i < LINE_COUNT; i++) {
+      store.createMapping({ sourceFieldId: `source-${i}`, targetFieldId: `target-${i}` })
+    }
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="connection-line-group"]')).toHaveLength(LINE_COUNT)
+
+    const querySelector = vi.spyOn(document, 'querySelector')
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    // A scroll inside this canvas (not a window-wide event, which would also
+    // recalculate line layers other tests left mounted).
+    const svg = wrapper.find('[data-testid="connection-lines-svg"]').element
+    svg.parentElement!.dispatchEvent(new Event('scroll'))
+    const pageSearches = querySelector.mock.calls.length + querySelectorAll.mock.calls.length
+    querySelector.mockRestore()
+    querySelectorAll.mockRestore()
+
+    expect(pageSearches).toBeLessThanOrEqual(5)
+  })
+
   describe('moving the pointer between fields and lines (Feature #195)', () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
