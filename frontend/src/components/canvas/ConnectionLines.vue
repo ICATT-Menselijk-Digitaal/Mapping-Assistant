@@ -77,19 +77,22 @@ const focusedMappingIds = computed(() => {
   return ids
 })
 
-const linesWithMeta = computed(() =>
-  lines.value.map((line) => {
-    const focused = focusedMappingIds.value.has(line.id)
-    const dimmed = focusedMappingIds.value.size > 0 && !focused
+// Path geometry only depends on the measured positions, so it is built once
+// per recalculate() rather than on every hover (Feature #195).
+const linePaths = computed(() => lines.value.map((line) => ({ ...line, path: bezierPath(line) })))
+
+const linesWithMeta = computed(() => {
+  const focusedIds = focusedMappingIds.value
+  return linePaths.value.map((line) => {
+    const focused = focusedIds.has(line.id)
     return {
       ...line,
-      path: bezierPath(line),
       focused,
-      dimmed,
+      dimmed: focusedIds.size > 0 && !focused,
       selected: line.id === selectedMappingId.value,
     }
-  }),
-)
+  })
+})
 
 const defaultValueDotsWithMeta = computed(() =>
   defaultValueDots.value.map((dot) => {
