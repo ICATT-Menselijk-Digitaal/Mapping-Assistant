@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { exportMetaResource } from '@/api/resources'
+import { useExport } from '../useExport'
 import { useImport } from '../useImport'
 import { useMappings } from '../useMappings'
 import { useAISuggestions } from '../useAISuggestions'
@@ -7,8 +9,7 @@ import { useSchemaSide } from '../useSchemaSide'
 import type { MappingSetExport } from '@/utils/exportSerializer'
 
 const exportPayload: MappingSetExport = {
-  version: '1.1',
-  exportedAt: '2026-06-04T00:00:00.000Z',
+  metadata: { exportVersion: 7, exportedAt: '2026-06-04T00:00:00.000Z' },
   sourceSchema: {
     name: 'Source',
     sourceUrl: null,
@@ -103,7 +104,7 @@ describe('useImport', () => {
     expect(importer.lastEvent.value).not.toBeNull()
     expect(importer.lastEvent.value?.type).toBe('MappingSetImported')
     expect(importer.lastEvent.value?.timestamp).toBeTruthy()
-    expect(importer.lastEvent.value?.payload.version).toBe('1.1')
+    expect(importer.lastEvent.value?.payload.metadata.exportVersion).toBe(7)
   })
 
   it('preserves resolvesMismatch on transformation rules so the mismatch stays resolved', async () => {
@@ -166,6 +167,90 @@ describe('useImport', () => {
     expect(ai.accepted).toBe(3)
     expect(ai.rejected).toBe(2)
     expect([...ai.rejectedPairs]).toEqual(['a::b', 'c::d'])
+  })
+
+  describe('export version', () => {
+    const exportAgain = () => {
+      const src = useSchemaSide('source')
+      const tgt = useSchemaSide('target')
+      return useExport().exportMappingSet(
+        { schema: src.schema.value, sourceUrl: null },
+        { schema: tgt.schema.value, sourceUrl: null },
+      )
+    }
+
+    // Scenario: Re-importing an exported file preserves its export version
+    it('continues the count from the imported export version', async () => {
+      await useImport().importMappingSet(
+        jsonFile(exportPayload),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(exportMetaResource.current()).toEqual({
+        exportVersion: 7,
+        exportedAt: '2026-06-04T00:00:00.000Z',
+      })
+      expect(exportAgain().metadata.exportVersion).toBe(8)
+    })
+
+    it('replaces a higher local count with the imported one', async () => {
+      exportMetaResource.write({ exportVersion: 12, exportedAt: '2026-10-01T00:00:00.000Z' })
+
+      await useImport().importMappingSet(
+        jsonFile(exportPayload),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(exportAgain().metadata.exportVersion).toBe(8)
+    })
+
+    // Scenario: Importing an older export without an export version starts the count again
+    it('restarts the count at 1 after importing an older export', async () => {
+      exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
+      const { metadata: _m, ...rest } = exportPayload
+      const legacy = { version: '1.1', exportedAt: '2026-06-04T00:00:00.000Z', ...rest }
+
+      const importer = useImport()
+      await importer.importMappingSet(
+        jsonFile(legacy),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(importer.error.value).toBeNull()
+      expect(exportAgain().metadata.exportVersion).toBe(1)
+    })
+
+    // Scenario: Importing a file with an unreadable export version
+    it('imports with a warning and restarts the count at 1 when the export version is unreadable', async () => {
+      exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
+      const unreadable = { ...exportPayload, metadata: { exportVersion: 'drie' } }
+
+      const importer = useImport()
+      await importer.importMappingSet(
+        jsonFile(unreadable),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(importer.error.value).toBeNull()
+      expect(importer.warnings.value.some((w) => /exportversie/i.test(w))).toBe(true)
+      expect(exportAgain().metadata.exportVersion).toBe(1)
+    })
+
+    it('leaves the count untouched when the import fails', async () => {
+      exportMetaResource.write({ exportVersion: 4, exportedAt: '2026-10-01T00:00:00.000Z' })
+
+      await useImport().importMappingSet(
+        new File(['{not-json'], 'broken.json', { type: 'application/json' }),
+        useSchemaSide('source'),
+        useSchemaSide('target'),
+      )
+
+      expect(exportMetaResource.current().exportVersion).toBe(4)
+    })
   })
 
   it('replaces existing state on import (does not merge)', async () => {
@@ -265,23 +350,23 @@ describe('useImport', () => {
       const tgt = useSchemaSide('target')
       const importer = useImport()
 
-      const payload = { ...exportPayload, version: '2.0' }
-      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+      const payload = { ...exportPayload, metadata: { exportVersion: 'drie' } }
+      await importer.importMappingSet(jsonFile(payload), src, tgt)
       expect(importer.warnings.value.length).toBeGreaterThan(0)
 
       importer.clearWarnings()
       expect(importer.warnings.value).toEqual([])
     })
 
-    it('surfaces deserializer warnings (unknown version)', async () => {
+    it('surfaces deserializer warnings (unreadable export version)', async () => {
       const src = useSchemaSide('source')
       const tgt = useSchemaSide('target')
       const importer = useImport()
 
-      const payload = { ...exportPayload, version: '2.0' }
-      await importer.importMappingSet(jsonFile(payload as unknown as MappingSetExport), src, tgt)
+      const payload = { ...exportPayload, metadata: { exportVersion: 'drie' } }
+      await importer.importMappingSet(jsonFile(payload), src, tgt)
 
-      expect(importer.warnings.value.some((w) => /version/i.test(w))).toBe(true)
+      expect(importer.warnings.value.some((w) => /exportversie/i.test(w))).toBe(true)
     })
   })
 })

@@ -17,7 +17,6 @@ import * as ops from '@/domain/mappingOps'
  */
 export const useMappings = defineStore('mappings', () => {
   const mappings = mappingsResource.state
-  const remoteAhead = mappingsResource.remoteAhead
   const selectedMappingId = ref<string | null>(null)
   const hoveredMappingId = ref<string | null>(null)
   const hoveredFieldId = ref<string | null>(null)
@@ -34,11 +33,6 @@ export const useMappings = defineStore('mappings', () => {
   /** Hydrate from the remote backend for the active workspace. */
   function load(): Promise<unknown> {
     return mappingsResource.load()
-  }
-
-  /** Apply a remote change that arrived while the user had unsaved edits. */
-  function acceptRemoteUpdate(): void {
-    mappingsResource.acceptRemote()
   }
 
   function selectMapping(id: string | null): void {
@@ -175,14 +169,12 @@ export const useMappings = defineStore('mappings', () => {
 
   return {
     mappings,
-    remoteAhead,
     selectedMappingId,
     hoveredMappingId,
     hoveredFieldId,
     hoveredFieldSide,
     selectionNonce,
     load,
-    acceptRemoteUpdate,
     hasMapping,
     createMapping,
     createDefaultValueCoupling,

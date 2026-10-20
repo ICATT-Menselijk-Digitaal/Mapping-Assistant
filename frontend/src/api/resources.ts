@@ -7,25 +7,27 @@ import { EMPTY_SCHEMA, type Schema } from '@/domain/schema'
 import { buildSchemaFromFields } from '@/utils/schemaFromFields'
 import type { SchemaField } from '@/types/schema'
 import type { FieldMapping } from '@/types/mapping'
-import type { ExportedAIStatistics } from '@/utils/exportSerializer'
+import type { ExportedAIStatistics, ExportMetaState } from '@/utils/exportSerializer'
 import { queryKeys } from '@/composables/queries/queryKeys'
-import { defineRemoteResource, type ResourceCodec } from './resource'
+import { defineRemoteResource, getRegistry, type ResourceCodec } from './resource'
 
 /** Flat, serialisable form of a loaded schema (the runtime Schema has methods). */
 export interface StoredSchema {
   name: string
   sourceUrl: string | null
   fields: SchemaField[]
+  rawSpec: unknown | null
 }
 
 /** A loaded schema plus where it came from — the schema resource's domain value. */
 export interface SchemaSnapshot {
   schema: Schema
   sourceUrl: string | null
+  rawSpec: unknown | null
 }
 
 function emptySnapshot(): SchemaSnapshot {
-  return { schema: EMPTY_SCHEMA, sourceUrl: null }
+  return { schema: EMPTY_SCHEMA, sourceUrl: null, rawSpec: null }
 }
 
 // The runtime Schema is a frozen object with methods and is not serialisable, so
@@ -35,10 +37,12 @@ const schemaCodec: ResourceCodec<SchemaSnapshot, StoredSchema> = {
     name: snapshot.schema.name,
     sourceUrl: snapshot.sourceUrl,
     fields: [...snapshot.schema.all()],
+    rawSpec: snapshot.rawSpec,
   }),
   decode: (stored) => ({
     schema: buildSchemaFromFields(stored.name, stored.fields),
     sourceUrl: stored.sourceUrl,
+    rawSpec: stored.rawSpec ?? null,
   }),
 }
 
@@ -71,3 +75,15 @@ export const aiStatsResource = defineRemoteResource<ExportedAIStatistics>({
   storageKey: 'aiStats',
   initial: emptyAiStats,
 })
+
+/** The last export's version and time, so the next export continues the count. */
+export const exportMetaResource = defineRemoteResource<ExportMetaState>({
+  key: queryKeys.exportMeta,
+  storageKey: 'exportMeta',
+  initial: () => ({ exportVersion: 0, exportedAt: null }),
+})
+
+/** Hydrate every resource from IndexedDB — call once on app mount. */
+export async function loadAll(): Promise<void> {
+  await Promise.all(getRegistry().map((r) => r.load()))
+}
