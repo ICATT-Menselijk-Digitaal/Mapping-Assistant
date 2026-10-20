@@ -54,6 +54,8 @@ All commands run from `frontend/`.
 | `npm run test:e2e` | Run Playwright E2E tests |
 | `npm run lint` | Oxlint + ESLint (with auto-fix) |
 | `npm run format` | Prettier |
+| `npm run perf:datasets` | Regenerate the large performance test datasets in `test-data/perf/` (fetches the public DET and OpenZaak specs) |
+| `npm run perf:hover` | Measure field hover-to-paint time in headless Chrome at 1× and 4× CPU throttling (not run in CI) |
 
 ## Code Conventions
 
