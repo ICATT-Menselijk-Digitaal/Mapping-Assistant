@@ -51,24 +51,8 @@ function initPage() {
   }).observe({ type: 'long-animation-frame' })
 }
 
-// Answers the remote-storage backend in memory, so measuring never depends on
-// (or writes to) the external server. A no-op once persistence is local-only.
-async function stubRemoteStorage(page) {
-  const store = new Map()
-  const cors = {
-    'access-control-allow-origin': '*',
-    'access-control-allow-headers': '*',
-    'access-control-allow-methods': 'GET, PUT, DELETE, OPTIONS',
-  }
-  await page.route('**/entities/**', (route) => {
-    const req = route.request()
-    const key = new URL(req.url()).pathname
-    if (req.method() === 'PUT') store.set(key, req.postData() ?? '')
-    if (req.method() === 'DELETE') store.delete(key)
-    if (req.method() !== 'GET') return route.fulfill({ status: 200, headers: cors, body: '' })
-    if (!store.has(key)) return route.fulfill({ status: 404, headers: cors, body: '' })
-    return route.fulfill({ status: 200, headers: cors, body: store.get(key) })
-  })
+// AI features are not used here; make sure nothing reaches the AI provider.
+async function blockAiCalls(page) {
   await page.route('**/openrouter.ai/**', (route) => route.abort())
 }
 
@@ -199,7 +183,7 @@ async function measure(browser, url, dataset, cpu) {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpu })
-  await stubRemoteStorage(page)
+  await blockAiCalls(page)
   await page.addInitScript(initPage)
   await page.goto(url)
   await page.setInputFiles('[data-testid="import-file-input"]', resolve('test-data/perf', dataset))
