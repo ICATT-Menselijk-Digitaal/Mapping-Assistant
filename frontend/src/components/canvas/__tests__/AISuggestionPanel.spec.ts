@@ -138,8 +138,8 @@ const targetSchemaWithMultipleContainers = buildSchema('', targetNodesWithMultip
 function mountPanel(props = { sourceSchema, targetSchema }) {
   // The scope store derives leaves from the schema resources, not from props,
   // so tests must seed the resources with the same schemas the panel renders.
-  sourceSchemaResource.write({ schema: props.sourceSchema, sourceUrl: null })
-  targetSchemaResource.write({ schema: props.targetSchema, sourceUrl: null })
+  sourceSchemaResource.write({ schema: props.sourceSchema, sourceUrl: null, rawSpec: null })
+  targetSchemaResource.write({ schema: props.targetSchema, sourceUrl: null, rawSpec: null })
   return mount(AISuggestionPanel, {
     global: { plugins: [createPinia()], stubs: { Teleport: true } },
     props,
