@@ -48,8 +48,8 @@ const SOURCE_KEY = 'ma_suggestion_scope_source_root_ids'
 const TARGET_KEY = 'ma_suggestion_scope_target_root_ids'
 
 function seedSchemas(sourceSchema = schema, targetSchema = schema): void {
-  sourceSchemaResource.write({ schema: sourceSchema, sourceUrl: null })
-  targetSchemaResource.write({ schema: targetSchema, sourceUrl: null })
+  sourceSchemaResource.write({ schema: sourceSchema, sourceUrl: null, rawSpec: null })
+  targetSchemaResource.write({ schema: targetSchema, sourceUrl: null, rawSpec: null })
 }
 
 describe('leavesUnder', () => {
@@ -143,7 +143,7 @@ describe('useSuggestionScope store', () => {
 
     // Replace the source schema with one that only has 'root-2' as a root.
     const partial = buildSchema('Partial', [nodes[1]!])
-    sourceSchemaResource.write({ schema: partial, sourceUrl: null })
+    sourceSchemaResource.write({ schema: partial, sourceUrl: null, rawSpec: null })
 
     expect(store.isSelected('source', 'root')).toBe(false)
     expect(store.isSelected('source', 'root-2')).toBe(true)
@@ -154,7 +154,7 @@ describe('useSuggestionScope store', () => {
     store.toggle('target', 'root')
     store.toggle('target', 'root-2')
 
-    targetSchemaResource.write({ schema: EMPTY_SCHEMA, sourceUrl: null })
+    targetSchemaResource.write({ schema: EMPTY_SCHEMA, sourceUrl: null, rawSpec: null })
 
     expect(store.hasTargetSelection).toBe(false)
     // Source selection is untouched.
