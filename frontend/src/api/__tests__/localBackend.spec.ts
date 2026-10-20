@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getVersioned, isLocalStorageAvailable, setVersioned } from '../localBackend'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { deleteDB } from 'idb'
+import { _closeDB, getVersioned, isStorageAvailable, setVersioned } from '../localBackend'
 
-beforeEach(() => {
-  localStorage.clear()
+beforeEach(async () => {
+  _closeDB()
+  await deleteDB('mapping-assistent')
 })
 
 describe('getVersioned', () => {
@@ -18,14 +20,16 @@ describe('getVersioned', () => {
     expect(read.rev).toBe(written.rev)
   })
 
-  it('handles a corrupt localStorage entry gracefully (returns empty envelope)', async () => {
-    localStorage.setItem('mapping-assistent:k-corrupt', 'not-valid-json{{{')
-    const result = await getVersioned('k-corrupt')
-    expect(result).toEqual({ rev: '', updatedAt: 0, data: null })
-  })
-
   it('wraps a legacy raw value (non-envelope) with rev ""', async () => {
-    localStorage.setItem('mapping-assistent:k-legacy', JSON.stringify([9, 9]))
+    const { openDB } = await import('idb')
+    const raw = await openDB('mapping-assistent', 1, {
+      upgrade(d) {
+        d.createObjectStore('kv')
+      },
+    })
+    await raw.put('kv', [9, 9], 'k-legacy')
+    raw.close()
+
     const result = await getVersioned<number[]>('k-legacy')
     expect(result.data).toEqual([9, 9])
     expect(result.rev).toBe('')
@@ -45,29 +49,10 @@ describe('setVersioned', () => {
     const b = await setVersioned('k-rev', { v: 1 })
     expect(b.rev).not.toBe(a.rev)
   })
-
-  it('persists using the mapping-assistent: prefix so keys are namespaced', async () => {
-    await setVersioned('mappings', [])
-    expect(localStorage.getItem('mapping-assistent:mappings')).not.toBeNull()
-  })
-
-  it('rejects when localStorage.setItem throws (e.g. QuotaExceededError)', async () => {
-    vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
-      throw new DOMException('QuotaExceededError')
-    })
-    await expect(setVersioned('k-fail', 'x')).rejects.toBeInstanceOf(DOMException)
-  })
 })
 
-describe('isLocalStorageAvailable', () => {
-  it('returns true in a normal test environment', () => {
-    expect(isLocalStorageAvailable()).toBe(true)
-  })
-
-  it('returns false when localStorage.setItem throws', () => {
-    vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => {
-      throw new DOMException('SecurityError')
-    })
-    expect(isLocalStorageAvailable()).toBe(false)
+describe('isStorageAvailable', () => {
+  it('returns true in a normal test environment', async () => {
+    expect(await isStorageAvailable()).toBe(true)
   })
 })

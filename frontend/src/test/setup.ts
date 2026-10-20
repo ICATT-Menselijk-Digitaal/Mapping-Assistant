@@ -1,5 +1,6 @@
 import { afterEach } from 'vitest'
 import { queryClient } from '@/api/queryClient'
+import 'fake-indexeddb/auto'
 
 // Node ≥ 25 ships a native global `localStorage` that Vitest's jsdom
 // environment defers to instead of installing jsdom's own implementation,

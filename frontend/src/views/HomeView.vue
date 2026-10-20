@@ -13,7 +13,7 @@ import {
   targetSchemaResource,
   aiStatsResource,
 } from '@/api/resources'
-import { isLocalStorageAvailable } from '@/api/localBackend'
+import { isStorageAvailable, getStorageInfo, type StorageInfo } from '@/api/localBackend'
 import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
 import { useImport } from '@/composables/useImport'
@@ -48,7 +48,11 @@ const {
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
-const storageUnavailable = ref(!isLocalStorageAvailable())
+const STORAGE_WARN_THRESHOLD = 0.8
+
+const storageUnavailable = ref(false)
+const storageInfo = ref<StorageInfo | null>(null)
+const storageNearlyFull = computed(() => (storageInfo.value?.ratio ?? 0) >= STORAGE_WARN_THRESHOLD)
 const storageWriteError = computed(
   () =>
     mappingsResource.error.value ||
@@ -64,8 +68,15 @@ function notifySchemaPanelResized(): void {
   window.dispatchEvent(new Event('schema-panel-toggle'))
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 onMounted(async () => {
+  storageUnavailable.value = !(await isStorageAvailable())
   await loadAll()
+  storageInfo.value = await getStorageInfo()
 })
 
 async function onSourceFileSelected(file: File) {
@@ -102,6 +113,15 @@ async function onImportFileSelected(file: File) {
     >
       Lokale opslag is vol. Wijzigingen worden niet bewaard. Verwijder browsergegevens of gebruik
       een andere browser.
+    </div>
+    <div
+      v-if="storageNearlyFull && !storageWriteError"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-2 rounded-lg shadow"
+      data-testid="storage-nearly-full-banner"
+    >
+      Lokale opslag raakt vol ({{ formatBytes(storageInfo!.usage) }} van
+      {{ formatBytes(storageInfo!.quota) }} gebruikt). Overweeg browsergegevens te verwijderen om
+      ruimte vrij te maken.
     </div>
     <div
       v-if="sourceError || targetError"
