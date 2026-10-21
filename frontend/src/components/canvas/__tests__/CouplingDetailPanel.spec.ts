@@ -823,6 +823,39 @@ describe('CouplingDetailPanel — alternative-storage coupling (Feature #194)', 
     })
   })
 
+  // Kim's verification of #207: a pre-filled name looked fixed. The hint says
+  // it can be changed, and the name is selected so typing replaces it.
+  it('makes clear the pre-filled name can be replaced', async () => {
+    nameAnother('src-num', 'PDF')
+    const store = useMappings()
+    const mapping = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-compatible' })!
+    store.selectMapping(mapping.id)
+    const wrapper = mount(CouplingDetailPanel, {
+      props: { sourceSchema, targetSchema },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="alternative-storage-hint"]').text()).toBe(
+      'In gebruik: PDF. Je kunt ook een andere naam typen.',
+    )
+    expect(document.activeElement).toBe(input.element)
+    expect(input.element.selectionStart).toBe(0)
+    expect(input.element.selectionEnd).toBe(3)
+    wrapper.unmount()
+  })
+
+  it('shows no hint when no name is in use yet', async () => {
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+    await openNameDialog(wrapper)
+
+    expect(wrapper.find('[data-testid="alternative-storage-hint"]').exists()).toBe(false)
+  })
+
   // Scenario: Several names in use are offered as suggestions
   it('suggests every name in use and pre-fills none when there are several', async () => {
     nameAnother('src-num', 'PDF')
@@ -834,6 +867,9 @@ describe('CouplingDetailPanel — alternative-storage coupling (Feature #194)', 
     expect(input.element.value).toBe('')
     const options = wrapper.findAll('[data-testid="alternative-storage-suggestions"] option')
     expect(options.map((o) => o.attributes('value'))).toEqual(['Archief', 'PDF'])
+    expect(wrapper.find('[data-testid="alternative-storage-hint"]').text()).toBe(
+      'In gebruik: Archief, PDF. Kies er een of typ een nieuwe naam.',
+    )
   })
 
   // Scenario Outline: A name that differs only in casing from a name in use triggers a warning
