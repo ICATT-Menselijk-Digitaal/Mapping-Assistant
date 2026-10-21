@@ -495,16 +495,84 @@ describe('SourceSchemaPanel', () => {
       )
     })
 
-    it('setting hoveredFieldId and hoveredFieldSide on mouseenter and clearing on mouseleave', async () => {
-      const { sourceWrapper, store } = mountBothPanels()
+    // Scenario: A field selected for coupling keeps its selected look while hovered
+    it('keeps the selected look, not the hover highlight, on a hovered field selected for coupling', async () => {
+      const pinia = createPinia()
+      setActivePinia(pinia)
+      const sourceWrapper = mount(SourceSchemaPanel, {
+        global: { plugins: [pinia] },
+        props: { schema: schemaOf(sourceNodes), side: 'source', selectedFieldId: 'cityName' },
+      })
 
       await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseenter')
-      expect(store.hoveredFieldId).toBe('cityName')
-      expect(store.hoveredFieldSide).toBe('source')
 
-      await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseleave')
-      expect(store.hoveredFieldId).toBeNull()
-      expect(store.hoveredFieldSide).toBeNull()
+      const row = sourceWrapper.find('[data-field-id="cityName"]')
+      expect(row.attributes('data-highlighted')).toBe('true')
+      expect(row.attributes('data-selected')).toBe('true')
+      expect(row.classes()).toContain('bg-blue-50')
+      expect(row.classes()).not.toContain('bg-indigo-100')
+    })
+
+    describe('moving the pointer between fields (Feature #195)', () => {
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+      })
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      it('setting hoveredFieldId and hoveredFieldSide on mouseenter and clearing them a frame after mouseleave', async () => {
+        const { sourceWrapper, store } = mountBothPanels()
+
+        await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseenter')
+        expect(store.hoveredFieldId).toBe('cityName')
+        expect(store.hoveredFieldSide).toBe('source')
+
+        await sourceWrapper.find('[data-field-id="cityName"]').trigger('mouseleave')
+        vi.advanceTimersToNextFrame()
+        expect(store.hoveredFieldId).toBeNull()
+        expect(store.hoveredFieldSide).toBeNull()
+      })
+
+      // Scenario: Leaving the schemas clears all highlighting
+      it('clears every highlight once the pointer leaves the schema fields', async () => {
+        const { sourceWrapper, targetWrapper, store } = mountBothPanels()
+        store.createMapping({ sourceFieldId: 'cityName', targetFieldId: 'countryCode' })
+
+        const row = sourceWrapper.find('[data-field-id="cityName"]')
+        await row.trigger('mouseenter')
+        await row.trigger('mouseleave')
+        vi.advanceTimersToNextFrame()
+        await sourceWrapper.vm.$nextTick()
+
+        expect(sourceWrapper.findAll('[data-highlighted="true"]')).toHaveLength(0)
+        expect(targetWrapper.findAll('[data-highlighted="true"]')).toHaveLength(0)
+      })
+
+      // Scenario: Sweeping quickly across many fields leaves only the last field highlighted
+      it('leaves only the last field highlighted after a quick sweep across 20 fields', async () => {
+        const sweepNodes = Array.from({ length: 20 }, (_, i) =>
+          node({ name: `veld${i}`, path: `Zaak.veld${i}`, id: `Zaak.veld${i}` }),
+        )
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        const wrapper = mount(SourceSchemaPanel, {
+          global: { plugins: [pinia] },
+          props: { schema: schemaOf(sweepNodes), side: 'source' },
+        })
+        const rows = sweepNodes.map((n) => wrapper.find(`[data-field-id="${n.id}"]`))
+
+        for (const [i, row] of rows.entries()) {
+          if (i > 0) await rows[i - 1]!.trigger('mouseleave')
+          await row.trigger('mouseenter')
+        }
+        vi.advanceTimersToNextFrame()
+        await wrapper.vm.$nextTick()
+
+        const highlighted = wrapper.findAll('[data-highlighted="true"]')
+        expect(highlighted).toHaveLength(1)
+        expect(highlighted[0]!.attributes('data-field-id')).toBe('Zaak.veld19')
+      })
     })
   })
 

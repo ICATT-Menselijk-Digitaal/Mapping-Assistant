@@ -77,19 +77,22 @@ const focusedMappingIds = computed(() => {
   return ids
 })
 
-const linesWithMeta = computed(() =>
-  lines.value.map((line) => {
-    const focused = focusedMappingIds.value.has(line.id)
-    const dimmed = focusedMappingIds.value.size > 0 && !focused
+// Path geometry only depends on the measured positions, so it is built once
+// per recalculate() rather than on every hover (Feature #195).
+const linePaths = computed(() => lines.value.map((line) => ({ ...line, path: bezierPath(line) })))
+
+const linesWithMeta = computed(() => {
+  const focusedIds = focusedMappingIds.value
+  return linePaths.value.map((line) => {
+    const focused = focusedIds.has(line.id)
     return {
       ...line,
-      path: bezierPath(line),
       focused,
-      dimmed,
+      dimmed: focusedIds.size > 0 && !focused,
       selected: line.id === selectedMappingId.value,
     }
-  }),
-)
+  })
+})
 
 const defaultValueDotsWithMeta = computed(() =>
   defaultValueDots.value.map((dot) => {
@@ -133,13 +136,43 @@ interface FieldPosition {
   anchorKey: string | null
 }
 
-function getFieldMidY(fieldId: string, side: 'source' | 'target'): FieldPosition | null {
-  if (!svgRef.value) return null
-  const svgRect = svgRef.value.getBoundingClientRect()
+// Every row and anchor a line can attach to, keyed by its data attributes;
+// the first element in document order wins, as with querySelector(). Built
+// once per recalculate() — which runs on every scroll event — so a
+// recalculation scans the page once instead of once per line endpoint
+// (Feature #195).
+interface ElementIndex {
+  fields: Map<string, HTMLElement>
+  anchorFields: Map<string, HTMLElement>
+  anchorGroups: Map<string, HTMLElement>
+}
 
-  const el = document.querySelector<HTMLElement>(
-    `[data-field-id="${fieldId}"][data-field-side="${side}"]`,
-  )
+function indexBy(selector: string, keyOf: (el: HTMLElement) => string): Map<string, HTMLElement> {
+  const map = new Map<string, HTMLElement>()
+  for (const el of document.querySelectorAll<HTMLElement>(selector)) {
+    const key = keyOf(el)
+    if (!map.has(key)) map.set(key, el)
+  }
+  return map
+}
+
+function buildElementIndex(): ElementIndex {
+  return {
+    fields: indexBy('[data-field-id][data-field-side]', (el) => {
+      return `${el.dataset.fieldSide}:${el.dataset.fieldId}`
+    }),
+    anchorFields: indexBy('[data-anchor-field]', (el) => el.dataset.anchorField!),
+    anchorGroups: indexBy('[data-anchor-group]', (el) => el.dataset.anchorGroup!),
+  }
+}
+
+function getFieldMidY(
+  fieldId: string,
+  side: 'source' | 'target',
+  index: ElementIndex,
+  svgRect: DOMRect,
+): FieldPosition | null {
+  const el = index.fields.get(`${side}:${fieldId}`)
   if (!el) return null
 
   const rect = el.getBoundingClientRect()
@@ -152,7 +185,7 @@ function getFieldMidY(fieldId: string, side: 'source' | 'target'): FieldPosition
   // Field is hidden inside a panel — try the parent field toggle anchor (subtree collapsed)
   const parentKey = el.getAttribute('data-child-of-field')
   if (parentKey) {
-    const parentEl = document.querySelector<HTMLElement>(`[data-anchor-field="${parentKey}"]`)
+    const parentEl = index.anchorFields.get(parentKey)
     if (parentEl && parentEl.getBoundingClientRect().height > 0) {
       const anchorRect = parentEl.getBoundingClientRect()
       return {
@@ -166,7 +199,7 @@ function getFieldMidY(fieldId: string, side: 'source' | 'target'): FieldPosition
   // Fall back to the group header anchor (group collapsed)
   const groupKey = el.getAttribute('data-field-in-group')
   if (groupKey) {
-    const groupEl = document.querySelector<HTMLElement>(`[data-anchor-group="${groupKey}"]`)
+    const groupEl = index.anchorGroups.get(groupKey)
     if (groupEl && groupEl.getBoundingClientRect().height > 0) {
       const anchorRect = groupEl.getBoundingClientRect()
       return {
@@ -189,20 +222,23 @@ function getFieldMidY(fieldId: string, side: 'source' | 'target'): FieldPosition
 // `useSuggestionScope` only gates future `generateSuggestions()` calls; it
 // never prunes the existing `suggestions`/`lowConfidenceSuggestions` arrays,
 // so a traced suggestion stays resolvable across scope toggles.
-function computeTraceLine(): LineCoords | null {
+function computeTraceLine(index: ElementIndex, svgRect: DOMRect): LineCoords | null {
   const traceId = tracedSuggestionId.value
   if (!traceId) return null
   const suggestion =
     aiSuggestions.value.find((s) => s.id === traceId) ??
     aiLowConfidenceSuggestions.value.find((s) => s.id === traceId)
   if (!suggestion) return null
-  const start = getFieldMidY(suggestion.sourceFieldId, 'source')
-  const end = getFieldMidY(suggestion.targetFieldId, 'target')
+  const start = getFieldMidY(suggestion.sourceFieldId, 'source', index, svgRect)
+  const end = getFieldMidY(suggestion.targetFieldId, 'target', index, svgRect)
   if (!start || !end) return null
   return { id: traceId, x1: start.x, y1: start.y, x2: end.x, y2: end.y }
 }
 
 function recalculate() {
+  if (!svgRef.value) return
+  const svgRect = svgRef.value.getBoundingClientRect()
+  const index = buildElementIndex()
   const result: LineCoords[] = []
   const dotsByKey = new Map<string, DotCoords>()
   const defaultValueDotsByKey = new Map<string, DefaultValueDotCoords>()
@@ -210,7 +246,7 @@ function recalculate() {
   for (const mapping of mappings.value) {
     if (mapping.sourceFieldId === null) {
       // Source-less coupling: a dot at the target field, never a line.
-      const end = getFieldMidY(mapping.targetFieldId, 'target')
+      const end = getFieldMidY(mapping.targetFieldId, 'target', index, svgRect)
       if (!end) continue
       const key = end.anchorKey ?? `target:${mapping.targetFieldId}`
       if (!defaultValueDotsByKey.has(key)) {
@@ -219,8 +255,8 @@ function recalculate() {
       continue
     }
 
-    const start = getFieldMidY(mapping.sourceFieldId, 'source')
-    const end = getFieldMidY(mapping.targetFieldId, 'target')
+    const start = getFieldMidY(mapping.sourceFieldId, 'source', index, svgRect)
+    const end = getFieldMidY(mapping.targetFieldId, 'target', index, svgRect)
     if (!start || !end) continue
 
     // Both endpoints hidden behind a collapsed object: no line — replace
@@ -243,7 +279,7 @@ function recalculate() {
   lines.value = result
   dots.value = Array.from(dotsByKey.values())
   defaultValueDots.value = Array.from(defaultValueDotsByKey.values())
-  traceLine.value = computeTraceLine()
+  traceLine.value = computeTraceLine(index, svgRect)
 }
 
 const tracePath = computed(() => (traceLine.value ? bezierPath(traceLine.value) : null))
@@ -300,7 +336,7 @@ onUnmounted(() => {
       data-testid="connection-line-group"
       :data-dimmed="line.dimmed"
       @mouseenter="mappingsStore.hoverMapping(line.id)"
-      @mouseleave="mappingsStore.hoverMapping(null)"
+      @mouseleave="mappingsStore.leaveHover()"
       @click.stop="mappingsStore.selectMapping(line.id)"
     >
       <!-- Wider invisible hit area so thin lines are easy to hover and click -->
@@ -380,7 +416,7 @@ onUnmounted(() => {
       data-testid="default-value-dot-group"
       :data-dimmed="dot.dimmed"
       @mouseenter="mappingsStore.hoverMapping(dot.id)"
-      @mouseleave="mappingsStore.hoverMapping(null)"
+      @mouseleave="mappingsStore.leaveHover()"
       @click.stop="mappingsStore.selectMapping(dot.id)"
     >
       <!-- Wider invisible hit area so the dot is easy to hover and click -->

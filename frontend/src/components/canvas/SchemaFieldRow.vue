@@ -56,6 +56,14 @@ const hasChildren = computed(
 const childOfAttr = computed(() =>
   props.parentFieldId ? `${props.side}:${props.parentFieldId}` : undefined,
 )
+
+// This row's own view of the panel's shared highlight/selection state. The
+// panel rebuilds its highlight set on every hover; reading it through a
+// computed means a row only re-renders when its own value flips, instead of
+// every row in both panels re-rendering on every hover (Feature #195).
+const highlighted = computed(() => props.isFieldHighlighted(props.field.id))
+const selected = computed(() => props.isFieldSelected(props.field.id))
+const rowClass = computed(() => props.fieldRowClass(props.field.id))
 </script>
 
 <template>
@@ -174,12 +182,12 @@ const childOfAttr = computed(() =>
       :data-field-side="side"
       :data-child-of-field="childOfAttr"
       :data-field-in-group="`${side}:${groupName}`"
-      :data-highlighted="isFieldHighlighted(field.id)"
-      :data-selected="isFieldSelected(field.id)"
-      :aria-selected="isFieldSelected(field.id) || undefined"
+      :data-highlighted="highlighted"
+      :data-selected="selected"
+      :aria-selected="selected || undefined"
       :class="[
         'w-full flex items-center gap-2 py-2 pl-3 pr-1 border-b border-slate-100 text-sm cursor-pointer transition-colors',
-        fieldRowClass(field.id),
+        rowClass,
       ]"
       @click="onFieldClick(field.id)"
       @dblclick="onFieldDoubleClick?.(field.id)"

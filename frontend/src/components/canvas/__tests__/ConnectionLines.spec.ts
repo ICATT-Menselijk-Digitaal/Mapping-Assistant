@@ -308,6 +308,125 @@ describe('ConnectionLines', () => {
     expect(store.selectedMappingId).not.toBe(store.mappings[0]!.id)
   })
 
+  // Scenario: Scrolling a large coupling set stays smooth
+  // Every scroll event re-positions all lines. Looking each endpoint up with
+  // its own page-wide search made that cost grow with lines × page size
+  // (Feature #195); a recalculation must search the page a fixed number of
+  // times, however many lines there are.
+  it('searches the page a fixed number of times per recalculation, however many lines there are', async () => {
+    const LINE_COUNT = 50
+    for (let i = 0; i < LINE_COUNT; i++) {
+      for (const side of ['source', 'target'] as const) {
+        const el = document.createElement('div')
+        el.setAttribute('data-field-id', `${side}-${i}`)
+        el.setAttribute('data-field-side', side)
+        document.body.appendChild(el)
+      }
+    }
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    for (let i = 0; i < LINE_COUNT; i++) {
+      store.createMapping({ sourceFieldId: `source-${i}`, targetFieldId: `target-${i}` })
+    }
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="connection-line-group"]')).toHaveLength(LINE_COUNT)
+
+    const querySelector = vi.spyOn(document, 'querySelector')
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    // A scroll inside this canvas (not a window-wide event, which would also
+    // recalculate line layers other tests left mounted).
+    const svg = wrapper.find('[data-testid="connection-lines-svg"]').element
+    svg.parentElement!.dispatchEvent(new Event('scroll'))
+    const pageSearches = querySelector.mock.calls.length + querySelectorAll.mock.calls.length
+    querySelector.mockRestore()
+    querySelectorAll.mockRestore()
+
+    expect(pageSearches).toBeLessThanOrEqual(5)
+  })
+
+  describe('moving the pointer between fields and lines (Feature #195)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function mountThreeLines() {
+      for (const [id, side] of [
+        ['src-1', 'source'],
+        ['tgt-1', 'target'],
+        ['src-2', 'source'],
+        ['tgt-2', 'target'],
+        ['src-3', 'source'],
+        ['tgt-3', 'target'],
+      ] as const) {
+        const el = document.createElement('div')
+        el.setAttribute('data-field-id', id)
+        el.setAttribute('data-field-side', side)
+        document.body.appendChild(el)
+      }
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+      store.createMapping({ sourceFieldId: 'src-3', targetFieldId: 'tgt-3' })
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+      const groups = wrapper.findAll('[data-testid="connection-line-group"]')
+      return { wrapper, store, groups }
+    }
+
+    // Scenario: Moving to the next field does not flicker the connection lines
+    it('keeps the other lines dimmed while the pointer moves from one coupled field to the next', async () => {
+      const { wrapper, store, groups } = await mountThreeLines()
+      store.hoverField('src-1', 'source')
+      await wrapper.vm.$nextTick()
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+
+      // mouseleave on the first field — Vue renders before the next mouseenter
+      store.leaveHover()
+      await wrapper.vm.$nextTick()
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+
+      store.hoverField('src-2', 'source')
+      await wrapper.vm.$nextTick()
+      vi.advanceTimersToNextFrame()
+      await wrapper.vm.$nextTick()
+      expect(groups[0]!.attributes('data-dimmed')).toBe('true')
+      expect(groups[1]!.attributes('data-dimmed')).toBe('false')
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+    })
+
+    it('keeps the other lines dimmed while the pointer moves from one line onto the next', async () => {
+      const { wrapper, groups } = await mountThreeLines()
+      await groups[0]!.trigger('mouseenter')
+
+      await groups[0]!.trigger('mouseleave')
+      expect(groups[2]!.attributes('data-dimmed')).toBe('true')
+
+      await groups[1]!.trigger('mouseenter')
+      vi.advanceTimersToNextFrame()
+      await wrapper.vm.$nextTick()
+      expect(groups[0]!.attributes('data-dimmed')).toBe('true')
+      expect(groups[1]!.attributes('data-dimmed')).toBe('false')
+    })
+
+    // Scenario: Leaving the schemas clears all highlighting
+    it('un-dims every line once the pointer leaves', async () => {
+      const { wrapper, store, groups } = await mountThreeLines()
+      store.hoverField('src-1', 'source')
+      await wrapper.vm.$nextTick()
+
+      store.leaveHover()
+      vi.advanceTimersToNextFrame()
+      await wrapper.vm.$nextTick()
+
+      for (const group of groups) expect(group.attributes('data-dimmed')).toBe('false')
+    })
+  })
+
   // Scenario: No active mapping shows the normal empty state
   it('dims and highlights nothing when no mapping is selected or hovered', async () => {
     const srcEl = document.createElement('div')
@@ -381,6 +500,49 @@ describe('ConnectionLines', () => {
     // Anchored at the panel's right edge (300), not the narrower button's
     // own right edge (200) — that was the "line overlaps the checkbox" bug.
     expect(paths[0]!.attributes('d')).toMatch(/^M 300 20 /)
+
+    panelEl.remove()
+  })
+
+  // Every group starts collapsed after an import, so this is the anchor most
+  // lines attach to on a freshly loaded coupling set.
+  it('keeps a line visible, anchored at the group header, when its field is inside a collapsed group', async () => {
+    const panelEl = document.createElement('div')
+    panelEl.setAttribute('data-scroll-container', '')
+    panelEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 300, bottom: 500, width: 300, height: 500 }) as DOMRect
+    document.body.appendChild(panelEl)
+
+    // Hidden field directly under a collapsed group: no parent field, so
+    // only the group header can anchor it.
+    const hiddenFieldEl = document.createElement('div')
+    hiddenFieldEl.setAttribute('data-field-id', 'Zaak.omschrijving')
+    hiddenFieldEl.setAttribute('data-field-side', 'source')
+    hiddenFieldEl.setAttribute('data-field-in-group', 'source:Zaak')
+    panelEl.appendChild(hiddenFieldEl)
+
+    const groupHeaderEl = document.createElement('div')
+    groupHeaderEl.setAttribute('data-anchor-group', 'source:Zaak')
+    groupHeaderEl.getBoundingClientRect = () =>
+      ({ left: 0, top: 30, right: 200, width: 200, height: 20 }) as DOMRect
+    panelEl.appendChild(groupHeaderEl)
+
+    const tgtEl = document.createElement('div')
+    tgtEl.setAttribute('data-field-id', 'tgt-1')
+    tgtEl.setAttribute('data-field-side', 'target')
+    document.body.appendChild(tgtEl)
+
+    const { wrapper } = mountWithContainers()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'Zaak.omschrijving', targetFieldId: 'tgt-1' })
+
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    const paths = wrapper.findAll('[data-testid="connection-path"]')
+    expect(paths).toHaveLength(1)
+    // At the panel's right edge, level with the middle of the group header.
+    expect(paths[0]!.attributes('d')).toMatch(/^M 300 40 /)
 
     panelEl.remove()
   })
