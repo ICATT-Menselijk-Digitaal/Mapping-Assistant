@@ -114,6 +114,18 @@ export const DEFAULT_VALUE_REQUIRED_ANALYSIS: FieldPairAnalysis = {
 }
 
 /**
+ * The persistent analysis for a target-less ("alternative-storage") coupling
+ * (Feature #194): a single `missing-target` mismatch, the mirror image of
+ * `DEFAULT_VALUE_REQUIRED_ANALYSIS`. Resolved only by the transformation rule
+ * naming the alternative storage — the UI offers no manual acknowledgement,
+ * because a coupling without a name would export with no destination.
+ */
+export const ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS: FieldPairAnalysis = {
+  status: 'constrained',
+  mismatches: ['missing-target'],
+}
+
+/**
  * Whether `type` is resolved *automatically* — by a transformation rule with
  * a non-empty expression that claims it. A freeform JSONata expression added
  * without going through a mismatch-solution dialog (`source: 'manual'`, no

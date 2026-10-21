@@ -1,4 +1,10 @@
-export type MismatchType = 'truncate' | 'default' | 'cast' | 'date-format' | 'missing-source'
+export type MismatchType =
+  | 'truncate'
+  | 'default'
+  | 'cast'
+  | 'date-format'
+  | 'missing-source'
+  | 'missing-target'
 export type RuleSource = 'manual' | 'mismatch-solution' | 'ai'
 
 // The scalar target types a static default value can be entered against with
@@ -33,12 +39,19 @@ export interface StaticValueParams {
   value: string
   dataType: StaticValueDataType
 }
+// Where a target-less coupling's source value goes instead of a target field
+// (Feature #194) — e.g. "PDF". Resolves the coupling's missing-target problem.
+export interface AlternativeStorageParams {
+  type: 'alternative-storage'
+  name: string
+}
 export type SolutionParams =
   | TruncationParams
   | DefaultParams
   | CastParams
   | DateFormatParams
   | StaticValueParams
+  | AlternativeStorageParams
 
 export interface TransformationRule {
   id: string
@@ -59,7 +72,11 @@ export interface FieldMapping {
   // (a typed static value, or a manually-added JSONata expression) instead
   // of a source mapping.
   sourceFieldId: string | null
-  targetFieldId: string
+  // null means this is a target-less ("alternative-storage") coupling — a
+  // source field whose value goes to alternative storage (e.g. a PDF)
+  // instead of a target field, named via a transformation rule. Never null
+  // together with sourceFieldId.
+  targetFieldId: string | null
   transformations: TransformationRule[]
   status: MappingStatus
   notes?: string

@@ -194,6 +194,153 @@ describe('MappingCanvas', () => {
     })
   })
 
+  describe('alternative-storage coupling (Feature #194)', () => {
+    beforeEach(() => {
+      window.HTMLElement.prototype.scrollIntoView = vi.fn<() => void>()
+    })
+
+    // Scenario: Confirming the dialogue creates an alternative-storage coupling and opens its detail view
+    it('double-clicking an unmapped source field opens a confirmation dialogue', async () => {
+      const wrapper = mountCanvas()
+      await wrapper.find('[data-field-id="src-2"]').trigger('dblclick')
+
+      expect(wrapper.find('[data-testid="alternative-storage-confirm-overlay"]').exists()).toBe(
+        true,
+      )
+      expect(wrapper.find('[data-testid="alternative-storage-confirm-field"]').text()).toContain(
+        'omschrijving',
+      )
+    })
+
+    it('confirming creates a target-less coupling and selects it', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="src-2"]').trigger('dblclick')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]).toMatchObject({ sourceFieldId: 'src-2', targetFieldId: null })
+      expect(store.selectedMappingId).toBe(store.mappings[0]!.id)
+      expect(wrapper.find('[data-testid="alternative-storage-confirm-overlay"]').exists()).toBe(
+        false,
+      )
+    })
+
+    // A real double-click fires click, click, dblclick: the clicks toggle the
+    // manual-mapping selection on and off, which must not leave a source
+    // selected once the dialogue opens.
+    it('a double-click preceded by its two clicks leaves no source selected for mapping', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      const row = wrapper.find('[data-field-id="src-2"]')
+      await row.trigger('click')
+      await row.trigger('click')
+      await row.trigger('dblclick')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]!.targetFieldId).toBeNull()
+    })
+
+    it('cancelling the confirmation dialogue creates nothing', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="src-2"]').trigger('dblclick')
+      await wrapper.find('[data-testid="cancel-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(0)
+    })
+
+    // Scenario: Double-clicking a source field that already has a coupling selects it
+    it('double-clicking an already-coupled source selects it instead of opening the dialogue', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      await wrapper.find('[data-field-id="src-1"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+      const existingId = store.mappings[0]!.id
+      store.selectMapping(null)
+
+      await wrapper.find('[data-field-id="src-1"]').trigger('dblclick')
+
+      expect(wrapper.find('[data-testid="alternative-storage-confirm-overlay"]').exists()).toBe(
+        false,
+      )
+      expect(store.mappings).toHaveLength(1)
+      expect(store.selectedMappingId).toBe(existingId)
+    })
+
+    it('double-clicking a source that already goes to alternative storage selects it', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })
+
+      await wrapper.find('[data-field-id="src-2"]').trigger('dblclick')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.selectedMappingId).toBe(created!.id)
+    })
+
+    // Scenario: Coupling an alternative-storage source to a target field asks to replace it
+    it('coupling an alternative-storage source to a target asks to replace the alternative storage', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })
+      store.setAlternativeStorage(created!.id, 'omschrijving', 'PDF')
+
+      await wrapper.find('[data-field-id="src-2"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-2"]').trigger('click')
+
+      expect(wrapper.find('[data-testid="replace-coupling-confirm-overlay"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="replace-existing-coupling"]').text()).toBe(
+        'omschrijving → Alternatieve opslag: PDF',
+      )
+      expect(wrapper.find('[data-testid="replace-new-coupling"]').text()).toBe(
+        'omschrijving → titel',
+      )
+
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]!).toMatchObject({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
+    })
+
+    it('cancelling the replacement keeps the alternative-storage coupling', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })
+
+      await wrapper.find('[data-field-id="src-2"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-2"]').trigger('click')
+      expect(wrapper.find('[data-testid="replace-existing-coupling"]').text()).toBe(
+        'omschrijving → Alternatieve opslag: —',
+      )
+      await wrapper.find('[data-testid="cancel-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]!.id).toBe(created!.id)
+    })
+
+    // When the chosen target is itself already coupled, that replacement is
+    // confirmed separately, right after the alternative storage one.
+    it('asks for the target replacement next when that target is already coupled', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })
+
+      await wrapper.find('[data-field-id="src-2"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+      expect(wrapper.find('[data-testid="replace-existing-coupling"]').text()).toBe('zaakId → uuid')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+      expect(store.mappings).toHaveLength(1)
+      expect(store.mappings[0]!).toMatchObject({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
+    })
+  })
+
   // Many-to-many: same source to multiple targets
   it('allows the same source field to be mapped to multiple target fields', async () => {
     const wrapper = mountCanvas()

@@ -6,9 +6,11 @@ import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
 import DefaultValueConfirmDialog from './DefaultValueConfirmDialog.vue'
+import AlternativeStorageConfirmDialog from './AlternativeStorageConfirmDialog.vue'
 import ReplaceCouplingConfirmDialog from './ReplaceCouplingConfirmDialog.vue'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
+import { alternativeStorageName } from '@/domain/mappingOps'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -75,7 +77,8 @@ watch(selectionNonce, async () => {
   if (!mapping) return
   await nextTick()
   if (mapping.sourceFieldId) sourcePanelRef.value?.scrollToField(mapping.sourceFieldId)
-  targetPanelRef.value?.scrollToField(mapping.targetFieldId)
+  // A target-less (alternative-storage) coupling has no target to scroll to.
+  if (mapping.targetFieldId) targetPanelRef.value?.scrollToField(mapping.targetFieldId)
 })
 
 // Traced AI suggestion (Task #145 / Feature #127): mirrors the mapping-
@@ -104,7 +107,9 @@ const sourceCounter = computed(() => {
 })
 
 const targetCounter = computed(() => {
-  const mappedTargetIds = new Set(mappingsStore.mappings.map((m) => m.targetFieldId))
+  const mappedTargetIds = new Set(
+    mappingsStore.mappings.map((m) => m.targetFieldId).filter((id): id is string => id !== null),
+  )
   return {
     mapped: props.targetSchema.all().filter((f) => mappedTargetIds.has(f.id)).length,
     total: props.targetSchema.all().length,
@@ -124,9 +129,9 @@ function createMappingAndEmit(sourceFieldId: string, targetFieldId: string) {
     schemas: { source: props.sourceSchema, target: props.targetSchema },
   })
 
-  // sourceFieldId is always set here — this path always supplies one above —
-  // the guard only satisfies FieldMapping's more general nullable type.
-  if (mapping && mapping.sourceFieldId) {
+  // Both ids are always set here — this path always supplies them above —
+  // the guard only satisfies FieldMapping's more general nullable types.
+  if (mapping && mapping.sourceFieldId && mapping.targetFieldId) {
     emit('FieldMappingCreated', {
       sourceFieldId: mapping.sourceFieldId,
       targetFieldId: mapping.targetFieldId,
@@ -138,53 +143,74 @@ function createMappingAndEmit(sourceFieldId: string, targetFieldId: string) {
 // source onto a target that already carries one (source-bound or
 // default-value) no longer silently creates a second coupling — it asks for
 // explicit confirmation to replace the existing one first.
+// Feature #194: alternative storage and regular couplings exclude each other
+// on one source field, so coupling a source that goes to alternative storage
+// asks to replace that first (`kind: 'source'`). If the chosen target is
+// itself already coupled, that replacement is confirmed right after.
 const pendingReplace = ref<{
+  kind: 'source' | 'target'
   existingId: string
-  existingSourceFieldId: string | null
   newSourceFieldId: string
   targetFieldId: string
 } | null>(null)
 
 const pendingReplaceLabels = computed(() => {
   if (!pendingReplace.value) return null
-  const { existingSourceFieldId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  const { kind, existingId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  const existing = mappingsStore.mappings.find((m) => m.id === existingId)
   const target = props.targetSchema.byId(targetFieldId)
-  const existingSource = existingSourceFieldId
-    ? props.sourceSchema.byId(existingSourceFieldId)
+  const existingSource = existing?.sourceFieldId
+    ? props.sourceSchema.byId(existing.sourceFieldId)
     : null
   const newSource = props.sourceSchema.byId(newSourceFieldId)
-  return {
+  const labels = {
     targetPath: target?.path ?? targetFieldId,
-    existingSourcePath: existingSource?.path ?? '—',
+    existingSourcePath: existingSource?.path ?? existing?.sourceFieldId ?? '—',
     newSourcePath: newSource?.path ?? newSourceFieldId,
   }
+  if (kind === 'target') return { ...labels, existingTargetPath: undefined, intro: undefined }
+  const name = existing ? (alternativeStorageName(existing) ?? '—') : '—'
+  return {
+    ...labels,
+    existingTargetPath: `Alternatieve opslag: ${name}`,
+    intro: 'Dit bronveld gaat naar alternatieve opslag:',
+  }
 })
+
+// Couple `sourceFieldId` to `targetFieldId`, first asking to replace whatever
+// stands in the way: the source's alternative-storage coupling, then the
+// target's existing coupling.
+function requestCoupling(sourceFieldId: string, targetFieldId: string) {
+  const alternative = mappingsStore.mappings.find(
+    (m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === null,
+  )
+  const existing =
+    alternative ?? mappingsStore.mappings.find((m) => m.targetFieldId === targetFieldId)
+  if (existing) {
+    pendingReplace.value = {
+      kind: alternative ? 'source' : 'target',
+      existingId: existing.id,
+      newSourceFieldId: sourceFieldId,
+      targetFieldId,
+    }
+    return
+  }
+  createMappingAndEmit(sourceFieldId, targetFieldId)
+}
 
 function onTargetFieldClick(fieldId: string) {
   if (!selectedSourceId.value) return
   const sourceFieldId = selectedSourceId.value
   selectedSourceId.value = null
-
-  const existing = mappingsStore.mappings.find((m) => m.targetFieldId === fieldId)
-  if (existing) {
-    pendingReplace.value = {
-      existingId: existing.id,
-      existingSourceFieldId: existing.sourceFieldId,
-      newSourceFieldId: sourceFieldId,
-      targetFieldId: fieldId,
-    }
-    return
-  }
-
-  createMappingAndEmit(sourceFieldId, fieldId)
+  requestCoupling(sourceFieldId, fieldId)
 }
 
 function confirmReplaceCoupling() {
   if (!pendingReplace.value) return
   const { existingId, newSourceFieldId, targetFieldId } = pendingReplace.value
-  mappingsStore.removeMapping(existingId)
-  createMappingAndEmit(newSourceFieldId, targetFieldId)
   pendingReplace.value = null
+  mappingsStore.removeMapping(existingId)
+  requestCoupling(newSourceFieldId, targetFieldId)
 }
 
 function cancelReplaceCoupling() {
@@ -221,6 +247,41 @@ function confirmDefaultValueCoupling() {
 
 function cancelDefaultValueCoupling() {
   pendingDefaultValueFieldId.value = null
+}
+
+// Feature #194: double-clicking an unmapped source field opens a confirmation
+// dialogue before creating a target-less ("alternative-storage") coupling —
+// the mirror of the default-value flow above. A source that already carries
+// any coupling just selects it instead.
+const pendingAlternativeStorageFieldId = ref<string | null>(null)
+const pendingAlternativeStorageField = computed(() =>
+  pendingAlternativeStorageFieldId.value
+    ? (props.sourceSchema.byId(pendingAlternativeStorageFieldId.value) ?? null)
+    : null,
+)
+
+function onSourceFieldDoubleClick(fieldId: string) {
+  // A real double-click first fires two clicks, which toggled the manual
+  // mapping selection — a double-click never starts a manual mapping.
+  selectedSourceId.value = null
+  const existing = mappingsStore.mappings.find((m) => m.sourceFieldId === fieldId)
+  if (existing) {
+    mappingsStore.selectMapping(existing.id)
+    return
+  }
+  pendingAlternativeStorageFieldId.value = fieldId
+}
+
+function confirmAlternativeStorageCoupling() {
+  const fieldId = pendingAlternativeStorageFieldId.value
+  if (!fieldId) return
+  const created = mappingsStore.createAlternativeStorageCoupling({ sourceFieldId: fieldId })
+  if (created) mappingsStore.selectMapping(created.id)
+  pendingAlternativeStorageFieldId.value = null
+}
+
+function cancelAlternativeStorageCoupling() {
+  pendingAlternativeStorageFieldId.value = null
 }
 
 function onSourceFileChange(event: Event) {
@@ -335,6 +396,7 @@ function onTargetUrlSubmit() {
           side="source"
           :selected-field-id="selectedSourceId"
           @field-click="onSourceFieldClick"
+          @field-dblclick="onSourceFieldDoubleClick"
         />
       </div>
 
@@ -437,6 +499,21 @@ function onTargetUrlSubmit() {
       </div>
     </div>
 
+    <!-- Alternative-storage coupling confirmation (Feature #194) -->
+    <div
+      v-if="pendingAlternativeStorageField"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="alternative-storage-confirm-overlay"
+    >
+      <div class="bg-white rounded-lg shadow-lg max-w-sm w-full mx-4">
+        <AlternativeStorageConfirmDialog
+          :field="pendingAlternativeStorageField"
+          @close="cancelAlternativeStorageCoupling"
+          @confirm="confirmAlternativeStorageCoupling"
+        />
+      </div>
+    </div>
+
     <!-- Replace-coupling confirmation (PR #189 review) -->
     <div
       v-if="pendingReplaceLabels"
@@ -448,6 +525,8 @@ function onTargetUrlSubmit() {
           :target-path="pendingReplaceLabels.targetPath"
           :existing-source-path="pendingReplaceLabels.existingSourcePath"
           :new-source-path="pendingReplaceLabels.newSourcePath"
+          :existing-target-path="pendingReplaceLabels.existingTargetPath"
+          :intro="pendingReplaceLabels.intro"
           @close="cancelReplaceCoupling"
           @confirm="confirmReplaceCoupling"
         />

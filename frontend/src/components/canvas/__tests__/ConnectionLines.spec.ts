@@ -665,6 +665,46 @@ describe('ConnectionLines', () => {
   })
 
   // Scenario: The canvas shows a coloured dot instead of a connection line
+  describe('alternative-storage coupling (Feature #194)', () => {
+    // Scenario: A resolved alternative-storage coupling shows its name and a green checkmark
+    it('renders a dot at the source field instead of a line, with no target element present', async () => {
+      const srcEl = document.createElement('div')
+      srcEl.setAttribute('data-field-id', 'src-1')
+      srcEl.setAttribute('data-field-side', 'source')
+      document.body.appendChild(srcEl)
+
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      store.createAlternativeStorageCoupling({ sourceFieldId: 'src-1' })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(0)
+      const dots = wrapper.findAll('[data-testid="default-value-dot-group"]')
+      expect(dots).toHaveLength(1)
+      expect(dots[0]!.attributes('data-dot-side')).toBe('source')
+    })
+
+    it('clicking the dot selects the alternative-storage coupling', async () => {
+      const srcEl = document.createElement('div')
+      srcEl.setAttribute('data-field-id', 'src-1')
+      srcEl.setAttribute('data-field-side', 'source')
+      document.body.appendChild(srcEl)
+
+      const { wrapper } = mountWithContainers()
+      const store = useMappings()
+      const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-1' })!
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="default-value-dot-group"]').trigger('click')
+
+      expect(store.selectedMappingId).toBe(created.id)
+    })
+  })
+
   describe('default-value coupling (Feature #163)', () => {
     it('renders a dot at the target field instead of a line, with no source element present', async () => {
       const tgtEl = document.createElement('div')

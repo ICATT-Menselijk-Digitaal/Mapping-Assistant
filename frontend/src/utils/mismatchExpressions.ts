@@ -47,5 +47,7 @@ export function buildSolutionLabel(params: SolutionParams): string {
         : `${params.from} naar ${params.to}`
     case 'date-format':
       return `Datumnotatie: ${params.sourceFormat} → ${params.targetFormat}`
+    case 'alternative-storage':
+      return `Alternatieve opslag: ${params.name}`
   }
 }

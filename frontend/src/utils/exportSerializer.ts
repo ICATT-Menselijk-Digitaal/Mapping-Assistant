@@ -1,5 +1,6 @@
 import type { Schema, SchemaField } from '@/domain/schema'
 import type { FieldMapping, MismatchType, RuleSource, TransformationRule } from '@/types'
+import { alternativeStorageName } from '@/domain/mappingOps'
 import { formatAmsterdamTime } from './amsterdamTime'
 
 export interface ExportedSchema {
@@ -23,7 +24,14 @@ export interface ExportedFieldMapping {
   // null for a source-less ("default-value") coupling — a target field with
   // no source counterpart. Always a string in exports from before Feature #163.
   sourceField: string | null
-  targetField: string
+  // null for a target-less ("alternative-storage") coupling — a source field
+  // whose value goes to alternative storage instead (Feature #194). Always a
+  // string in exports from before Feature #194.
+  targetField: string | null
+  // The alternative storage name (e.g. "PDF"), present once one is configured
+  // on a target-less coupling. Carried here rather than as a transformation
+  // rule: the migration tool has nothing to compute for it.
+  alternativeStorage?: string
   transformations: ExportedTransformationRule[]
   comment?: string
   commentedAt?: string
@@ -105,9 +113,18 @@ function exportFieldMapping(
       m.sourceFieldId === null
         ? null
         : (source.schema.byId(m.sourceFieldId)?.path ?? m.sourceFieldId),
-    targetField: target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId,
-    transformations: m.transformations.map(exportTransformationRule),
+    targetField:
+      m.targetFieldId === null
+        ? null
+        : (target.schema.byId(m.targetFieldId)?.path ?? m.targetFieldId),
+    // The alternative storage name is exported as its own field below, not
+    // as a rule: the migration tool has nothing to compute for it.
+    transformations: m.transformations
+      .filter((r) => r.resolvesMismatch !== 'missing-target')
+      .map(exportTransformationRule),
   }
+  const storage = m.targetFieldId === null ? alternativeStorageName(m) : undefined
+  if (storage !== undefined) out.alternativeStorage = storage
   if (m.comment !== undefined) out.comment = m.comment
   if (m.commentedAt !== undefined) out.commentedAt = m.commentedAt
   return out
