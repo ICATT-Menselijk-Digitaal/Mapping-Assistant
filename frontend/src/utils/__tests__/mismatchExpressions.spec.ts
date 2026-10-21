@@ -93,6 +93,12 @@ describe('buildSolutionLabel', () => {
     )
   })
 
+  it('generates Dutch label for alternative-storage', () => {
+    expect(buildSolutionLabel({ type: 'alternative-storage', name: 'PDF' })).toBe(
+      'Alternatieve opslag: PDF',
+    )
+  })
+
   it('generates Dutch label for static-value', () => {
     expect(buildSolutionLabel({ type: 'static-value', value: 'test', dataType: 'string' })).toBe(
       'Standaardwaarde: test',

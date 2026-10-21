@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { serializeMappingSet } from '../exportSerializer'
+import { makeAlternativeStorageRule } from '@/domain/mappingOps'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 import type { FieldMapping, TransformationRule } from '@/types'
 
@@ -302,5 +303,50 @@ describe('serializeMappingSet', () => {
     expect(result.fieldMappings[0]!.sourceField).toBeNull()
     expect(result.fieldMappings[0]!.targetField).toBe('fullName')
     expect(result.fieldMappings[0]!.transformations[0]!.resolvesMismatch).toBe('missing-source')
+  })
+
+  // Scenario: The exported koppelingsset records the alternative storage without a target field
+  it('exports a target-less coupling with targetField null and its alternative storage name', () => {
+    const targetless: FieldMapping = {
+      id: 'm4',
+      sourceFieldId: 'name',
+      targetFieldId: null,
+      transformations: [
+        { ...truncationRule, id: 'r4' },
+        { ...makeAlternativeStorageRule('name', 'PDF'), id: 'r5' },
+      ],
+      status: 'confirmed',
+    }
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [targetless],
+      aiStats: emptyAiStats,
+    })
+    const exported = result.fieldMappings[0]!
+    expect(exported.sourceField).toBe('name')
+    expect(exported.targetField).toBeNull()
+    expect(exported.alternativeStorage).toBe('PDF')
+    // The name is not repeated as a rule; other rules still export as usual.
+    expect(exported.transformations.map((t) => t.label)).toEqual(['Truncate'])
+  })
+
+  it('exports an unnamed target-less coupling without an alternativeStorage field', () => {
+    const result = serializeMappingSet({
+      source: { schema: sourceSchema, sourceUrl: null },
+      target: { schema: targetSchema, sourceUrl: null },
+      mappings: [
+        {
+          id: 'm5',
+          sourceFieldId: 'name',
+          targetFieldId: null,
+          transformations: [],
+          status: 'confirmed',
+        },
+      ],
+      aiStats: emptyAiStats,
+    })
+    expect(result.fieldMappings[0]!.targetField).toBeNull()
+    expect('alternativeStorage' in result.fieldMappings[0]!).toBe(false)
   })
 })

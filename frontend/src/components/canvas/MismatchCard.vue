@@ -11,8 +11,11 @@ const props = withDefaults(
     // missing-source card on an object/array target field, where a static
     // value input doesn't apply and the JSONata editor is the only path.
     solvable?: boolean
+    // False when "Markeer als opgelost" must not be offered — a missing-target
+    // card (Feature #194): without a name the export has no destination.
+    manuallyResolvable?: boolean
   }>(),
-  { solvable: true },
+  { solvable: true, manuallyResolvable: true },
 )
 
 const emit = defineEmits<{
@@ -51,7 +54,10 @@ const emit = defineEmits<{
           >
             Oplossen
           </button>
-          <span v-if="!props.manuallyResolved" class="relative group inline-flex">
+          <span
+            v-if="!props.manuallyResolved && props.manuallyResolvable"
+            class="relative group inline-flex"
+          >
             <button
               class="inline-flex items-center h-6 text-xs text-slate-500 border border-slate-300 rounded px-2 hover:bg-slate-50 transition-colors"
               :aria-label="`Markeer mismatch als handmatig opgelost`"

@@ -6,8 +6,14 @@ import { storeToRefs } from 'pinia'
 import AISuggestionPanel from './AISuggestionPanel.vue'
 import FieldPath from './FieldPath.vue'
 import { useAISuggestions } from '@/composables/useAISuggestions'
-import { analyze, isResolved, DEFAULT_VALUE_REQUIRED_ANALYSIS } from '@/domain/coupling'
-import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
+import {
+  analyze,
+  isResolved,
+  ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS,
+  DEFAULT_VALUE_REQUIRED_ANALYSIS,
+} from '@/domain/coupling'
+import { alternativeStorageName } from '@/domain/mappingOps'
+import { ALTERNATIVE_STORAGE_BADGE, fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 
 const props = defineProps<{
@@ -17,7 +23,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  FieldMappingRemoved: [payload: { sourceFieldId: string | null; targetFieldId: string }]
+  FieldMappingRemoved: [payload: { sourceFieldId: string | null; targetFieldId: string | null }]
   'update:activeTab': ['koppelingen' | 'ai']
 }>()
 
@@ -48,14 +54,18 @@ watch(selectionNonce, async () => {
 const rows = computed(() =>
   store.mappingsWithStatus(props.sourceSchema, props.targetSchema).map((m) => {
     const source = m.sourceFieldId ? props.sourceSchema.byId(m.sourceFieldId) : undefined
-    const target = props.targetSchema.byId(m.targetFieldId)
+    const target = m.targetFieldId ? props.targetSchema.byId(m.targetFieldId) : undefined
     const orphaned = m.orphaned === true
     const isDefaultValueCoupling = m.sourceFieldId === null
+    // Feature #194: a source going to alternative storage instead of a target.
+    const isAlternativeStorageCoupling = m.sourceFieldId !== null && m.targetFieldId === null
     const analysis = isDefaultValueCoupling
       ? DEFAULT_VALUE_REQUIRED_ANALYSIS
-      : source && target
-        ? analyze(source, target)
-        : null
+      : isAlternativeStorageCoupling
+        ? ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS
+        : source && target
+          ? analyze(source, target)
+          : null
     return {
       id: m.id,
       sourceFieldId: m.sourceFieldId,
@@ -63,8 +73,10 @@ const rows = computed(() =>
       validationStatus: m.validationStatus,
       orphaned,
       isDefaultValueCoupling,
-      missingSource: orphaned && !source,
-      missingTarget: orphaned && !target,
+      isAlternativeStorageCoupling,
+      alternativeStorage: alternativeStorageName(m),
+      missingSource: orphaned && !source && !isDefaultValueCoupling,
+      missingTarget: orphaned && !target && !isAlternativeStorageCoupling,
       source,
       target,
       isComplete: analysis ? isResolved(analysis, m) : false,
@@ -103,7 +115,8 @@ const filteredRows = computed(() => {
     if (!q) return true
     return (
       (r.source?.path ?? r.sourceFieldId ?? '').toLowerCase().includes(q) ||
-      (r.target?.path ?? r.targetFieldId).toLowerCase().includes(q)
+      (r.target?.path ?? r.targetFieldId ?? '').toLowerCase().includes(q) ||
+      (r.alternativeStorage ?? '').toLowerCase().includes(q)
     )
   })
 })
@@ -318,6 +331,29 @@ function cancelDelete() {
                 :path="row.target.path"
                 :highlight-query="searchQuery || undefined"
               />
+              <span
+                v-else-if="row.isAlternativeStorageCoupling && row.alternativeStorage"
+                :class="[
+                  'inline-block max-w-full truncate font-sans text-[11px] leading-none px-1.5 py-0.5 rounded font-medium align-middle',
+                  ALTERNATIVE_STORAGE_BADGE.bg,
+                  ALTERNATIVE_STORAGE_BADGE.text,
+                ]"
+                :title="`Alternatieve opslag: ${row.alternativeStorage}`"
+                data-testid="alternative-storage-pill"
+                >{{ row.alternativeStorage }}</span
+              >
+              <span
+                v-else-if="row.isAlternativeStorageCoupling"
+                data-testid="alternative-storage-missing"
+                >—
+                <span
+                  class="font-sans text-amber-600"
+                  title="Alternatieve opslag vereist"
+                  aria-label="Alternatieve opslag vereist"
+                  data-testid="alternative-storage-warning"
+                  >⚠</span
+                ></span
+              >
               <template v-else>{{ row.targetFieldId }}</template>
             </span>
             <span
@@ -408,6 +444,9 @@ function cancelDelete() {
           <p>naar</p>
           <p class="font-mono font-semibold text-slate-900 break-words hyphens-none">
             <FieldPath v-if="pendingDeleteRow.target" :path="pendingDeleteRow.target.path" />
+            <template v-else-if="pendingDeleteRow.isAlternativeStorageCoupling">
+              Alternatieve opslag: {{ pendingDeleteRow.alternativeStorage ?? '—' }}
+            </template>
             <template v-else>{{ pendingDeleteRow.targetFieldId }}</template>
           </p>
         </div>

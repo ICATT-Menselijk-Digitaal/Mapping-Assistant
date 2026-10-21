@@ -15,6 +15,7 @@ import type { FieldMapping, MismatchType, TransformationRule } from '@/types/map
 import type { Schema } from '@/domain/schema'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
 import { formatAmsterdamTime } from '@/utils/amsterdamTime'
+import { buildSolutionLabel } from '@/utils/mismatchExpressions'
 
 export interface CreateMappingInput {
   sourceFieldId: string
@@ -39,6 +40,22 @@ export function hasCouplingForTarget(
   return list.some((m) => m.targetFieldId === targetFieldId)
 }
 
+/** True when `sourceFieldId` already carries any coupling — regular or alternative-storage. */
+export function hasCouplingForSource(
+  list: readonly FieldMapping[],
+  sourceFieldId: string,
+): boolean {
+  return list.some((m) => m.sourceFieldId === sourceFieldId)
+}
+
+/** True when `sourceFieldId` goes to alternative storage (a target-less coupling). */
+export function hasAlternativeStorageCoupling(
+  list: readonly FieldMapping[],
+  sourceFieldId: string,
+): boolean {
+  return list.some((m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === null)
+}
+
 /**
  * Append a new mapping unless the target field already carries any coupling —
  * a target is covered by at most one `FieldMapping` at a time (PR #189
@@ -53,7 +70,12 @@ export function addMapping(
   list: readonly FieldMapping[],
   input: CreateMappingInput,
 ): { list: FieldMapping[]; created: FieldMapping | null } {
-  if (hasCouplingForTarget(list, input.targetFieldId)) {
+  // Alternative storage and regular couplings exclude each other on one source
+  // field (Feature #194) — same "UI decides, domain enforces" split as above.
+  if (
+    hasCouplingForTarget(list, input.targetFieldId) ||
+    hasAlternativeStorageCoupling(list, input.sourceFieldId)
+  ) {
     return { list: list as FieldMapping[], created: null }
   }
   const created = makeMapping(input)
@@ -90,6 +112,125 @@ export function addDefaultValueCoupling(
   }
   const created = makeDefaultValueCoupling(input)
   return { list: [...list, created], created }
+}
+
+export interface CreateAlternativeStorageCouplingInput {
+  sourceFieldId: string
+}
+
+/** A target-less coupling: a source field going to alternative storage, pending a name. */
+export function makeAlternativeStorageCoupling(
+  input: CreateAlternativeStorageCouplingInput,
+): FieldMapping {
+  return {
+    id: crypto.randomUUID(),
+    sourceFieldId: input.sourceFieldId,
+    targetFieldId: null,
+    transformations: [],
+    status: 'confirmed',
+  }
+}
+
+/**
+ * Append a new target-less coupling unless the source field already carries
+ * any coupling (Feature #194: double-clicking an already-coupled source
+ * performs normal selection instead).
+ */
+export function addAlternativeStorageCoupling(
+  list: readonly FieldMapping[],
+  input: CreateAlternativeStorageCouplingInput,
+): { list: FieldMapping[]; created: FieldMapping | null } {
+  if (hasCouplingForSource(list, input.sourceFieldId)) {
+    return { list: list as FieldMapping[], created: null }
+  }
+  const created = makeAlternativeStorageCoupling(input)
+  return { list: [...list, created], created }
+}
+
+/**
+ * The rule naming where a target-less coupling's value goes. Its expression
+ * is the source path itself — the value passes through unchanged — which is
+ * valid JSONata and satisfies `isMismatchResolved`'s non-empty check.
+ */
+export function makeAlternativeStorageRule(
+  sourcePath: string,
+  name: string,
+): Omit<TransformationRule, 'id'> {
+  const solutionParams = { type: 'alternative-storage' as const, name }
+  return {
+    expression: sourcePath,
+    label: buildSolutionLabel(solutionParams),
+    source: 'mismatch-solution',
+    resolvesMismatch: 'missing-target',
+    solutionParams,
+  }
+}
+
+/** The alternative storage name configured on `mapping`, if any. */
+export function alternativeStorageName(
+  mapping: Pick<FieldMapping, 'transformations'>,
+): string | undefined {
+  for (const rule of mapping.transformations) {
+    if (rule.solutionParams?.type === 'alternative-storage') return rule.solutionParams.name
+  }
+  return undefined
+}
+
+/**
+ * Name (or rename) where a target-less coupling's value goes. Replaces any
+ * earlier alternative-storage rule so a coupling holds at most one. A blank
+ * name is a no-op.
+ */
+export function setAlternativeStorage(
+  list: readonly FieldMapping[],
+  mappingId: string,
+  sourcePath: string,
+  name: string,
+): FieldMapping[] {
+  const trimmed = name.trim()
+  if (trimmed === '' || !list.some((m) => m.id === mappingId)) return list as FieldMapping[]
+  const rule = { ...makeAlternativeStorageRule(sourcePath, trimmed), id: crypto.randomUUID() }
+  return list.map((m) =>
+    m.id === mappingId
+      ? {
+          ...m,
+          transformations: [
+            ...m.transformations.filter((r) => r.resolvesMismatch !== 'missing-target'),
+            rule,
+          ],
+        }
+      : m,
+  )
+}
+
+/**
+ * The distinct alternative storage names in use, sorted — the suggestions
+ * for a new name. Derived from the couplings themselves (no saved list, see
+ * the decision record for #194), so a name drops out once nothing uses it.
+ */
+export function usedAlternativeStorageNames(
+  list: readonly FieldMapping[],
+  excludeMappingId?: string,
+): string[] {
+  const names = new Set<string>()
+  for (const m of list) {
+    if (m.id === excludeMappingId) continue
+    const name = alternativeStorageName(m)
+    if (name !== undefined) names.add(name)
+  }
+  return [...names].sort((a, b) => a.localeCompare(b))
+}
+
+/**
+ * The name in use that `entered` matches except for casing (`pdf` vs `PDF`),
+ * if any — so the UI can warn before a near-duplicate is saved. An exact
+ * match is not a variant.
+ */
+export function findCasingVariant(entered: string, used: readonly string[]): string | undefined {
+  const trimmed = entered.trim()
+  if (used.includes(trimmed)) return undefined
+  const lower = trimmed.toLowerCase()
+  return used.find((name) => name.toLowerCase() === lower)
 }
 
 export function removeMapping(list: readonly FieldMapping[], id: string): FieldMapping[] {
@@ -199,15 +340,27 @@ export function restoreMappings(
 ): FieldMapping[] {
   return exported.map((m) => {
     // A source-less coupling (m.sourceField === null) is never orphaned on
-    // its source side — there was never a source field to lose.
+    // its source side, nor a target-less one on its target side — there was
+    // never a field to lose. Neither side at all can only come from a
+    // hand-edited file: keep it, but surface it as orphaned.
     const orphaned =
+      (m.sourceField === null && m.targetField === null) ||
       (m.sourceField !== null && !sourceSchema.has(m.sourceField)) ||
-      !targetSchema.has(m.targetField)
+      (m.targetField !== null && !targetSchema.has(m.targetField))
+    const transformations = m.transformations.map((t) => ({ ...t, id: crypto.randomUUID() }))
+    // The alternative storage name travels as its own export field, not as a
+    // rule — rebuild the rule here (Feature #194).
+    if (m.alternativeStorage !== undefined && m.sourceField !== null) {
+      transformations.push({
+        ...makeAlternativeStorageRule(m.sourceField, m.alternativeStorage),
+        id: crypto.randomUUID(),
+      })
+    }
     const mapping: FieldMapping = {
       id: crypto.randomUUID(),
       sourceFieldId: m.sourceField,
       targetFieldId: m.targetField,
-      transformations: m.transformations.map((t) => ({ ...t, id: crypto.randomUUID() })),
+      transformations,
       status: 'confirmed',
     }
     if (orphaned) mapping.orphaned = true

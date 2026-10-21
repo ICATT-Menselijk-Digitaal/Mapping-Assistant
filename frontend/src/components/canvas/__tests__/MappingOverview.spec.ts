@@ -933,3 +933,67 @@ describe('MappingOverview — default-value coupling (Feature #163)', () => {
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
   })
 })
+
+describe('MappingOverview — alternative-storage coupling (Feature #194)', () => {
+  // Scenario: An unresolved alternative-storage coupling shows a missing target with a warning
+  it('shows "—" with a warning as the target of an unnamed alternative-storage coupling', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    expect(row.text()).toContain('omschrijving')
+    expect(row.text()).not.toContain('null')
+    expect(row.find('[data-testid="alternative-storage-missing"]').text()).toContain('—')
+    expect(row.find('[data-testid="alternative-storage-warning"]').exists()).toBe(true)
+    expect(row.find('[data-testid="orphan-indicator"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="validation-status"]').text()).toBe('!')
+  })
+
+  // Scenario: A resolved alternative-storage coupling shows its name and a green checkmark
+  it('shows the alternative storage name as a pill once it is named', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })!
+    store.setAlternativeStorage(created.id, 'omschrijving', 'PDF')
+    await wrapper.vm.$nextTick()
+
+    const row = wrapper.find('[data-testid="mapping-row"]')
+    expect(row.find('[data-testid="alternative-storage-pill"]').text()).toBe('PDF')
+    expect(row.find('[data-testid="alternative-storage-warning"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="validation-status"]').text()).toBe('✓')
+  })
+
+  // Scenario: Removing the name returns the coupling to unresolved
+  it('counts an alternative-storage coupling as actie vereist until it is named', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })!
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="filter-action-required"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    store.setAlternativeStorage(created.id, 'omschrijving', 'PDF')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
+  })
+
+  // Risk from Task #207: searching crashed on a coupling without a target.
+  it('searches alongside an alternative-storage coupling without crashing, matching its name', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    const created = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })!
+    store.setAlternativeStorage(created.id, 'omschrijving', 'PDF')
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="search-input"]').setValue('pdf')
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="search-input"]').setValue('uuid')
+    expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(1)
+  })
+})
