@@ -11,6 +11,7 @@ import {
 } from '@/domain/coupling'
 import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
+import { parseAmsterdamTime } from '@/utils/amsterdamTime'
 import { MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
 import { supportsStaticValue } from '@/utils/validateStaticValue'
 import type { MismatchType } from '@/types/mapping'
@@ -476,7 +477,7 @@ function cancelRemoveComment() {
           </div>
           <p class="text-[11px] text-slate-400 mt-1" data-testid="opmerking-timestamp">
             {{ formatRelativeTime(selectedMapping.commentedAt!) }} ·
-            {{ new Date(selectedMapping.commentedAt!).toLocaleString('nl-NL') }}
+            {{ parseAmsterdamTime(selectedMapping.commentedAt!).toLocaleString('nl-NL') }}
           </p>
           <div
             v-if="commentMenuOpen"

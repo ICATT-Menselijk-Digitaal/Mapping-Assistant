@@ -4,6 +4,7 @@ import type { Schema } from '@/domain/schema'
 import { useExport } from '@/composables/useExport'
 import { downloadAsJson } from '@/utils/downloadHelper'
 import type { ExportMetadata } from '@/utils/exportSerializer'
+import { parseAmsterdamTime } from '@/utils/amsterdamTime'
 
 const props = defineProps<{
   sourceSchema: Schema
@@ -27,7 +28,7 @@ let dismissTimer: ReturnType<typeof setTimeout> | null = null
 
 const confirmation = computed(() => {
   if (!lastExport.value) return null
-  const when = new Date(lastExport.value.exportedAt).toLocaleString('nl-NL', {
+  const when = parseAmsterdamTime(lastExport.value.exportedAt).toLocaleString('nl-NL', {
     dateStyle: 'short',
     timeStyle: 'short',
   })

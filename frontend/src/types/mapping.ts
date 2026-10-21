@@ -64,7 +64,7 @@ export interface FieldMapping {
   status: MappingStatus
   notes?: string
   comment?: string
-  commentedAt?: string // ISO 8601
+  commentedAt?: string // Amsterdam time, e.g. "2026-10-21 14:18:12" (see amsterdamTime.ts)
   manuallyResolvedMismatches?: MismatchType[]
   // True when restored from an import file whose source or target path
   // does not resolve against the imported schemas.

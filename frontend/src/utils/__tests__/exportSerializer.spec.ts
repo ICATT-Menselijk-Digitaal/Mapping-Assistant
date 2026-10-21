@@ -57,7 +57,7 @@ const emptyAiStats = { totalGenerated: 0, accepted: 0, rejected: 0, rejectedPair
 
 describe('serializeMappingSet', () => {
   // Scenario: The export records the exact moment it was produced
-  it('writes the export version and an ISO timestamp into a metadata block', () => {
+  it('writes the export version and an Amsterdam timestamp into a metadata block', () => {
     const result = serializeMappingSet({
       source: { schema: sourceSchema, sourceUrl: 'https://example.com/src.json' },
       target: { schema: targetSchema, sourceUrl: 'https://example.com/tgt.json' },
@@ -66,7 +66,7 @@ describe('serializeMappingSet', () => {
       exportVersion: 3,
     })
     expect(result.metadata.exportVersion).toBe(3)
-    expect(result.metadata.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    expect(result.metadata.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
   })
 
   it('replaces the former top-level version and exportedAt fields', () => {

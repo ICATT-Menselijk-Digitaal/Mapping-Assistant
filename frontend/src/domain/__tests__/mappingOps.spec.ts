@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildSchema } from '@/domain/schema'
 import type { FieldMapping } from '@/types/mapping'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
+import { formatAmsterdamTime } from '@/utils/amsterdamTime'
 import {
   addDefaultValueCoupling,
   addMapping,
@@ -171,7 +172,7 @@ describe('mappingOps', () => {
     // Scenario: Adding a comment to a Koppeling
     it('setComment adds a comment and a commentedAt timestamp', () => {
       const m = base()
-      const before = new Date().toISOString()
+      const before = formatAmsterdamTime()
       const list = setComment([m], m.id, 'Belangrijke context')
       expect(list[0]!.comment).toBe('Belangrijke context')
       expect(list[0]!.commentedAt).toBeDefined()
