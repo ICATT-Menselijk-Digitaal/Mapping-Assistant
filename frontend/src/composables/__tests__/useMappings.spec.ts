@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useMappings } from '../useMappings'
 import { buildSchema } from '@/domain/schema'
@@ -135,6 +135,68 @@ describe('useMappings', () => {
       store.hoverField(null)
       expect(store.hoveredFieldId).toBeNull()
       expect(store.hoveredFieldSide).toBeNull()
+    })
+
+    // Feature #195: moving the pointer from one field straight onto the next
+    // fires mouseleave and mouseenter separately. Leaving defers the clear by
+    // a frame so the move is one hover update, not a clear plus a set.
+    describe('leaving a hovered field or line', () => {
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+      })
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      it('clears the hover one frame later', () => {
+        const store = useMappings()
+        store.hoverField('field-1', 'source')
+
+        store.leaveHover()
+        expect(store.hoveredFieldId).toBe('field-1')
+
+        vi.advanceTimersToNextFrame()
+        expect(store.hoveredFieldId).toBeNull()
+        expect(store.hoveredFieldSide).toBeNull()
+        expect(store.hoveredMappingId).toBeNull()
+      })
+
+      it('keeps the newly entered field when another field is entered before that frame', () => {
+        const store = useMappings()
+        store.hoverField('field-1', 'source')
+
+        store.leaveHover()
+        store.hoverField('field-2', 'target')
+        vi.advanceTimersToNextFrame()
+
+        expect(store.hoveredFieldId).toBe('field-2')
+        expect(store.hoveredFieldSide).toBe('target')
+      })
+
+      it('replaces a hovered field with a line entered right after it, in one step', () => {
+        const store = useMappings()
+        store.hoverField('field-1', 'source')
+
+        store.leaveHover()
+        store.hoverMapping('map-1')
+        expect(store.hoveredMappingId).toBe('map-1')
+        expect(store.hoveredFieldId).toBeNull()
+
+        vi.advanceTimersToNextFrame()
+        expect(store.hoveredMappingId).toBe('map-1')
+      })
+
+      it('replaces a hovered line with a field entered right after it, in one step', () => {
+        const store = useMappings()
+        store.hoverMapping('map-1')
+
+        store.leaveHover()
+        store.hoverField('field-1', 'source')
+        expect(store.hoveredMappingId).toBeNull()
+
+        vi.advanceTimersToNextFrame()
+        expect(store.hoveredFieldId).toBe('field-1')
+      })
     })
 
     it('clears hoveredMappingId when the hovered mapping is removed', () => {

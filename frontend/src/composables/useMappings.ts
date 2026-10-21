@@ -40,13 +40,46 @@ export const useMappings = defineStore('mappings', () => {
     selectionNonce.value++
   }
 
+  // Moving the pointer from one field (or line) straight onto the next fires
+  // mouseleave and mouseenter as separate events, and Vue renders after each
+  // one — clearing on leave made every move render twice and briefly un-dim
+  // every line in between (Feature #195). leaveHover() defers the clear by a
+  // frame instead; entering anything first cancels it and replaces the whole
+  // hover state in one update. The pointer is only ever over one field or
+  // line, so entering one also ends any hover on the other kind.
+  let pendingHoverClear: number | null = null
+
+  function cancelPendingHoverClear(): void {
+    if (pendingHoverClear === null) return
+    cancelAnimationFrame(pendingHoverClear)
+    pendingHoverClear = null
+  }
+
   function hoverMapping(id: string | null): void {
+    cancelPendingHoverClear()
     hoveredMappingId.value = id
+    if (id) {
+      hoveredFieldId.value = null
+      hoveredFieldSide.value = null
+    }
   }
 
   function hoverField(id: string | null, side: 'source' | 'target' | null = null): void {
+    cancelPendingHoverClear()
     hoveredFieldId.value = id
     hoveredFieldSide.value = id ? side : null
+    if (id) hoveredMappingId.value = null
+  }
+
+  /** The pointer left a field or line: clear the hover next frame, unless something else is entered first. */
+  function leaveHover(): void {
+    cancelPendingHoverClear()
+    pendingHoverClear = requestAnimationFrame(() => {
+      pendingHoverClear = null
+      hoveredMappingId.value = null
+      hoveredFieldId.value = null
+      hoveredFieldSide.value = null
+    })
   }
 
   function hasMapping(sourceFieldId: string): boolean {
@@ -149,6 +182,7 @@ export const useMappings = defineStore('mappings', () => {
     selectMapping,
     hoverMapping,
     hoverField,
+    leaveHover,
     addTransformationRule,
     removeTransformationRule,
     updateTransformationRule,

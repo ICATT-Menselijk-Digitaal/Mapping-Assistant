@@ -132,13 +132,13 @@ describe('useExport', () => {
       try {
         vi.setSystemTime(new Date('2026-10-14T09:32:00.000Z'))
         const first = exportOnce()
-        vi.setSystemTime(new Date('2026-10-14T09:32:00.001Z'))
+        vi.setSystemTime(new Date('2026-10-14T09:32:01.000Z'))
         const second = exportOnce()
 
         expect(first.metadata.exportVersion).toBe(1)
         expect(second.metadata.exportVersion).toBe(2)
-        expect(first.metadata.exportedAt).toBe('2026-10-14T09:32:00.000Z')
-        expect(second.metadata.exportedAt).toBe('2026-10-14T09:32:00.001Z')
+        expect(first.metadata.exportedAt).toBe('2026-10-14 11:32:00')
+        expect(second.metadata.exportedAt).toBe('2026-10-14 11:32:01')
       } finally {
         vi.useRealTimers()
       }
