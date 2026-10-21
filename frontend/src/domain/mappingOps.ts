@@ -14,6 +14,7 @@
 import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 import type { Schema } from '@/domain/schema'
 import type { ExportedFieldMapping } from '@/utils/exportSerializer'
+import { formatAmsterdamTime } from '@/utils/amsterdamTime'
 
 export interface CreateMappingInput {
   sourceFieldId: string
@@ -158,7 +159,7 @@ export function setComment(
   if (!list.some((m) => m.id === mappingId)) return list as FieldMapping[]
   const trimmed = comment.slice(0, MAX_COMMENT_LENGTH)
   return list.map((m) =>
-    m.id === mappingId ? { ...m, comment: trimmed, commentedAt: new Date().toISOString() } : m,
+    m.id === mappingId ? { ...m, comment: trimmed, commentedAt: formatAmsterdamTime() } : m,
   )
 }
 

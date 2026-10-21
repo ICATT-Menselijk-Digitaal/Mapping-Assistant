@@ -1,5 +1,6 @@
 import type { Schema, SchemaField } from '@/domain/schema'
 import type { FieldMapping, MismatchType, RuleSource, TransformationRule } from '@/types'
+import { formatAmsterdamTime } from './amsterdamTime'
 
 export interface ExportedSchema {
   name: string
@@ -43,7 +44,7 @@ export interface ExportStatistics {
 export interface ExportMetadata {
   /** Running count of exports of this coupling set; 1 on the first export. */
   exportVersion: number
-  /** ISO 8601, UTC. */
+  /** Amsterdam time, e.g. "2026-10-21 14:18:12" (see amsterdamTime.ts). */
   exportedAt: string
 }
 
@@ -117,7 +118,7 @@ export function serializeMappingSet(input: SerializeInput): MappingSetExport {
   return {
     metadata: {
       exportVersion: input.exportVersion ?? 1,
-      exportedAt: input.exportedAt ?? new Date().toISOString(),
+      exportedAt: input.exportedAt ?? formatAmsterdamTime(),
     },
     sourceSchema: serializeSchema(source.schema, source.sourceUrl),
     targetSchema: serializeSchema(target.schema, target.sourceUrl),
