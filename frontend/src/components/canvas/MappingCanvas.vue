@@ -147,11 +147,15 @@ function createMappingAndEmit(sourceFieldId: string, targetFieldId: string) {
 // on one source field, so coupling a source that goes to alternative storage
 // asks to replace that first (`kind: 'source'`). If the chosen target is
 // itself already coupled, that replacement is confirmed right after.
+// Nothing is removed until the last replacement is confirmed: cancelling the
+// second one leaves the first coupling in place too (PR #208 review).
 const pendingReplace = ref<{
   kind: 'source' | 'target'
   existingId: string
   newSourceFieldId: string
   targetFieldId: string
+  // Couplings whose replacement an earlier dialog already confirmed.
+  confirmedIds: string[]
 } | null>(null)
 
 const pendingReplaceLabels = computed(() => {
@@ -179,22 +183,29 @@ const pendingReplaceLabels = computed(() => {
 
 // Couple `sourceFieldId` to `targetFieldId`, first asking to replace whatever
 // stands in the way: the source's alternative-storage coupling, then the
-// target's existing coupling.
-function requestCoupling(sourceFieldId: string, targetFieldId: string) {
-  const alternative = mappingsStore.mappings.find(
+// target's existing coupling. `confirmedIds` are already confirmed for
+// replacement; they are removed only once nothing else stands in the way.
+function requestCoupling(
+  sourceFieldId: string,
+  targetFieldId: string,
+  confirmedIds: string[] = [],
+) {
+  const remaining = mappingsStore.mappings.filter((m) => !confirmedIds.includes(m.id))
+  const alternative = remaining.find(
     (m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === null,
   )
-  const existing =
-    alternative ?? mappingsStore.mappings.find((m) => m.targetFieldId === targetFieldId)
+  const existing = alternative ?? remaining.find((m) => m.targetFieldId === targetFieldId)
   if (existing) {
     pendingReplace.value = {
       kind: alternative ? 'source' : 'target',
       existingId: existing.id,
       newSourceFieldId: sourceFieldId,
       targetFieldId,
+      confirmedIds,
     }
     return
   }
+  for (const id of confirmedIds) mappingsStore.removeMapping(id)
   createMappingAndEmit(sourceFieldId, targetFieldId)
 }
 
@@ -207,10 +218,9 @@ function onTargetFieldClick(fieldId: string) {
 
 function confirmReplaceCoupling() {
   if (!pendingReplace.value) return
-  const { existingId, newSourceFieldId, targetFieldId } = pendingReplace.value
+  const { existingId, newSourceFieldId, targetFieldId, confirmedIds } = pendingReplace.value
   pendingReplace.value = null
-  mappingsStore.removeMapping(existingId)
-  requestCoupling(newSourceFieldId, targetFieldId)
+  requestCoupling(newSourceFieldId, targetFieldId, [...confirmedIds, existingId])
 }
 
 function cancelReplaceCoupling() {

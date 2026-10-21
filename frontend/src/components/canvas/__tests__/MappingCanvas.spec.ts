@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MappingCanvas from '../MappingCanvas.vue'
 import { useMappings } from '@/composables/useMappings'
+import { alternativeStorageName } from '@/domain/mappingOps'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import type { AiSuggestion } from '@/types'
 import { buildSchema, EMPTY_SCHEMA, type SchemaFieldNode } from '@/domain/schema'
@@ -338,6 +339,23 @@ describe('MappingCanvas', () => {
 
       expect(store.mappings).toHaveLength(1)
       expect(store.mappings[0]!).toMatchObject({ sourceFieldId: 'src-2', targetFieldId: 'tgt-1' })
+    })
+
+    it('cancelling the target replacement keeps the alternative-storage coupling too', async () => {
+      const wrapper = mountCanvas()
+      const store = useMappings()
+      const regular = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      const alternative = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-2' })
+      store.setAlternativeStorage(alternative!.id, 'omschrijving', 'PDF')
+
+      await wrapper.find('[data-field-id="src-2"]').trigger('click')
+      await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+      expect(wrapper.find('[data-testid="replace-existing-coupling"]').text()).toBe('zaakId → uuid')
+      await wrapper.find('[data-testid="cancel-button"]').trigger('click')
+
+      expect(store.mappings.map((m) => m.id)).toEqual([regular!.id, alternative!.id])
+      expect(alternativeStorageName(store.mappings[1]!)).toBe('PDF')
     })
   })
 
