@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import type { Schema } from '@/domain/schema'
+import type { MappingSide } from '@/domain/coupling'
 import { useMappings } from '@/composables/useMappings'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { storeToRefs } from 'pinia'
@@ -43,6 +44,10 @@ interface DotCoords {
 // clickable to select it the same way a regular connection line is.
 interface DefaultValueDotCoords extends DotCoords {
   id: string
+  // The side the coupling's only field is on: 'target' for a source-less
+  // (default-value) coupling, 'source' for a target-less (alternative-
+  // storage) one (Feature #194).
+  side: MappingSide
 }
 
 const lines = ref<LineCoords[]>([])
@@ -244,13 +249,17 @@ function recalculate() {
   const defaultValueDotsByKey = new Map<string, DefaultValueDotCoords>()
 
   for (const mapping of mappings.value) {
-    if (mapping.sourceFieldId === null) {
-      // Source-less coupling: a dot at the target field, never a line.
-      const end = getFieldMidY(mapping.targetFieldId, 'target', index, svgRect)
-      if (!end) continue
-      const key = end.anchorKey ?? `target:${mapping.targetFieldId}`
+    if (mapping.sourceFieldId === null || mapping.targetFieldId === null) {
+      // One-sided coupling — source-less (default value) or target-less
+      // (alternative storage): a dot at its only field, never a line.
+      const side: MappingSide = mapping.sourceFieldId === null ? 'target' : 'source'
+      const fieldId = mapping.sourceFieldId ?? mapping.targetFieldId
+      if (fieldId === null) continue
+      const point = getFieldMidY(fieldId, side, index, svgRect)
+      if (!point) continue
+      const key = point.anchorKey ?? `${side}:${fieldId}`
       if (!defaultValueDotsByKey.has(key)) {
-        defaultValueDotsByKey.set(key, { key, x: end.x, y: end.y, id: mapping.id })
+        defaultValueDotsByKey.set(key, { key, x: point.x, y: point.y, id: mapping.id, side })
       }
       continue
     }
@@ -414,6 +423,7 @@ onUnmounted(() => {
       :key="dot.key"
       style="pointer-events: auto; cursor: pointer"
       data-testid="default-value-dot-group"
+      :data-dot-side="dot.side"
       :data-dimmed="dot.dimmed"
       @mouseenter="mappingsStore.hoverMapping(dot.id)"
       @mouseleave="mappingsStore.leaveHover()"

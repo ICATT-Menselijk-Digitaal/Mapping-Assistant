@@ -69,9 +69,11 @@ const filterStatus = ref<'all' | 'mapped' | 'unmapped'>('all')
 const mappedFieldIds = computed(() => {
   const ids = new Set<string>()
   for (const m of mappings.value) {
-    // A source-less coupling has no sourceFieldId to add.
+    // A source-less coupling has no sourceFieldId to add, and a target-less
+    // (alternative-storage) one no targetFieldId — its source still counts as
+    // "Gekoppeld".
     if (m.sourceFieldId) ids.add(m.sourceFieldId)
-    ids.add(m.targetFieldId)
+    if (m.targetFieldId) ids.add(m.targetFieldId)
   }
   return ids
 })

@@ -7,12 +7,13 @@ import {
   analyze,
   isMismatchResolved,
   isResolved,
+  ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS,
   DEFAULT_VALUE_REQUIRED_ANALYSIS,
 } from '@/domain/coupling'
-import { fieldTypeBadge } from '@/utils/fieldTypeBadge'
+import { ALTERNATIVE_STORAGE_BADGE, fieldTypeBadge } from '@/utils/fieldTypeBadge'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { parseAmsterdamTime } from '@/utils/amsterdamTime'
-import { MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
+import { alternativeStorageName, MAX_COMMENT_LENGTH } from '@/domain/mappingOps'
 import { supportsStaticValue } from '@/utils/validateStaticValue'
 import type { MismatchType } from '@/types/mapping'
 import TransformationRuleList from './TransformationRuleList.vue'
@@ -22,6 +23,7 @@ import DefaultValueDialog from './DefaultValueDialog.vue'
 import CastConfirmDialog from './CastConfirmDialog.vue'
 import DateFormatDialog from './DateFormatDialog.vue'
 import StaticValueDialog from './StaticValueDialog.vue'
+import AlternativeStorageDialog from './AlternativeStorageDialog.vue'
 import FieldPath from './FieldPath.vue'
 
 const props = defineProps<{
@@ -50,14 +52,33 @@ const sourceField = computed(() =>
     : null,
 )
 
+// The mirror image (Feature #194): null targetFieldId means a target-less
+// ("alternative-storage") coupling by design, not an orphaned target.
+const isAlternativeStorageCoupling = computed(
+  () => !!selectedMapping.value?.sourceFieldId && selectedMapping.value.targetFieldId === null,
+)
+
+const alternativeStorage = computed(() =>
+  selectedMapping.value ? alternativeStorageName(selectedMapping.value) : undefined,
+)
+
 const targetField = computed(() =>
-  selectedMapping.value
+  selectedMapping.value?.targetFieldId
     ? (props.targetSchema.byId(selectedMapping.value.targetFieldId) ?? null)
     : null,
 )
 
+// Both sides are accounted for: each one is either a resolved field or
+// missing by design (a default-value or alternative-storage coupling).
+const hasBothSides = computed(
+  () =>
+    !!(sourceField.value || isDefaultValueCoupling.value) &&
+    !!(targetField.value || isAlternativeStorageCoupling.value),
+)
+
 const analysis = computed(() => {
   if (isDefaultValueCoupling.value) return DEFAULT_VALUE_REQUIRED_ANALYSIS
+  if (isAlternativeStorageCoupling.value) return ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS
   return sourceField.value && targetField.value
     ? analyze(sourceField.value, targetField.value)
     : null
@@ -93,6 +114,8 @@ function mismatchLabel(type: MismatchType): string {
       return 'Datumformaat conversie'
     case 'missing-source':
       return 'Standaardwaarde vereist, geen bronveld beschikbaar'
+    case 'missing-target':
+      return 'Alternatieve opslag vereist, geen doelveld beschikbaar'
   }
 }
 
@@ -282,6 +305,25 @@ function cancelRemoveComment() {
             >REQ</span
           >
         </div>
+        <div v-else-if="isAlternativeStorageCoupling && alternativeStorage">
+          <span
+            :class="[
+              'inline-block max-w-full truncate text-[11px] leading-none px-1.5 py-0.5 rounded font-medium',
+              ALTERNATIVE_STORAGE_BADGE.bg,
+              ALTERNATIVE_STORAGE_BADGE.text,
+            ]"
+            :title="`Alternatieve opslag: ${alternativeStorage}`"
+            data-testid="detail-target-storage"
+            >{{ alternativeStorage }}</span
+          >
+        </div>
+        <p
+          v-else-if="isAlternativeStorageCoupling"
+          class="text-sm text-slate-400"
+          data-testid="detail-target-dash"
+        >
+          —
+        </p>
         <p v-else class="text-sm text-amber-700">Doelveld ontbreekt</p>
         <p
           v-if="targetField?.dataType === 'string' && targetField.maxLength"
@@ -293,7 +335,7 @@ function cancelRemoveComment() {
 
       <!-- Validation badge -->
       <div
-        v-if="targetField && (sourceField || isDefaultValueCoupling)"
+        v-if="hasBothSides"
         class="mx-4 mb-3 rounded px-3 py-2 text-sm"
         :class="{
           'bg-emerald-50 text-emerald-700':
@@ -323,7 +365,7 @@ function cancelRemoveComment() {
       </div>
 
       <!-- Transformatieregels section -->
-      <div v-if="targetField && (sourceField || isDefaultValueCoupling)" class="mx-4 mb-3">
+      <div v-if="hasBothSides" class="mx-4 mb-3">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Transformatieregels</p>
         <TransformationRuleList
           :rules="selectedMapping.transformations"
@@ -332,7 +374,7 @@ function cancelRemoveComment() {
       </div>
 
       <!-- Gedetecteerde problemen section -->
-      <div v-if="targetField && detectedMismatches.length > 0" class="mx-4 mb-3">
+      <div v-if="hasBothSides && detectedMismatches.length > 0" class="mx-4 mb-3">
         <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">
           Gedetecteerde problemen
         </p>
@@ -345,6 +387,7 @@ function cancelRemoveComment() {
             :manually-resolved="isMismatchManuallyResolvedForMapping(type)"
             :label="mismatchLabel(type)"
             :solvable="isMismatchSolvable(type)"
+            :manually-resolvable="type !== 'missing-target'"
             @solve="openDialog(type)"
             @toggle-manual-resolution="
               store.toggleManualMismatchResolution(selectedMapping!.id, type)
@@ -354,20 +397,27 @@ function cancelRemoveComment() {
       </div>
 
       <!-- Active dialog (reachable via the mismatches section; missing-source
-      is the only type reachable without a sourceField) -->
+      is the only type reachable without a sourceField, missing-target the
+      only one without a targetField) -->
       <div
-        v-if="activeDialog && targetField && (sourceField || isDefaultValueCoupling)"
+        v-if="activeDialog && hasBothSides"
         class="mx-4 mb-3 border border-slate-200 rounded"
         data-testid="dialog-container"
       >
+        <AlternativeStorageDialog
+          v-if="activeDialog === 'missing-target' && sourceField"
+          :mapping-id="selectedMapping.id"
+          :source-path="sourceField.path"
+          @close="closeDialog"
+        />
         <StaticValueDialog
-          v-if="activeDialog === 'missing-source'"
+          v-else-if="activeDialog === 'missing-source' && targetField"
           :mapping-id="selectedMapping.id"
           :target-field="targetField"
           @close="closeDialog"
         />
         <TruncationDialog
-          v-else-if="activeDialog === 'truncate' && sourceField"
+          v-else-if="activeDialog === 'truncate' && sourceField && targetField"
           :mapping-id="selectedMapping.id"
           :source-path="sourceField.path"
           :target-max-length="targetField.maxLength"
@@ -380,7 +430,7 @@ function cancelRemoveComment() {
           @close="closeDialog"
         />
         <CastConfirmDialog
-          v-else-if="activeDialog === 'cast' && sourceField"
+          v-else-if="activeDialog === 'cast' && sourceField && targetField"
           :mapping-id="selectedMapping.id"
           :source-path="sourceField.path"
           :from-type="sourceField.dataType"

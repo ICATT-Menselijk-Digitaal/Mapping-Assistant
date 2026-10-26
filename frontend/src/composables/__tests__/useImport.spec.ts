@@ -7,6 +7,8 @@ import { useMappings } from '../useMappings'
 import { useAISuggestions } from '../useAISuggestions'
 import { useSchemaSide } from '../useSchemaSide'
 import type { MappingSetExport } from '@/utils/exportSerializer'
+import { ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS, isResolved } from '@/domain/coupling'
+import { usedAlternativeStorageNames } from '@/domain/mappingOps'
 
 const exportPayload: MappingSetExport = {
   metadata: { exportVersion: 7, exportedAt: '2026-06-04T00:00:00.000Z' },
@@ -133,6 +135,33 @@ describe('useImport', () => {
     await importer.importMappingSet(jsonFile(payload), src, tgt)
 
     expect(mappings.mappings[0]!.transformations[0]!.resolvesMismatch).toBe('truncate')
+  })
+
+  // Scenario: Importing a koppelingsset restores alternative-storage couplings and their names
+  it('restores an alternative-storage coupling as resolved, with its name suggested again', async () => {
+    const src = useSchemaSide('source')
+    const tgt = useSchemaSide('target')
+    const mappings = useMappings()
+    const importer = useImport()
+
+    const payload = {
+      ...exportPayload,
+      fieldMappings: [
+        {
+          sourceField: 'address.city',
+          targetField: null,
+          alternativeStorage: 'PDF',
+          transformations: [],
+        },
+      ],
+    }
+    await importer.importMappingSet(jsonFile(payload), src, tgt)
+
+    const restored = mappings.mappings[0]!
+    expect(restored.targetFieldId).toBeNull()
+    expect(restored.orphaned).toBeUndefined()
+    expect(isResolved(ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS, restored)).toBe(true)
+    expect(usedAlternativeStorageNames(mappings.mappings)).toEqual(['PDF'])
   })
 
   it('restores schemas only when fieldMappings is empty', async () => {

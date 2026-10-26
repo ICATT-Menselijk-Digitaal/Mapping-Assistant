@@ -18,6 +18,9 @@ const MISMATCH_LABELS: Record<MismatchType, string> = {
   // ever arises for a source-less coupling, which has no source field to
   // suggest a transformation for.
   'missing-source': 'Standaardwaarde vereist, geen bronveld beschikbaar',
+  // Never reached either, for the mirror reason: a target-less coupling has
+  // no target field (Feature #194).
+  'missing-target': 'Alternatieve opslag vereist, geen doelveld',
 }
 
 function fieldDesc(f: SchemaField): string {

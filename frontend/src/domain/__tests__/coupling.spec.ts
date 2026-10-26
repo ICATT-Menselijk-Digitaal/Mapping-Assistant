@@ -3,8 +3,10 @@ import {
   analyze,
   isMismatchResolved,
   isResolved,
+  ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS,
   DEFAULT_VALUE_REQUIRED_ANALYSIS,
 } from '../coupling'
+import { makeAlternativeStorageRule } from '../mappingOps'
 import type { SchemaField } from '@/types'
 import type { FieldMapping, MismatchType, TransformationRule } from '@/types/mapping'
 
@@ -333,5 +335,25 @@ describe('isResolved', () => {
     const rules = [rule({ expression: '{"status": "actief"}', source: 'manual' })]
     const m = mapping(rules, { manuallyResolvedMismatches: ['missing-source'] })
     expect(isResolved(DEFAULT_VALUE_REQUIRED_ANALYSIS, m)).toBe(true)
+  })
+
+  // Feature #194: a target-less coupling's problem is resolved only by naming
+  // the alternative storage.
+  it('a target-less coupling is unresolved without an alternative storage name', () => {
+    const m = mapping([], { targetFieldId: null })
+    expect(ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS.mismatches).toEqual(['missing-target'])
+    expect(isResolved(ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS, m)).toBe(false)
+  })
+
+  // Scenario: A resolved alternative-storage coupling shows its name and a green checkmark
+  it('a target-less coupling resolves once an alternative storage name is set', () => {
+    const rules = [{ ...makeAlternativeStorageRule('src', 'PDF'), id: 'r' }]
+    const m = mapping(rules, { targetFieldId: null })
+    expect(isResolved(ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS, m)).toBe(true)
+  })
+
+  it('a target-less coupling stays unresolved with only a manual expression', () => {
+    const m = mapping([rule({ expression: 'src', source: 'manual' })], { targetFieldId: null })
+    expect(isResolved(ALTERNATIVE_STORAGE_REQUIRED_ANALYSIS, m)).toBe(false)
   })
 })

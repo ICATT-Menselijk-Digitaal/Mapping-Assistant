@@ -728,3 +728,218 @@ describe('CouplingDetailPanel — default-value coupling (Feature #163)', () => 
     expect(wrapper.text()).toContain('Transformatieregels')
   })
 })
+
+describe('CouplingDetailPanel — alternative-storage coupling (Feature #194)', () => {
+  function mountAlternativeStoragePanel(srcId = 'src-compatible') {
+    const store = useMappings()
+    const mapping = store.createAlternativeStorageCoupling({ sourceFieldId: srcId })!
+    store.selectMapping(mapping.id)
+    const wrapper = mount(CouplingDetailPanel, { props: { sourceSchema, targetSchema } })
+    return { wrapper, store, mapping }
+  }
+
+  function nameAnother(srcId: string, name: string) {
+    const store = useMappings()
+    const other = store.createAlternativeStorageCoupling({ sourceFieldId: srcId })!
+    store.setAlternativeStorage(other.id, srcId, name)
+  }
+
+  async function openNameDialog(wrapper: ReturnType<typeof mount>) {
+    await wrapper.find('[data-testid="mismatch-solve-missing-target"]').trigger('click')
+    return wrapper.find<HTMLInputElement>('[data-testid="alternative-storage-input"]')
+  }
+
+  // Scenario: Confirming the dialogue creates an alternative-storage coupling and opens its detail view
+  it('shows "—" as the target and a persistent alternative-storage problem without AI option', async () => {
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="detail-source-field"]').text()).toContain('naam')
+    expect(wrapper.find('[data-testid="detail-target-dash"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="detail-target-field"]').text()).not.toContain('ontbreekt')
+    expect(wrapper.find('[data-testid="mismatch-status-missing-target"]').text()).toContain('●')
+    expect(wrapper.find('[data-testid="detail-validation-section"]').text()).toContain(
+      'Transformatie vereist',
+    )
+    expect(wrapper.find('[data-testid="ai-suggestion-btn"]').exists()).toBe(false)
+  })
+
+  // No name, no destination in the export — so no manual "Markeer als opgelost".
+  it('offers no manual resolution for the alternative-storage problem', async () => {
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="mismatch-solve-missing-target"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="mismatch-mark-resolved-missing-target"]').exists()).toBe(
+      false,
+    )
+  })
+
+  // Scenario: A new name can be entered when none is in use yet
+  // Scenario: A resolved alternative-storage coupling shows its name and a green checkmark
+  it('saving a name resolves the problem and shows the name', async () => {
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    expect(input.element.value).toBe('')
+    await input.setValue('PDF')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="dialog-container"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="mismatch-status-missing-target"]').text()).toContain(
+      '✓ Opgelost',
+    )
+    expect(wrapper.find('[data-testid="detail-validation-section"]').text()).toContain(
+      'Alle problemen opgelost',
+    )
+    expect(wrapper.find('[data-testid="detail-target-storage"]').text()).toBe('PDF')
+    expect(wrapper.text()).toContain('Alternatieve opslag: PDF')
+  })
+
+  it('cannot save an empty name', async () => {
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+    await openNameDialog(wrapper)
+
+    expect(wrapper.find('[data-testid="save-button"]').attributes('disabled')).toBeDefined()
+  })
+
+  // Scenario: The only name in use is pre-filled
+  it('pre-fills the only name in use on other couplings', async () => {
+    nameAnother('src-num', 'PDF')
+    const { wrapper, store, mapping } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    expect(input.element.value).toBe('PDF')
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+    const stored = store.mappings.find((m) => m.id === mapping.id)!
+    expect(stored.transformations[0]!.solutionParams).toEqual({
+      type: 'alternative-storage',
+      name: 'PDF',
+    })
+  })
+
+  // Kim's verification of #207: a pre-filled name looked fixed. The hint says
+  // it can be changed, and the name is selected so typing replaces it.
+  it('makes clear the pre-filled name can be replaced', async () => {
+    nameAnother('src-num', 'PDF')
+    const store = useMappings()
+    const mapping = store.createAlternativeStorageCoupling({ sourceFieldId: 'src-compatible' })!
+    store.selectMapping(mapping.id)
+    const wrapper = mount(CouplingDetailPanel, {
+      props: { sourceSchema, targetSchema },
+      attachTo: document.body,
+    })
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="alternative-storage-hint"]').text()).toBe(
+      'In gebruik: PDF. Je kunt ook een andere naam typen.',
+    )
+    expect(document.activeElement).toBe(input.element)
+    expect(input.element.selectionStart).toBe(0)
+    expect(input.element.selectionEnd).toBe(3)
+    wrapper.unmount()
+  })
+
+  it('shows no hint when no name is in use yet', async () => {
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+    await openNameDialog(wrapper)
+
+    expect(wrapper.find('[data-testid="alternative-storage-hint"]').exists()).toBe(false)
+  })
+
+  // Scenario: Several names in use are offered as suggestions
+  it('suggests every name in use and pre-fills none when there are several', async () => {
+    nameAnother('src-num', 'PDF')
+    nameAnother('src-incompatible', 'Archief')
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    expect(input.element.value).toBe('')
+    const options = wrapper.findAll('[data-testid="alternative-storage-suggestions"] option')
+    expect(options.map((o) => o.attributes('value'))).toEqual(['Archief', 'PDF'])
+    expect(wrapper.find('[data-testid="alternative-storage-hint"]').text()).toBe(
+      'In gebruik: Archief, PDF. Kies er een of typ een nieuwe naam.',
+    )
+  })
+
+  // Scenario Outline: A name that differs only in casing from a name in use triggers a warning
+  it.each([
+    ['PDF', 'pdf'],
+    ['PDF', 'Pdf'],
+    ['Archief', 'ARCHIEF'],
+  ])(
+    'warns about "%s" when "%s" is entered, but still allows saving it',
+    async (inUse, entered) => {
+      nameAnother('src-num', inUse)
+      const { wrapper, store, mapping } = mountAlternativeStoragePanel()
+      await wrapper.vm.$nextTick()
+
+      const input = await openNameDialog(wrapper)
+      await input.setValue(entered)
+
+      const warning = wrapper.find('[data-testid="alternative-storage-casing-warning"]')
+      expect(warning.exists()).toBe(true)
+      expect(warning.text()).toContain(inUse)
+      await wrapper.find('[data-testid="save-button"]').trigger('click')
+      const stored = store.mappings.find((m) => m.id === mapping.id)!
+      expect(stored.transformations[0]!.solutionParams).toEqual({
+        type: 'alternative-storage',
+        name: entered,
+      })
+    },
+  )
+
+  // Scenario Outline: A name that matches exactly or is genuinely new triggers no warning
+  it.each(['PDF', 'Archief'])('shows no casing warning for "%s"', async (entered) => {
+    nameAnother('src-num', 'PDF')
+    const { wrapper } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    await input.setValue(entered)
+
+    expect(wrapper.find('[data-testid="alternative-storage-casing-warning"]').exists()).toBe(false)
+  })
+
+  // Scenario: Spaces around a name are ignored
+  it('saves a name with surrounding spaces trimmed and without a warning', async () => {
+    nameAnother('src-num', 'PDF')
+    const { wrapper, store, mapping } = mountAlternativeStoragePanel()
+    await wrapper.vm.$nextTick()
+
+    const input = await openNameDialog(wrapper)
+    await input.setValue(' PDF ')
+    expect(wrapper.find('[data-testid="alternative-storage-casing-warning"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="save-button"]').trigger('click')
+
+    const stored = store.mappings.find((m) => m.id === mapping.id)!
+    expect(stored.transformations[0]!.solutionParams).toEqual({
+      type: 'alternative-storage',
+      name: 'PDF',
+    })
+  })
+
+  // Scenario: Removing the name returns the coupling to unresolved
+  it('removing the alternative-storage rule makes the problem unresolved again', async () => {
+    const { wrapper, store, mapping } = mountAlternativeStoragePanel()
+    store.setAlternativeStorage(mapping.id, 'naam', 'PDF')
+    await wrapper.vm.$nextTick()
+    const ruleId = store.mappings.find((m) => m.id === mapping.id)!.transformations[0]!.id
+
+    await wrapper.find(`[data-testid="rule-delete-${ruleId}"]`).trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="mismatch-status-missing-target"]').text()).toContain('●')
+    expect(wrapper.find('[data-testid="detail-target-dash"]').exists()).toBe(true)
+  })
+})

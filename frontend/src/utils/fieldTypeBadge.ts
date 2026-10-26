@@ -29,3 +29,10 @@ export const ENUM_BADGE: FieldTypeBadge = {
 export function fieldTypeBadge(dataType: string): FieldTypeBadge {
   return BADGES[dataType] ?? FALLBACK_BADGE
 }
+
+/** The pill showing an alternative-storage coupling's name (Feature #194) in place of a target field. */
+export const ALTERNATIVE_STORAGE_BADGE: FieldTypeBadge = {
+  bg: 'bg-teal-50',
+  text: 'text-teal-700',
+  label: 'opslag',
+}
