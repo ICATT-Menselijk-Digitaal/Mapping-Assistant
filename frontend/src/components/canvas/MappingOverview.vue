@@ -20,6 +20,7 @@ const props = defineProps<{
   sourceSchema: Schema
   targetSchema: Schema
   activeTab?: 'koppelingen' | 'ai'
+  detachLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -205,7 +206,7 @@ function cancelDelete() {
             clip-rule="evenodd"
           />
         </svg>
-        Loskoppelen
+        {{ props.detachLabel ?? 'Loskoppelen' }}
       </button>
     </div>
 

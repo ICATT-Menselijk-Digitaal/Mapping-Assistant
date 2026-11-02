@@ -23,6 +23,10 @@ function onBeforeUnload(): void {
   panelSync.broadcast({ type: 'KoppelingenPanelReattached' })
 }
 
+function onReattach(): void {
+  window.close()
+}
+
 onMounted(async () => {
   window.addEventListener('beforeunload', onBeforeUnload)
   await loadAll()
@@ -56,7 +60,9 @@ onUnmounted(() => {
         v-model:active-tab="activeTab"
         :source-schema="sourceDisplayedSchema"
         :target-schema="targetDisplayedSchema"
+        detach-label="Terugplaatsen"
         class="h-full"
+        @detach="onReattach"
       />
     </div>
   </main>
