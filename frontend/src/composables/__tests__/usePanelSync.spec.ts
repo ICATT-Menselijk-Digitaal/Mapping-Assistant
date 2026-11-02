@@ -36,9 +36,7 @@ vi.stubGlobal('BroadcastChannel', MockBroadcastChannel)
 // Mock router (used by usePanelDetach)
 vi.mock('@/router', () => ({
   default: {
-    resolve: (location: { name: string }) => ({
-      href: `/${location.name}`,
-    }),
+    resolve: (_location: { name: string }) => ({ href: '/panel/koppelingen' }),
   },
 }))
 
@@ -132,25 +130,6 @@ describe('usePanelSync', () => {
     expect(mappingsStore.selectedMappingId).toBeNull()
   })
 
-  // Scenario: Closing the detached schema panel window re-attaches it
-  it('calls onSchemaPanelReattached when SchemaPanelReattached is received', async () => {
-    const panelSync = usePanelSync()
-    const panelDetach = usePanelDetach()
-    panelSync.init()
-
-    // Mark as detached first so there is something to reattach.
-    vi.spyOn(window, 'open').mockReturnValue({} as Window)
-    panelDetach.detachSchemaPanel()
-    expect(panelDetach.schemaPanelDetached).toBe(true)
-
-    const ch = getChannel()
-    ch.simulateReceive({ type: 'SchemaPanelReattached' })
-    await nextTick()
-    await nextTick()
-
-    expect(panelDetach.schemaPanelDetached).toBe(false)
-  })
-
   // Scenario: Closing the detached Koppelingspaneel window re-attaches it
   it('calls onKoppelingenPanelReattached when KoppelingenPanelReattached is received', async () => {
     const panelSync = usePanelSync()
@@ -194,8 +173,6 @@ describe('usePanelSync', () => {
     await nextTick()
     await nextTick()
 
-    // The only postMessage call allowed is the one the test might trigger
-    // by interacting with the store — not an echo of the received message.
     const selectionChangedCalls = (ch.postMessage.mock.calls as Array<[unknown]>).filter(
       ([msg]) => (msg as { type: string }).type === 'SelectionChanged',
     )

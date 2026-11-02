@@ -2,13 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePanelDetach } from '../usePanelDetach'
 
-// Mock the router so detachSchemaPanel / detachKoppelingenPanel can resolve
-// URLs without a real browser environment.
+// Mock the router so detachKoppelingenPanel can resolve a URL without a real
+// browser environment.
 vi.mock('@/router', () => ({
   default: {
-    resolve: (location: { name: string }) => ({
-      href: `/${location.name === 'panel-schema' ? 'panel/schema' : 'panel/koppelingen'}`,
-    }),
+    resolve: (_location: { name: string }) => ({ href: '/panel/koppelingen' }),
   },
 }))
 
@@ -17,29 +15,6 @@ beforeEach(() => {
 })
 
 describe('usePanelDetach', () => {
-  // Scenario: Technical administrator detaches the schema panel
-  it('marks schema panel as detached when window.open succeeds', () => {
-    const mockWindow = {} as Window
-    vi.spyOn(window, 'open').mockReturnValue(mockWindow)
-
-    const store = usePanelDetach()
-    const result = store.detachSchemaPanel()
-
-    expect(result).toBe(true)
-    expect(store.schemaPanelDetached).toBe(true)
-    expect(store.schemaPanelPopupBlocked).toBe(false)
-  })
-
-  // Scenario: Detaching on a single monitor opens a regular browser window
-  it('opens the schema panel at the correct route URL', () => {
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window)
-
-    const store = usePanelDetach()
-    store.detachSchemaPanel()
-
-    expect(openSpy).toHaveBeenCalledWith('/panel/schema', '_blank', expect.any(String))
-  })
-
   // Scenario: Technical administrator detaches the Koppelingspaneel
   it('marks Koppelingspaneel as detached when window.open succeeds', () => {
     vi.spyOn(window, 'open').mockReturnValue({} as Window)
@@ -52,6 +27,7 @@ describe('usePanelDetach', () => {
     expect(store.koppelingenPanelPopupBlocked).toBe(false)
   })
 
+  // Scenario: Detaching on a single monitor opens a regular browser window
   it('opens the Koppelingspaneel at the correct route URL', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window)
 
@@ -59,18 +35,6 @@ describe('usePanelDetach', () => {
     store.detachKoppelingenPanel()
 
     expect(openSpy).toHaveBeenCalledWith('/panel/koppelingen', '_blank', expect.any(String))
-  })
-
-  // Scenario: Detaching on a single monitor — popup blocked
-  it('sets schemaPanelPopupBlocked and returns false when popup is blocked', () => {
-    vi.spyOn(window, 'open').mockReturnValue(null)
-
-    const store = usePanelDetach()
-    const result = store.detachSchemaPanel()
-
-    expect(result).toBe(false)
-    expect(store.schemaPanelDetached).toBe(false)
-    expect(store.schemaPanelPopupBlocked).toBe(true)
   })
 
   it('sets koppelingenPanelPopupBlocked and returns false when popup is blocked', () => {
@@ -82,18 +46,6 @@ describe('usePanelDetach', () => {
     expect(result).toBe(false)
     expect(store.koppelingenPanelDetached).toBe(false)
     expect(store.koppelingenPanelPopupBlocked).toBe(true)
-  })
-
-  // Scenario: Closing the detached schema panel window re-attaches it
-  it('clears schemaPanelDetached when panel is reattached', () => {
-    vi.spyOn(window, 'open').mockReturnValue({} as Window)
-
-    const store = usePanelDetach()
-    store.detachSchemaPanel()
-    expect(store.schemaPanelDetached).toBe(true)
-
-    store.onSchemaPanelReattached()
-    expect(store.schemaPanelDetached).toBe(false)
   })
 
   // Scenario: Closing the detached Koppelingspaneel window re-attaches it
@@ -108,22 +60,6 @@ describe('usePanelDetach', () => {
     expect(store.koppelingenPanelDetached).toBe(false)
   })
 
-  // Scenario: Both panels can be detached independently
-  it('tracks schema and Koppelingspaneel detach state independently', () => {
-    vi.spyOn(window, 'open').mockReturnValue({} as Window)
-
-    const store = usePanelDetach()
-    store.detachSchemaPanel()
-    store.detachKoppelingenPanel()
-
-    expect(store.schemaPanelDetached).toBe(true)
-    expect(store.koppelingenPanelDetached).toBe(true)
-
-    store.onSchemaPanelReattached()
-    expect(store.schemaPanelDetached).toBe(false)
-    expect(store.koppelingenPanelDetached).toBe(true)
-  })
-
   it('sets mainWindowClosed when main window closes', () => {
     const store = usePanelDetach()
     expect(store.mainWindowClosed).toBe(false)
@@ -132,16 +68,16 @@ describe('usePanelDetach', () => {
     expect(store.mainWindowClosed).toBe(true)
   })
 
-  it('clears schemaPanelPopupBlocked on a successful subsequent detach', () => {
+  it('clears koppelingenPanelPopupBlocked on a successful subsequent detach', () => {
     const openSpy = vi.spyOn(window, 'open')
     openSpy.mockReturnValueOnce(null)
 
     const store = usePanelDetach()
-    store.detachSchemaPanel()
-    expect(store.schemaPanelPopupBlocked).toBe(true)
+    store.detachKoppelingenPanel()
+    expect(store.koppelingenPanelPopupBlocked).toBe(true)
 
     openSpy.mockReturnValueOnce({} as Window)
-    store.detachSchemaPanel()
-    expect(store.schemaPanelPopupBlocked).toBe(false)
+    store.detachKoppelingenPanel()
+    expect(store.koppelingenPanelPopupBlocked).toBe(false)
   })
 })

@@ -10,11 +10,6 @@ const router = createRouter({
       component: HomeView,
     },
     {
-      path: '/panel/schema',
-      name: 'panel-schema',
-      component: () => import('../views/PanelSchemaView.vue'),
-    },
-    {
       path: '/panel/koppelingen',
       name: 'panel-koppelingen',
       component: () => import('../views/PanelKoppelingenView.vue'),

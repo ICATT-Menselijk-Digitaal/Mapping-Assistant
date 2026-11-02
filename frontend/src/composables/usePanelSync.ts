@@ -9,7 +9,6 @@ export type PanelSyncMessage =
   | { type: 'SourceSchemaUpdated' }
   | { type: 'TargetSchemaUpdated' }
   | { type: 'SelectionChanged'; mappingId: string | null }
-  | { type: 'SchemaPanelReattached' }
   | { type: 'KoppelingenPanelReattached' }
   | { type: 'MainWindowClosed' }
 
@@ -39,8 +38,6 @@ export const usePanelSync = defineStore('panelSync', () => {
         await targetSchemaResource.load()
       } else if (msg.type === 'SelectionChanged') {
         mappingsStore.selectMapping(msg.mappingId)
-      } else if (msg.type === 'SchemaPanelReattached') {
-        panelDetachStore.onSchemaPanelReattached()
       } else if (msg.type === 'KoppelingenPanelReattached') {
         panelDetachStore.onKoppelingenPanelReattached()
       } else if (msg.type === 'MainWindowClosed') {
