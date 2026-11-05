@@ -14,7 +14,7 @@ import { useMappings } from '@/composables/useMappings'
 import { useImport } from '@/composables/useImport'
 import { usePanelWidth } from '@/composables/usePanelWidth'
 import { usePanelDetach } from '@/composables/usePanelDetach'
-import { usePanelSync } from '@/composables/usePanelSync'
+import { usePanelSync, getMainWindowSessionId } from '@/composables/usePanelSync'
 
 const source = useSchemaSide('source')
 const target = useSchemaSide('target')
@@ -45,6 +45,9 @@ const {
 
 const panelDetach = usePanelDetach()
 const panelSync = usePanelSync()
+const panelSessionId = getMainWindowSessionId()
+// Before the first render, so a reload while detached doesn't flash the panel.
+panelDetach.restoreDetachedState()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
@@ -67,20 +70,14 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function onBeforeUnload(): void {
-  panelSync.broadcast({ type: 'MainWindowClosed' })
-}
-
 onMounted(async () => {
-  window.addEventListener('beforeunload', onBeforeUnload)
   storageUnavailable.value = !(await isStorageAvailable())
   await loadAll()
   storageInfo.value = await getStorageInfo()
-  panelSync.init()
+  panelSync.init({ sessionId: panelSessionId, role: 'main' })
 })
 
 onUnmounted(() => {
-  window.removeEventListener('beforeunload', onBeforeUnload)
   panelSync.destroy()
 })
 
@@ -187,7 +184,7 @@ async function onImportFileSelected(file: File) {
             :source-schema="sourceDisplayedSchema"
             :target-schema="targetDisplayedSchema"
             class="flex-1 min-h-0"
-            @detach="panelDetach.detachKoppelingenPanel()"
+            @detach="panelDetach.detachKoppelingenPanel(panelSessionId)"
           />
           <div class="shrink-0 flex flex-col items-end gap-2">
             <ImportButton
