@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
@@ -13,6 +13,8 @@ import { useSchemaSide } from '@/composables/useSchemaSide'
 import { useMappings } from '@/composables/useMappings'
 import { useImport } from '@/composables/useImport'
 import { usePanelWidth } from '@/composables/usePanelWidth'
+import { usePanelDetach } from '@/composables/usePanelDetach'
+import { usePanelSync, getMainWindowSessionId } from '@/composables/usePanelSync'
 
 const source = useSchemaSide('source')
 const target = useSchemaSide('target')
@@ -41,6 +43,12 @@ const {
   clearWarnings: clearImportWarnings,
 } = useImport()
 
+const panelDetach = usePanelDetach()
+const panelSync = usePanelSync()
+const panelSessionId = getMainWindowSessionId()
+// Before the first render, so a reload while detached doesn't flash the panel.
+panelDetach.restoreDetachedState()
+
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
 const STORAGE_WARN_THRESHOLD = 0.8
@@ -66,6 +74,11 @@ onMounted(async () => {
   storageUnavailable.value = !(await isStorageAvailable())
   await loadAll()
   storageInfo.value = await getStorageInfo()
+  panelSync.init({ sessionId: panelSessionId, role: 'main' })
+})
+
+onUnmounted(() => {
+  panelSync.destroy()
 })
 
 async function onSourceFileSelected(file: File) {
@@ -87,6 +100,7 @@ async function onImportFileSelected(file: File) {
 
 <template>
   <main class="flex h-full gap-4 p-4 bg-slate-100 overflow-hidden">
+    <!-- Storage and schema error banners -->
     <div
       v-if="storageUnavailable"
       class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-2 rounded-lg shadow"
@@ -119,7 +133,10 @@ async function onImportFileSelected(file: File) {
     >
       {{ sourceError || targetError }}
     </div>
+
+    <!-- Both panels present -->
     <ResizableSplit
+      v-if="!panelDetach.koppelingenPanelDetached"
       class="flex-1 min-w-0 min-h-0"
       :right-width-pct="koppelingenWidthPct"
       :min-left-px="480"
@@ -129,7 +146,7 @@ async function onImportFileSelected(file: File) {
       @resize-end="persistKoppelingenWidthPct"
     >
       <template #left>
-        <div class="flex flex-col gap-2 h-full min-h-0 pr-2">
+        <div class="flex flex-col h-full min-h-0 pr-2">
           <div class="flex-1 min-h-0">
             <MappingCanvas
               :source-schema="sourceDisplayedSchema"
@@ -148,6 +165,13 @@ async function onImportFileSelected(file: File) {
       </template>
       <template #right>
         <div class="flex flex-col gap-2 h-full min-h-0 pl-2">
+          <div
+            v-if="panelDetach.koppelingenPanelPopupBlocked"
+            class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1"
+            data-testid="koppelingen-panel-popup-blocked"
+          >
+            Pop-upvenster geblokkeerd. Sta pop-ups toe voor deze pagina en probeer opnieuw.
+          </div>
           <CouplingDetailPanel
             v-if="mappingsStore.selectedMappingId !== null"
             :source-schema="sourceDisplayedSchema"
@@ -160,6 +184,7 @@ async function onImportFileSelected(file: File) {
             :source-schema="sourceDisplayedSchema"
             :target-schema="targetDisplayedSchema"
             class="flex-1 min-h-0"
+            @detach="panelDetach.detachKoppelingenPanel(panelSessionId)"
           />
           <div class="shrink-0 flex flex-col items-end gap-2">
             <ImportButton
@@ -179,5 +204,38 @@ async function onImportFileSelected(file: File) {
         </div>
       </template>
     </ResizableSplit>
+
+    <!-- Koppelingspaneel detached: schema canvas fills the full width -->
+    <div v-else class="flex-1 flex flex-col gap-2 min-w-0 min-h-0">
+      <div class="flex-1 min-h-0">
+        <MappingCanvas
+          :source-schema="sourceDisplayedSchema"
+          :target-schema="targetDisplayedSchema"
+          :source-label="sourceDisplayedSchema.name || 'Bronschema'"
+          :target-label="targetDisplayedSchema.name || 'Doelschema'"
+          :source-eligible-schema-names="sourceEligibleSchemaNames"
+          :target-eligible-schema-names="targetEligibleSchemaNames"
+          @source-file-selected="onSourceFileSelected"
+          @source-url-entered="onSourceUrlEntered"
+          @target-file-selected="onTargetFileSelected"
+          @target-url-entered="onTargetUrlEntered"
+        />
+      </div>
+      <div class="shrink-0 flex flex-col items-end gap-2">
+        <ImportButton
+          :error="importError"
+          :warnings="importWarnings"
+          @file-selected="onImportFileSelected"
+          @dismiss-error="clearImportError"
+          @dismiss-warnings="clearImportWarnings"
+        />
+        <ExportButton
+          :source-schema="sourceDisplayedSchema"
+          :target-schema="targetDisplayedSchema"
+          :source-url="sourceSchemaUrl"
+          :target-url="targetSchemaUrl"
+        />
+      </div>
+    </div>
   </main>
 </template>
