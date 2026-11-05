@@ -11,7 +11,7 @@ Last updated: 2026-10-08
 | Frontend framework | Vue 3 + Vite | Vue 3.5, Vite 8.0 | Phase 1 (active) |
 | Frontend language | TypeScript | ~6.0 | Phase 1 (active) |
 | CSS framework | Tailwind CSS v4 | 4.2 | Phase 1 (active) |
-| State management | Pinia | 3.0 | Phase 1 (active) — Setup Store syntax; stores: `useAISuggestions`, `useTransformationSuggestions`, `useMappings`, `useWorkspace` |
+| State management | Pinia | 3.0 | Phase 1 (active) — Setup Store syntax; stores: `useAISuggestions`, `useTransformationSuggestions`, `useSuggestionScope`, `useMappings`, `usePanelDetach`, `usePanelSync` |
 | Server-state cache | TanStack Vue Query | 5.101 | Phase 1 (active) — cache is the source of truth for persisted resources (mappings, schemas, AI stats) |
 | Data persistence | IndexedDB (browser-native, via `idb`) | — | Phase 1 (active) — all state persisted locally via a versioned-envelope adapter (`src/api/localBackend.ts`); export/import is the explicit transfer mechanism |
 | Routing | Vue Router | 5.0 | Phase 1 (active) |
@@ -86,9 +86,10 @@ User-facing Dutch domain terms live in [VISION.md](VISION.md#bounded-contexts). 
 ### Architectural seams
 
 - **Domain seams live in `src/domain/`.** `Schema` is the primary one. Consumers must not reach past it.
-- **Composables (`src/composables/`)** are the Vue-reactive wrappers around the domain. They own loading, error, and lifecycle. Four are Pinia stores using the Setup Store syntax — `useAISuggestions`, `useTransformationSuggestions`, `useMappings`, `useWorkspace` — written as `useXxx()` functions like any other composable, but backed by `defineStore` so state is shared reactively across components rather than re-created per call. The rest are plain composables: `useApiKey`, `useExport`, `useImport`, `useSourceSchema`, `useTargetSchema`.
+- **Composables (`src/composables/`)** are the Vue-reactive wrappers around the domain. They own loading, error, and lifecycle. Six are Pinia stores using the Setup Store syntax — `useAISuggestions`, `useTransformationSuggestions`, `useSuggestionScope`, `useMappings`, `usePanelDetach`, `usePanelSync` — written as `useXxx()` functions like any other composable, but backed by `defineStore` so state is shared reactively across components rather than re-created per call. The rest are plain composables: `useApiKey`, `useExport`, `useImport`, `useSourceSchema`, `useTargetSchema`.
 - **Components (`src/components/`)** receive `Schema` references as props, not raw field arrays. Tree-aware queries go through `Schema` methods.
 - **`src/api/` is the persistence seam.** `resource.ts` defines the `LocalResource` pattern (Vue Query cache as source of truth) and maintains a self-registering resource registry; `resources.ts` declares one resource per persisted entity and exports `loadAll()` for app startup; `localBackend.ts` is the IndexedDB adapter. Composables and stores consume resources from `resources.ts` — they never call `localBackend.ts` directly.
+- **Cross-window sync goes through `usePanelSync`.** The detached Koppelingspaneel (`/panel/koppelingen`) is a separate window with its own Pinia state. `usePanelSync` owns the `BroadcastChannel` between it and the main window. Messages are reload notifications (receivers re-read IndexedDB), never serialised `Schema` objects, and carry the main window's session id so a second app tab doesn't interfere. Because `beforeunload` also fires on a reload, each window announces itself again on load (`MainWindowOpened` / `KoppelingenPanelOpened`) instead of relying on the close message alone. The main window also remembers the detached state in `sessionStorage`, so a reload starts in the detached layout instead of briefly showing the panel; if the detached window doesn't confirm within a second, the panel comes back. When the detached window unloads, the main window uses the handle from `window.open()` to check whether it really closed (`closed` stays `false` during a reload), so a reload of the detached window doesn't flash the panel either.
 
 ## Architecture Decision Records
 
