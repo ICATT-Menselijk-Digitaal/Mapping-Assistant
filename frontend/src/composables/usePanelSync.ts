@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { watch, nextTick } from 'vue'
+import { watch, nextTick, toRaw } from 'vue'
 import { useMappings } from './useMappings'
 import { usePanelDetach, type KoppelingenTab } from './usePanelDetach'
 import { useAISuggestions } from './useAISuggestions'
@@ -126,8 +126,8 @@ export const usePanelSync = defineStore('panelSync', () => {
         // suppressed (they would echo state we just received).
         broadcast({
           type: 'AISuggestionsUpdated',
-          suggestions: aiStore.suggestions,
-          lowConfidenceSuggestions: aiStore.lowConfidenceSuggestions,
+          suggestions: aiStore.suggestions.map(toRaw),
+          lowConfidenceSuggestions: aiStore.lowConfidenceSuggestions.map(toRaw),
         })
         broadcast({ type: 'ActiveTabChanged', tab: panelDetachStore.activeTab })
       }
@@ -201,7 +201,11 @@ export const usePanelSync = defineStore('panelSync', () => {
         [() => aiStore.suggestions, () => aiStore.lowConfidenceSuggestions],
         ([suggestions, lowConfidenceSuggestions]) => {
           if (suppressBroadcast) return
-          broadcast({ type: 'AISuggestionsUpdated', suggestions, lowConfidenceSuggestions })
+          broadcast({
+            type: 'AISuggestionsUpdated',
+            suggestions: suggestions.map(toRaw),
+            lowConfidenceSuggestions: lowConfidenceSuggestions.map(toRaw),
+          })
         },
       ),
     )
