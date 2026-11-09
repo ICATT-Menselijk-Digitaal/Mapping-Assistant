@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { watch, nextTick } from 'vue'
 import { useMappings } from './useMappings'
-import { usePanelDetach } from './usePanelDetach'
+import { usePanelDetach, type KoppelingenTab } from './usePanelDetach'
+import { useAISuggestions } from './useAISuggestions'
 import { sourceSchemaResource, targetSchemaResource } from '@/api/resources'
+import type { AiSuggestion } from '@/types'
 
 export type PanelSyncMessage =
   | { type: 'MappingsUpdated' }
@@ -11,6 +13,13 @@ export type PanelSyncMessage =
   | { type: 'SelectionChanged'; mappingId: string | null }
   | { type: 'KoppelingenPanelReattached' }
   | { type: 'MainWindowClosed' }
+  | { type: 'ActiveTabChanged'; tab: KoppelingenTab }
+  | { type: 'PanelReady' }
+  | {
+      type: 'AISuggestionsUpdated'
+      suggestions: AiSuggestion[]
+      lowConfidenceSuggestions: AiSuggestion[]
+    }
 
 export const PANEL_SYNC_CHANNEL = 'mapping-assistant'
 
@@ -28,6 +37,7 @@ export const usePanelSync = defineStore('panelSync', () => {
   async function handleMessage(msg: PanelSyncMessage): Promise<void> {
     const mappingsStore = useMappings()
     const panelDetachStore = usePanelDetach()
+    const aiStore = useAISuggestions()
     suppressBroadcast = true
     try {
       if (msg.type === 'MappingsUpdated') {
@@ -42,6 +52,23 @@ export const usePanelSync = defineStore('panelSync', () => {
         panelDetachStore.onKoppelingenPanelReattached()
       } else if (msg.type === 'MainWindowClosed') {
         panelDetachStore.onMainWindowClosed()
+      } else if (msg.type === 'ActiveTabChanged') {
+        panelDetachStore.activeTab = msg.tab
+      } else if (msg.type === 'AISuggestionsUpdated') {
+        aiStore.suggestions = msg.suggestions
+        aiStore.lowConfidenceSuggestions = msg.lowConfidenceSuggestions
+      } else if (msg.type === 'PanelReady') {
+        // Detached window is ready — send it the current state so it doesn't
+        // start with an empty AI suggestions panel and wrong active tab.
+        // broadcast() does not check suppressBroadcast; we leave it true so
+        // any queued watcher jobs flushed in the finally nextTick are still
+        // suppressed (they would echo state we just received).
+        broadcast({
+          type: 'AISuggestionsUpdated',
+          suggestions: aiStore.suggestions,
+          lowConfidenceSuggestions: aiStore.lowConfidenceSuggestions,
+        })
+        broadcast({ type: 'ActiveTabChanged', tab: panelDetachStore.activeTab })
       }
     } finally {
       // Wait for Vue to flush all reactive updates triggered by the store
@@ -91,6 +118,24 @@ export const usePanelSync = defineStore('panelSync', () => {
       if (suppressBroadcast) return
       broadcast({ type: 'TargetSchemaUpdated' })
     })
+
+    const panelDetachStore = usePanelDetach()
+    watch(
+      () => panelDetachStore.activeTab,
+      (tab) => {
+        if (suppressBroadcast) return
+        broadcast({ type: 'ActiveTabChanged', tab })
+      },
+    )
+
+    const aiStore = useAISuggestions()
+    watch(
+      [() => aiStore.suggestions, () => aiStore.lowConfidenceSuggestions],
+      ([suggestions, lowConfidenceSuggestions]) => {
+        if (suppressBroadcast) return
+        broadcast({ type: 'AISuggestionsUpdated', suggestions, lowConfidenceSuggestions })
+      },
+    )
   }
 
   function destroy(): void {

@@ -2,10 +2,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import router from '@/router'
 
+export type KoppelingenTab = 'koppelingen' | 'ai'
+
 export const usePanelDetach = defineStore('panelDetach', () => {
   const koppelingenPanelDetached = ref(false)
   const koppelingenPanelPopupBlocked = ref(false)
   const mainWindowClosed = ref(false)
+  const activeTab = ref<KoppelingenTab>('koppelingen')
 
   function detachKoppelingenPanel(): boolean {
     const url = router.resolve({ name: 'panel-koppelingen' }).href
@@ -31,6 +34,7 @@ export const usePanelDetach = defineStore('panelDetach', () => {
     koppelingenPanelDetached,
     koppelingenPanelPopupBlocked,
     mainWindowClosed,
+    activeTab,
     detachKoppelingenPanel,
     onKoppelingenPanelReattached,
     onMainWindowClosed,

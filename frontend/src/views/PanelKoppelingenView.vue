@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import { useSchemaSide } from '@/composables/useSchemaSide'
@@ -17,8 +17,6 @@ const panelDetach = usePanelDetach()
 const { displayedSchema: sourceDisplayedSchema } = source
 const { displayedSchema: targetDisplayedSchema } = target
 
-const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
-
 function onBeforeUnload(): void {
   panelSync.broadcast({ type: 'KoppelingenPanelReattached' })
 }
@@ -31,6 +29,7 @@ onMounted(async () => {
   window.addEventListener('beforeunload', onBeforeUnload)
   await loadAll()
   panelSync.init()
+  panelSync.broadcast({ type: 'PanelReady' })
 })
 
 onUnmounted(() => {
@@ -57,7 +56,7 @@ onUnmounted(() => {
       />
       <MappingOverview
         v-else
-        v-model:active-tab="activeTab"
+        v-model:active-tab="panelDetach.activeTab"
         :source-schema="sourceDisplayedSchema"
         :target-schema="targetDisplayedSchema"
         detach-label="Terugplaatsen"
