@@ -49,6 +49,25 @@ beforeEach(() => {
 })
 
 describe('MappingOverview', () => {
+  // Scenario: Technical administrator detaches the Koppelingspaneel
+  it('emits detach when the "Loskoppelen" button is clicked', async () => {
+    const wrapper = mountOverview()
+    const button = wrapper.find('[data-testid="detach-koppelingen-panel"]')
+
+    expect(button.text()).toBe('Loskoppelen')
+    await button.trigger('click')
+    expect(wrapper.emitted('detach')).toHaveLength(1)
+  })
+
+  it('uses detachLabel for the detach button when given', () => {
+    const wrapper = mount(MappingOverview, {
+      global: { plugins: [createPinia()] },
+      props: { sourceSchema, targetSchema, detachLabel: 'Terugplaatsen' },
+    })
+
+    expect(wrapper.find('[data-testid="detach-koppelingen-panel"]').text()).toBe('Terugplaatsen')
+  })
+
   // Scenario: Mapping Overview empty without mappings
   it('shows an empty state when there are no active mappings', () => {
     const wrapper = mountOverview()

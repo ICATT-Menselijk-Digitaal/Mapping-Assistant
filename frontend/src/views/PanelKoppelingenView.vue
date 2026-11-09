@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import { useSchemaSide } from '@/composables/useSchemaSide'
@@ -17,23 +18,27 @@ const panelDetach = usePanelDetach()
 const { displayedSchema: sourceDisplayedSchema } = source
 const { displayedSchema: targetDisplayedSchema } = target
 
-function onBeforeUnload(): void {
-  panelSync.broadcast({ type: 'KoppelingenPanelReattached' })
-}
+// Set by the main window when it opens this one. Without it (URL opened by
+// hand) this window gets its own session, so it syncs with no main window.
+const route = useRoute()
+const sessionQuery = route.query.session
+const panelSessionId =
+  typeof sessionQuery === 'string' && sessionQuery ? sessionQuery : crypto.randomUUID()
 
+// "Terugplaatsen" is unambiguous, unlike the beforeunload goodbye (which also
+// fires on a reload), so the main window can take the panel back right away.
 function onReattach(): void {
+  panelSync.broadcast({ type: 'KoppelingenPanelReattached' })
   window.close()
 }
 
 onMounted(async () => {
-  window.addEventListener('beforeunload', onBeforeUnload)
   await loadAll()
-  panelSync.init()
+  panelSync.init({ sessionId: panelSessionId, role: 'koppelingen-panel' })
   panelSync.broadcast({ type: 'PanelReady' })
 })
 
 onUnmounted(() => {
-  window.removeEventListener('beforeunload', onBeforeUnload)
   panelSync.destroy()
 })
 </script>
