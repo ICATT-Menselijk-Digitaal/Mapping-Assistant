@@ -334,7 +334,14 @@ describe('usePanelSync', () => {
       const aiStore = useAISuggestions()
 
       aiStore.suggestions = [
-        { id: 's1-t1', sourceFieldId: 's1', targetFieldId: 't1', confidenceScore: 0.9, reasoning: 'test', status: 'pending' },
+        {
+          id: 's1-t1',
+          sourceFieldId: 's1',
+          targetFieldId: 't1',
+          confidenceScore: 0.9,
+          reasoning: 'test',
+          status: 'pending',
+        },
       ]
       await nextTick()
 
@@ -406,7 +413,14 @@ describe('usePanelSync', () => {
       const ch = initAs('main')
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
-        { id: 's1-t1', sourceFieldId: 's1', targetFieldId: 't1', confidenceScore: 0.9, reasoning: 'test', status: 'pending' as const },
+        {
+          id: 's1-t1',
+          sourceFieldId: 's1',
+          targetFieldId: 't1',
+          confidenceScore: 0.9,
+          reasoning: 'test',
+          status: 'pending' as const,
+        },
       ]
       usePanelDetach().activeTab = 'ai'
       ch.postMessage.mockClear()
@@ -421,7 +435,14 @@ describe('usePanelSync', () => {
     it('the AISuggestionsUpdated reply contains plain objects, not Vue proxies', async () => {
       const ch = initAs('main')
       useAISuggestions().suggestions = [
-        { id: 's1-t1', sourceFieldId: 's1', targetFieldId: 't1', confidenceScore: 0.9, reasoning: 'test', status: 'pending' as const },
+        {
+          id: 's1-t1',
+          sourceFieldId: 's1',
+          targetFieldId: 't1',
+          confidenceScore: 0.9,
+          reasoning: 'test',
+          status: 'pending' as const,
+        },
       ]
       ch.postMessage.mockClear()
 
