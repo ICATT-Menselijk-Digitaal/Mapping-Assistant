@@ -334,7 +334,7 @@ describe('usePanelSync', () => {
       const aiStore = useAISuggestions()
 
       aiStore.suggestions = [
-        { sourceFieldId: 's1', targetFieldId: 't1', confidence: 0.9, reasoning: 'test' },
+        { id: 's1-t1', sourceFieldId: 's1', targetFieldId: 't1', confidenceScore: 0.9, reasoning: 'test', status: 'pending' },
       ]
       await nextTick()
 
@@ -345,10 +345,12 @@ describe('usePanelSync', () => {
     it('applies AISuggestionsUpdated from another window to the local store', async () => {
       const ch = initAs('koppelingen-panel')
       const suggestion = {
+        id: 's1-t1',
         sourceFieldId: 's1',
         targetFieldId: 't1',
-        confidence: 0.9,
+        confidenceScore: 0.9,
         reasoning: 'test',
+        status: 'pending' as const,
       }
 
       await receive(ch, {
@@ -377,10 +379,12 @@ describe('usePanelSync', () => {
       const ch = initAs('main')
       const aiStore = useAISuggestions()
       const suggestion = {
+        id: 's1-t1',
         sourceFieldId: 's1',
         targetFieldId: 't1',
-        confidence: 0.9,
+        confidenceScore: 0.9,
         reasoning: 'test',
+        status: 'pending' as const,
       }
 
       aiStore.suggestions = [suggestion]
@@ -402,7 +406,7 @@ describe('usePanelSync', () => {
       const ch = initAs('main')
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
-        { sourceFieldId: 's1', targetFieldId: 't1', confidence: 0.9, reasoning: 'test' },
+        { id: 's1-t1', sourceFieldId: 's1', targetFieldId: 't1', confidenceScore: 0.9, reasoning: 'test', status: 'pending' as const },
       ]
       usePanelDetach().activeTab = 'ai'
       ch.postMessage.mockClear()
@@ -417,7 +421,7 @@ describe('usePanelSync', () => {
     it('the AISuggestionsUpdated reply contains plain objects, not Vue proxies', async () => {
       const ch = initAs('main')
       useAISuggestions().suggestions = [
-        { sourceFieldId: 's1', targetFieldId: 't1', confidence: 0.9, reasoning: 'test' },
+        { id: 's1-t1', sourceFieldId: 's1', targetFieldId: 't1', confidenceScore: 0.9, reasoning: 'test', status: 'pending' as const },
       ]
       ch.postMessage.mockClear()
 
