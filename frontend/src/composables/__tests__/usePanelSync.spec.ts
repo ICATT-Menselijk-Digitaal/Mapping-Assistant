@@ -10,6 +10,7 @@ import {
 } from '../usePanelSync'
 import { usePanelDetach } from '../usePanelDetach'
 import { useMappings } from '../useMappings'
+import { useAISuggestions } from '../useAISuggestions'
 
 // ---------------------------------------------------------------------------
 // BroadcastChannel mock
@@ -295,6 +296,164 @@ describe('usePanelSync', () => {
 
       expect(usePanelDetach().mainWindowClosed).toBe(false)
       expect(useMappings().selectedMappingId).toBeNull()
+    })
+  })
+
+  // Scenario: Switching tabs (koppelingen / ai) is reflected across windows in real time
+  describe('active tab sync', () => {
+    it('broadcasts ActiveTabChanged when activeTab changes', async () => {
+      const ch = initAs('main')
+
+      usePanelDetach().activeTab = 'ai'
+      await nextTick()
+
+      expect(sentMessages(ch)).toContainEqual({ type: 'ActiveTabChanged', tab: 'ai' })
+    })
+
+    it('applies ActiveTabChanged from another window to the local store', async () => {
+      const ch = initAs('koppelingen-panel')
+
+      await receive(ch, { type: 'ActiveTabChanged', tab: 'ai' })
+
+      expect(usePanelDetach().activeTab).toBe('ai')
+    })
+
+    it('does not re-broadcast an ActiveTabChanged received from another window', async () => {
+      const ch = initAs('main')
+
+      await receive(ch, { type: 'ActiveTabChanged', tab: 'ai' })
+
+      expect(sentMessages(ch).filter((m) => m.type === 'ActiveTabChanged')).toHaveLength(0)
+    })
+  })
+
+  // Scenario: AI suggestions generated in the main window appear in the detached panel
+  describe('AI suggestions sync', () => {
+    it('broadcasts AISuggestionsUpdated when suggestions change', async () => {
+      const ch = initAs('main')
+      const aiStore = useAISuggestions()
+
+      aiStore.suggestions = [
+        {
+          id: 's1-t1',
+          sourceFieldId: 's1',
+          targetFieldId: 't1',
+          confidenceScore: 0.9,
+          reasoning: 'test',
+          status: 'pending',
+        },
+      ]
+      await nextTick()
+
+      const msgs = sentMessages(ch).filter((m) => m.type === 'AISuggestionsUpdated')
+      expect(msgs).toHaveLength(1)
+    })
+
+    it('applies AISuggestionsUpdated from another window to the local store', async () => {
+      const ch = initAs('koppelingen-panel')
+      const suggestion = {
+        id: 's1-t1',
+        sourceFieldId: 's1',
+        targetFieldId: 't1',
+        confidenceScore: 0.9,
+        reasoning: 'test',
+        status: 'pending' as const,
+      }
+
+      await receive(ch, {
+        type: 'AISuggestionsUpdated',
+        suggestions: [suggestion],
+        lowConfidenceSuggestions: [],
+      })
+
+      expect(useAISuggestions().suggestions).toEqual([suggestion])
+      expect(useAISuggestions().lowConfidenceSuggestions).toEqual([])
+    })
+
+    it('does not re-broadcast an AISuggestionsUpdated received from another window', async () => {
+      const ch = initAs('main')
+
+      await receive(ch, {
+        type: 'AISuggestionsUpdated',
+        suggestions: [],
+        lowConfidenceSuggestions: [],
+      })
+
+      expect(sentMessages(ch).filter((m) => m.type === 'AISuggestionsUpdated')).toHaveLength(0)
+    })
+
+    it('broadcasts plain objects, not Vue proxies (guards the toRaw() fix)', async () => {
+      const ch = initAs('main')
+      const aiStore = useAISuggestions()
+      const suggestion = {
+        id: 's1-t1',
+        sourceFieldId: 's1',
+        targetFieldId: 't1',
+        confidenceScore: 0.9,
+        reasoning: 'test',
+        status: 'pending' as const,
+      }
+
+      aiStore.suggestions = [suggestion]
+      await nextTick()
+
+      const msg = sentMessages(ch).find((m) => m.type === 'AISuggestionsUpdated') as Extract<
+        PanelSyncMessage,
+        { type: 'AISuggestionsUpdated' }
+      >
+      expect(msg).toBeDefined()
+      // toRaw() strips the Vue reactive proxy — structuredClone would throw on a Proxy
+      expect(() => structuredClone(msg.suggestions)).not.toThrow()
+    })
+  })
+
+  // Scenario: Detached window loads and needs the current state from the main window
+  describe('PanelReady handshake', () => {
+    it('main window replies with AISuggestionsUpdated and ActiveTabChanged when PanelReady is received', async () => {
+      const ch = initAs('main')
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        {
+          id: 's1-t1',
+          sourceFieldId: 's1',
+          targetFieldId: 't1',
+          confidenceScore: 0.9,
+          reasoning: 'test',
+          status: 'pending' as const,
+        },
+      ]
+      usePanelDetach().activeTab = 'ai'
+      ch.postMessage.mockClear()
+
+      await receive(ch, { type: 'PanelReady' })
+
+      const msgs = sentMessages(ch)
+      expect(msgs).toContainEqual(expect.objectContaining({ type: 'AISuggestionsUpdated' }))
+      expect(msgs).toContainEqual({ type: 'ActiveTabChanged', tab: 'ai' })
+    })
+
+    it('the AISuggestionsUpdated reply contains plain objects, not Vue proxies', async () => {
+      const ch = initAs('main')
+      useAISuggestions().suggestions = [
+        {
+          id: 's1-t1',
+          sourceFieldId: 's1',
+          targetFieldId: 't1',
+          confidenceScore: 0.9,
+          reasoning: 'test',
+          status: 'pending' as const,
+        },
+      ]
+      ch.postMessage.mockClear()
+
+      await receive(ch, { type: 'PanelReady' })
+
+      const msg = sentMessages(ch).find((m) => m.type === 'AISuggestionsUpdated') as Extract<
+        PanelSyncMessage,
+        { type: 'AISuggestionsUpdated' }
+      >
+      expect(msg).toBeDefined()
+      expect(() => structuredClone(msg.suggestions)).not.toThrow()
     })
   })
 

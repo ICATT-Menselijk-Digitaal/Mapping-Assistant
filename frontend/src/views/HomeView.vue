@@ -49,7 +49,6 @@ const panelSessionId = getMainWindowSessionId()
 // Before the first render, so a reload while detached doesn't flash the panel.
 panelDetach.restoreDetachedState()
 
-const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 const { koppelingenWidthPct, setKoppelingenWidthPct, persistKoppelingenWidthPct } = usePanelWidth()
 const STORAGE_WARN_THRESHOLD = 0.8
 
@@ -180,7 +179,7 @@ async function onImportFileSelected(file: File) {
           />
           <MappingOverview
             v-else
-            v-model:active-tab="activeTab"
+            v-model:active-tab="panelDetach.activeTab"
             :source-schema="sourceDisplayedSchema"
             :target-schema="targetDisplayedSchema"
             class="flex-1 min-h-0"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
@@ -18,8 +18,6 @@ const panelDetach = usePanelDetach()
 const { displayedSchema: sourceDisplayedSchema } = source
 const { displayedSchema: targetDisplayedSchema } = target
 
-const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
-
 // Set by the main window when it opens this one. Without it (URL opened by
 // hand) this window gets its own session, so it syncs with no main window.
 const route = useRoute()
@@ -37,6 +35,7 @@ function onReattach(): void {
 onMounted(async () => {
   await loadAll()
   panelSync.init({ sessionId: panelSessionId, role: 'koppelingen-panel' })
+  panelSync.broadcast({ type: 'PanelReady' })
 })
 
 onUnmounted(() => {
@@ -62,7 +61,7 @@ onUnmounted(() => {
       />
       <MappingOverview
         v-else
-        v-model:active-tab="activeTab"
+        v-model:active-tab="panelDetach.activeTab"
         :source-schema="sourceDisplayedSchema"
         :target-schema="targetDisplayedSchema"
         detach-label="Terugplaatsen"

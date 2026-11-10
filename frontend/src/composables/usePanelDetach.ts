@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import router from '@/router'
 
+export type KoppelingenTab = 'koppelingen' | 'ai'
+
 // Per tab and survives a reload (not a new browser session): lets the main
 // window start a reload in the detached layout instead of flashing the panel.
 const DETACHED_SESSION_KEY = 'ma_koppelingen_panel_detached'
@@ -27,6 +29,7 @@ export const usePanelDetach = defineStore('panelDetach', () => {
   const koppelingenPanelDetached = ref(false)
   const koppelingenPanelPopupBlocked = ref(false)
   const mainWindowClosed = ref(false)
+  const activeTab = ref<KoppelingenTab>('koppelingen')
 
   // Only the main window remembers the detached state (see restoreDetachedState).
   let persistDetachedState = false
@@ -156,6 +159,7 @@ export const usePanelDetach = defineStore('panelDetach', () => {
     koppelingenPanelDetached,
     koppelingenPanelPopupBlocked,
     mainWindowClosed,
+    activeTab,
     restoreDetachedState,
     expectDetachedConfirmation,
     detachKoppelingenPanel,
